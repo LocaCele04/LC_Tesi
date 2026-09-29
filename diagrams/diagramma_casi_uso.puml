@@ -1,0 +1,75 @@
+@startuml Diagramma_dei_casi_duso
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "Pescatore" as Pescatore <<umano>> <<primario>> <<attivo>>
+actor "Servizio Meteo" as Meteo <<non-umano>> <<secondario>> <<passivo>>
+actor "Servizio Storage" as Storage <<non-umano>> <<secondario>> <<passivo>>
+
+rectangle "Diario di Pesca" {
+  ' --- nuovi casi uso ---
+	usecase "Consentire telecamera/galleria" as UC_AccessoFoto
+	usecase "Consentire GPS" as UC_AccessoPosizione
+	usecase "Disegno tratto" as UC_DisegnoTratto
+	usecase "Invio coordinate" as UC_InvioCoordinate
+	usecase "Previsioni spot" as UC_Previsioni
+	usecase "Inserimento nuovo spot" as UC_NuovoSpot
+	usecase "Modifica spot" as UC_ModificaSpot
+	usecase "Scegli spot" as UC_SceltaSpot
+	usecase "Elimina spot" as UC_EliminaSpot
+	usecase "Osserva statistiche" as UC_Statistiche
+	usecase "Osserva obiettivi" as UC_Obiettivi
+	usecase "Revisione battuta" as UC_RevisioneBattuta
+	usecase "Visualizza storico" as UC_Storico
+	usecase "Salvataggio dati" as UC_Backup
+	usecase "Nuova battuta" as UC_NuovaBattuta
+	usecase "Aggiunta preferiti" as UC_AggiuntaPreferiti
+	usecase "Pianificazione battuta" as UC_Pianificazione
+	
+  
+
+  ' --- nuove associazioni ---
+	UC_Previsioni ..> UC_InvioCoordinate : <<include>>
+	UC_NuovoSpot ..> UC_DisegnoTratto : <<include>>
+	UC_DisegnoTratto ..> UC_ModificaSpot : <<extend>>
+	UC_SceltaSpot ..> UC_Statistiche : <<extend>>
+	UC_Obiettivi ..> UC_Statistiche : <<extend>>
+	UC_RevisioneBattuta ..> UC_Statistiche : <<extend>>
+	UC_RevisioneBattuta ..> UC_SceltaSpot : <<extend>>
+	UC_Storico ..> UC_Statistiche : <<extend>>
+	UC_SceltaSpot ..> UC_NuovaBattuta : <<include>>
+	UC_AccessoFoto ..> UC_NuovaBattuta : <<extend>>
+	UC_AggiuntaPreferiti ..> UC_NuovaBattuta : <<extend>>
+	UC_AggiuntaPreferiti ..> UC_RevisioneBattuta : <<extend>>
+	UC_Pianificazione ..> UC_Previsioni : <<include>>
+	UC_Pianificazione ..> UC_SceltaSpot : <<include>>
+	UC_DisegnoTratto ..> UC_AccessoPosizione : <<include>>
+	
+	
+
+
+  
+
+
+  ' --- Regola di business, l'eliminazione da parte del pescatore dello spot elimina anche il tratto associato e viceversa ---
+}
+
+' --- associazioni con attori ---
+	Meteo --> UC_Previsioni
+	Storage --> UC_Backup
+	Pescatore --> UC_AccessoFoto
+	Pescatore --> UC_AccessoPosizione
+	Pescatore --> UC_DisegnoTratto
+	Pescatore --> UC_NuovoSpot
+	Pescatore --> UC_ModificaSpot
+	Pescatore --> UC_SceltaSpot
+	Pescatore --> UC_EliminaSpot
+	Pescatore --> UC_Statistiche
+	Pescatore --> UC_Backup
+	Pescatore --> UC_NuovaBattuta
+	Pescatore --> UC_AggiuntaPreferiti
+	Pescatore --> UC_Pianificazione
+	Pescatore --> UC_Previsioni
+
+@enduml
