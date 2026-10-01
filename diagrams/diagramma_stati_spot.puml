@@ -1,0 +1,59 @@
+@startuml Diagramma_stati_spot
+
+[*] --> Allocazione
+
+Allocazione : entry / individuazione spot
+Allocazione : do / disegno tratto
+Allocazione : exit / assegna nome
+
+Allocazione --> SpecificaDati : NEXT STEP [controlla nome]
+
+SpecificaDati : do / info obbligatorie
+SpecificaDati : exit / controllo dati immessi
+
+SpecificaDati --> Allocazione : MODIFICA TRATTO
+SpecificaDati --> ChoiceFine : FINE AGGIUNTA
+
+state ChoiceFine <<choice>>
+ChoiceFine --> Salvato : [Conferma]
+ChoiceFine --> Eliminato : [Annulla]
+
+Eliminato : do / eliminazione dati
+Eliminato : do / eliminazione tratto
+Eliminato --> [*]
+
+state Salvato {
+
+  [*] --> SceltaIniziale
+  state SceltaIniziale <<choice>>
+  SceltaIniziale --> Inesplorato : [non visto]
+  SceltaIniziale --> Battuto : [ha almeno 1 pescata associata]
+
+  Inesplorato --> Battuto : [visto]
+
+  Battuto --> Attivo
+
+  ' --- da qui lo spot è contemporaneamente in due stati indipendenti ---
+  state Attivo{
+
+    state Valutazione {
+      [*] --> Valutato
+      Valutato : do / resoconto
+      Valutato --> Valutato : Nuove Pescate
+    }
+
+    --
+
+    state Accessibilita {
+      [*] --> SceltaAccesso
+      state SceltaAccesso <<choice>>
+      SceltaAccesso --> Inaccessibile : [trovato impedimenti]
+      SceltaAccesso --> Accessibile : [libero]
+
+      Inaccessibile --> Accessibile : [fine ostacoli]
+      Accessibile --> Inaccessibile : [nuovo ostacolo]
+    }
+  }
+}
+
+@enduml
