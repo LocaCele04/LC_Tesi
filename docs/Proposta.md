@@ -68,7 +68,11 @@ L'utilizzo tipico dell'applicazione può seguire la seguente scaletta:
 
 ### 3.3 Modulo Sessioni e Statistiche
 - **Statistiche Personali:** Numero di battute totali/settimanali, media pesci per sessione, stato di avanzamento degli obiettivi personali, confronti interannuali.
+- **Caratteristiche:** un pescatore può inserire una o più caratteristiche ad una singola specie andando a ad aggiungerla nelle impostazioni. Una caratteristica può essere qualsiasi aspetto che un pescatore vuole evidenziare di una cattura come il colore, una misura (es: trota over 35cm), un peso, ecc..
+- **Obiettivi:** scheda inizialmente vuota, sta al pescatore se vuole popolarla. gli obiettivi che può aggiungere riguarda le quantità sulle specie oppure legate alle caratteristiche aggiunte dal pescatore per quella specie. Gli obiettivi hanno termine di validità al termine dell'anno solare.
+- **Cattura memorabile:** nella registrazione di una battuta (oppure a parte) si può aggiungere una o più catture speciali, sono catture che si vuole ricordare e che finiscono in una apposita sezione di statistiche per consultazioni future, la cattura memorabile è costituita da alcune info come data, spot di cattura, foto, specie e si possono spuntare le caratteristiche (se le soddisfa) legate a quella specie.
 - **Statistiche Spot:** Frequenza di visite, categoria/ambiente, distanza, livello di difficoltà, frequentazione, valutazione sintetica.
+
 
 ### 3.4 Gestione Dati e Persistenza
 - Funzionamento completamente offline
@@ -84,3 +88,8 @@ L'utilizzo tipico dell'applicazione può seguire la seguente scaletta:
 - **Architettura Local Storage:** Totale assenza di tracciamento o invio dati verso server terzi per la massima privacy.
 - **Supporto Mappe 2D:** Mappa interattiva leggera e consultabile in modo fluido.
 - **Pianificazione Multipiattaforma:** Struttura predisposta per un'eventuale fruizione su dispositivi desktop.
+
+
+## 5. Sviluppi futuri
+
+- **Obiettivi più sofisticati:** per esempio se si vuole sapere quante battute sono state terminate con un numero di pesci catturati maggiore di num.
