@@ -1,0 +1,63 @@
+@startuml Diagramma_dei_casi_duso
+left to right direction
+skinparam packageStyle rectangle
+skinparam actorStyle awesome
+
+actor "Pescatore" as Pescatore <<umano>> <<primario>> <<attivo>>
+actor "Servizio Meteo" as Meteo <<non-umano>> <<secondario>> <<passivo>>
+actor "Servizio Storage" as Storage <<non-umano>> <<secondario>> <<passivo>>
+
+rectangle "Diario di Pesca" {
+  ' --- nuovi casi uso ---
+	usecase "Disegno tratto" as UC_DisegnoTratto
+	usecase "Elimina battuta" as UC_EliminaBattuta
+	usecase "Inserisci caratteristica" as UC_NuovaCaratteristica
+	usecase "Scrive obiettivi" as UC_NuovoObiettivo
+	usecase "Previsioni meteo" as UC_Previsioni
+	usecase "Inserimento nuovo spot" as UC_NuovoSpot
+	usecase "Modifica spot" as UC_ModificaSpot
+	usecase "Scegli spot" as UC_SceltaSpot
+	usecase "Osserva statistiche" as UC_Statistiche
+	usecase "Elimina spot" as UC_EliminaSpot
+	usecase "Salvataggio dati" as UC_Backup
+	usecase "Nuova battuta" as UC_NuovaBattuta
+	usecase "Pianificazione battuta" as UC_Pianificazione
+	usecase "Nuova cattura ricordo" as UC_CatturaMemorabile
+	
+  
+
+  ' --- nuove associazioni ---
+	UC_NuovoSpot ..> UC_DisegnoTratto : <<include>>
+	UC_DisegnoTratto ..> UC_ModificaSpot : <<extend>>
+	UC_NuovaBattuta ..> UC_SceltaSpot : <<include>>
+	UC_Pianificazione ..> UC_Previsioni : <<include>>
+	UC_Pianificazione ..> UC_SceltaSpot : <<include>>
+	UC_NuovaCaratteristica ..> UC_NuovoObiettivo : <<extend>>  
+	UC_EliminaBattuta ..> UC_EliminaSpot : <<extend>> 
+
+
+  
+
+
+  ' --- Regola di business, l'eliminazione da parte del pescatore dello spot elimina anche il tratto associato e viceversa ---
+}
+
+' --- associazioni con attori ---
+	Meteo --> UC_Previsioni
+	Storage --> UC_Backup
+	Pescatore --> UC_NuovoSpot
+	Pescatore --> UC_ModificaSpot
+	Pescatore --> UC_SceltaSpot
+	Pescatore --> UC_EliminaSpot
+	Pescatore --> UC_Statistiche
+	Pescatore --> UC_Backup
+	Pescatore --> UC_EliminaBattuta 
+	Pescatore --> UC_DisegnoTratto
+	Pescatore --> UC_CatturaMemorabile
+	Pescatore --> UC_NuovaCaratteristica
+	Pescatore --> UC_NuovaBattuta
+	Pescatore --> UC_Pianificazione
+	Pescatore --> UC_NuovoObiettivo
+	Pescatore --> UC_Previsioni
+
+@enduml

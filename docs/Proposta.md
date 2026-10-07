@@ -26,7 +26,6 @@ Attualmente, per gestire appieno l'attività, è necessario combinare l'uso del 
 - Offrire un'interfaccia chiara per la consultazione di statistiche e trend personali.
 - Integrare strumenti a supporto della pianificazione delle battute (previsioni meteo, mappe, storico passato).
 - Fornire strumenti per definire e monitorare obiettivi personali di pesca.
-- Garantire una struttura dati estensibile (possibilità per l'utente di aggiungere parametri custom oltre a quelli di base).
 
 ---
 
@@ -64,7 +63,7 @@ L'utilizzo tipico dell'applicazione può seguire la seguente scaletta:
 - Creazione di una nuova battuta al termine della sessione.
 - Selezione dello spot (con possibilità di crearne uno contestualmente).
 - Registrazione del numero di catture e inserimento di materiale fotografico dalla galleria.
-- Creazione della scheda singola cattura per pesci di rilievo (dettagli sul punto preciso, taglia, peso, esca utilizzata).
+- Salvataggio foto preferite per riepiloghi
 
 ### 3.3 Modulo Sessioni e Statistiche
 - **Statistiche Personali:** Numero di battute totali/settimanali, media pesci per sessione, stato di avanzamento degli obiettivi personali, confronti interannuali.

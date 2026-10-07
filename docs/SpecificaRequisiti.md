@@ -121,23 +121,23 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Output**: Nuova battuta salvata e consultabile nello storico.
 
 * **[REQ-FUN-04]** - *Must have*
-  * **Descrizione**: Il sistema deve permettere la registrazione di una o più catture all'interno di una battuta, con possibilità di allegare una fotografia per ciascuna cattura.
-  * **Input**: Dati della cattura (es. specie, taglia); fotografia acquisita da fotocamera o selezionata da galleria.
+  * **Descrizione**: Il sistema deve permettere la registrazione di una o più catture all'interno di una battuta, con possibilità di allegare foto di pesci o della giornata in generale.
+  * **Input**: Dati della cattura (es. specie, taglia e quantità); fotografia acquisita da fotocamera o selezionata da galleria.
   * **Elaborazione**: Ridimensionamento e compressione della fotografia prima del salvataggio su file system; generazione di un'anteprima (thumbnail) per la visualizzazione in elenco; salvataggio del percorso del file immagine come riferimento nel record della cattura, senza memorizzare il file binario nel database.
   * **Output / Risposta**: Cattura salvata e associata alla battuta corrente, con foto e anteprima consultabili nella scheda.
 
-* **[REQ-FUN-05]** - *Should have*
-  * **Descrizione**: Il sistema dovrebbe permettere all'utente di definire nuovi campi personalizzati da associare alle catture (es. temperatura dell'acqua, esca utilizzata non prevista tra i valori predefiniti), specificandone nome e tipo di dato (numerico, testuale, booleano, scelta da lista).
-  * **Input**: Nome del campo, tipo di dato, eventuale unità di misura.
-  * **Elaborazione**: Il nuovo campo viene reso disponibile nel form di inserimento cattura senza richiedere una modifica dello schema del database; i campi fissi previsti dal sistema (data, spot, chiavi identificative) non sono in alcun caso eliminabili o rinominabili dall'utente.
-  * **Output / Risposta**: Nuovo campo personalizzato disponibile da subito nella schermata di inserimento di una nuova cattura.
-
 #### 3.2.3 Statistiche e Riepiloghi
 
-* **[REQ-FUN-06]** - *Should have*
+* **[REQ-FUN-05]** - *Should have*
   * **Descrizione**: Il sistema dovrebbe fornire riepiloghi aggregati (numero di catture per spot, andamento mensile/annuale, media catture per battuta) a partire dallo storico registrato.
   * **Input**: Periodo o spot su cui filtrare il riepilogo.
   * **Output**: Visualizzazione sintetica (tabellare o grafica) delle statistiche richieste.
+
+* **[REQ-FUN-06]** - *Could have*
+  * **Descrizione**: Il sistema potrebbe fornire possibilità di salvare delle foto come preferiti per avere un riassunto dei momenti migliori a fine stagione
+  * **Input**: foto battute.
+  * **Output**: Visualizzazione a scroll delle foto salvate nei preferiti, possibilirà di specificare il periodo.
+
 
 #### 3.2.4 Pianificazione
 
@@ -158,7 +158,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 #### 3.2.6 Backup e Ripristino Dati
 
-* **[REQ-FUN-09]** - *Should have*
+* **[REQ-FUN-9]** - *Should have*
   * **Descrizione**: Il sistema deve consentire l'esportazione manuale di tutti i dati registrati nell'applicazione (spot, battute, catture, campi personalizzati, pianificazione) e il loro salvataggio in formato JSON sullo spazio Google Drive dell'utente.
   * **Input**: Comando di avvio backup da parte dell'utente e autenticazione tramite il proprio account Google.
   * **Elaborazione**: Verifica della connettività di rete e autenticazione tramite OAuth; lettura dei record dal database locale embedded e serializzazione dei dati in formato JSON strutturato (inclusi i riferimenti e metadati delle foto); caricamento del file JSON generato all'interno di una cartella dedicata su Google Drive.
