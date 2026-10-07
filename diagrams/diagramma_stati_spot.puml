@@ -22,6 +22,8 @@ Eliminato : do / eliminazione dati
 Eliminato : do / eliminazione tratto
 Eliminato --> [*]
 
+Salvato --> Eliminato : CORREZIONE UTENTE
+
 state Salvato {
 
   [*] --> SceltaIniziale
