@@ -23,7 +23,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **Tratto**: sequenza ordinata di coordinate geografiche (polilinea) che rappresenta il percorso fisico di uno spot lungo il torrente, analoga ai tracciati salvati in Google Earth.
 * **Battuta**: singola uscita di pesca, caratterizzata da data, fascia oraria, spot frequentato, condizioni meteo, catture effettuate ed eventuali note.
 * **Cattura**: singolo pesce catturato durante una battuta, con attributi propri (specie, taglia, foto, esca utilizzata) e collegabile a campi personalizzati definiti dall'utente.
-* **Campo personalizzato**: attributo aggiuntivo, non previsto nello schema dati di base, che l'utente può definire autonomamente per arricchire la scheda di una cattura o di una battuta (es. temperatura dell'acqua, livello idrometrico) senza richiedere una modifica strutturale del database.
+* **Caratteristica**: un pescatore può inserire una o più caratteristiche legate ad una singola specie andando a ad aggiungerla nelle impostazioni. Una caratteristica può essere qualsiasi aspetto che un pescatore vuole evidenziare di una cattura come il colore, una misura (es: trota over 35cm), un peso, ecc..
 * **MoSCoW**: tecnica di prioritizzazione dei requisiti (Must have, Should have, Could have, Won't have) utilizzata in questo documento per classificare ogni requisito.
 
 ### 1.4 Riferimenti
@@ -43,7 +43,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * Gestione degli spot di pesca, con relativo tracciato geografico (tratto), disegnabile manualmente sulla mappa dell'app.
 * Registrazione delle battute di pesca, con data, fascia oraria, spot, condizioni meteo, catture effettuate ed esche utilizzate.
 * Registrazione delle catture con possibilità di allegare fotografie, gestite con compressione automatica per contenere lo spazio occupato.
-* Definizione di campi personalizzati aggiuntivi da parte dell'utente, applicabili alle catture o alle battute, senza necessità di modifiche strutturali ricorrenti al database.
+* Definizione di campi personalizzati aggiuntivi da parte dell'utente, applicabili alle specie di pesci.
 * Visualizzazione di statistiche e riepiloghi (per spot, per periodo, per specie) a partire dallo storico registrato.
 * Pianificazione delle uscite future.
 * Consultazione delle condizioni meteo per uno spot, tramite chiamata diretta a un servizio meteo esterno.
@@ -75,6 +75,8 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **[INT-UI-01]** - *Must have*: L'app deve fornire una schermata mappa interattiva che mostri gli spot come tratti colorati sovrapposti a una cartografia di base, con possibilità di zoom, ricerca per nome spot e apertura di una scheda di dettaglio al tocco di un tratto.
 * **[INT-UI-02]** - *Should have*: L'app deve fornire una modalità di disegno guidato di un nuovo tratto direttamente sulla mappa (selezione punto di partenza, punti intermedi, punto di arrivo, conferma e assegnazione nome).
 * **[INT-UI-03]** - *Could have*: L'app potrebbe offrire una vista satellitare alternativa alla cartografia standard, selezionabile dall'utente.
+* **[INT-UI-04]** - *Could have*: Vista a carosello per consultare le catture memorabili.
+
 
 #### 3.1.2 Interfaccia Hardware
 * **[INT-HW-01]** - *Must have*: L'app deve poter accedere alla fotocamera e/o alla galleria del dispositivo per l'acquisizione e l'allegazione di fotografie alle catture registrate.
@@ -121,50 +123,55 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Output**: Nuova battuta salvata e consultabile nello storico.
 
 * **[REQ-FUN-04]** - *Must have*
-  * **Descrizione**: Il sistema deve permettere la registrazione di una o più catture all'interno di una battuta, con possibilità di allegare foto di pesci o della giornata in generale.
-  * **Input**: Dati della cattura (es. specie, taglia e quantità); fotografia acquisita da fotocamera o selezionata da galleria.
+  * **Descrizione**: Il sistema deve permettere la registrazione di una o più catture all'interno di una battuta, con possibilità di allegare foto ad una battuta.
+  * **Input**: per ciascun tratto affrontato in una battuta, il pescatore inserisce una o più coppie di dati formati da: specie e quantità + caratteristiche* personali (con quantità) (facoltativo); possibilità di allegare foto acquisita da fotocamera o selezionata da galleria.
+  * **Elaborazione**: Ridimensionamento e compressione delle foto prima del salvataggio su file system; generazione di un'anteprima (thumbnail) per la visualizzazione in elenco; salvataggio del percorso del file immagine come riferimento nel record della battuta, senza memorizzare il file binario nel database.
+  * **Output / Risposta**:  salvata e associata alla battuta corrente, con foto e anteprima consultabili nella scheda.
+
+**[REQ-FUN-05]** - *Should have*
+  * **Descrizione**: Il sistema permette all'utente di inserire dopo registrazione di una battuta o quando vuole una o più catture memorabili legate ad una specifica battuta.
+  * **Input**: data, spot di cattura, una o più foto, specie, esca usata e si possono spuntare le caratteristiche (se le soddisfa) legate a quella specie.
   * **Elaborazione**: Ridimensionamento e compressione della fotografia prima del salvataggio su file system; generazione di un'anteprima (thumbnail) per la visualizzazione in elenco; salvataggio del percorso del file immagine come riferimento nel record della cattura, senza memorizzare il file binario nel database.
-  * **Output / Risposta**: Cattura salvata e associata alla battuta corrente, con foto e anteprima consultabili nella scheda.
+  * **Output / Risposta**:  salvata e associata alla battuta, visibile in apposita sezione nelle statistiche per consultazioni future insieme alle altre catture da ricordare con vista a carosello
 
-#### 3.2.3 Statistiche e Riepiloghi
-
-* **[REQ-FUN-05]** - *Should have*
-  * **Descrizione**: Il sistema dovrebbe fornire riepiloghi aggregati (numero di catture per spot, andamento mensile/annuale, media catture per battuta) a partire dallo storico registrato.
-  * **Input**: Periodo o spot su cui filtrare il riepilogo.
-  * **Output**: Visualizzazione sintetica (tabellare o grafica) delle statistiche richieste.
-
-* **[REQ-FUN-06]** - *Could have*
-  * **Descrizione**: Il sistema potrebbe fornire possibilità di salvare delle foto come preferiti per avere un riassunto dei momenti migliori a fine stagione
-  * **Input**: foto battute.
-  * **Output**: Visualizzazione a scroll delle foto salvate nei preferiti, possibilirà di specificare il periodo.
+* **[REQ-FUN-06]** - *Should have*
+  * **Descrizione**: Il sistema dovrebbe permettere all'utente di definire categorie, ovvero cartelle di spot, uno spot può appartenere ad una sola categoria: Es, in val serina (categoria) sono stati salvati 5 spot
+  * **Input**: Nome categoria.
+  * **Elaborazione**: L'eliminazione di una categoria può comportare una serie di eliminazioni a cascata di spot e battute, necessario chiedere prima conferma e se si vuole spostare gli spot (se presenti) su altre categorie
+  * **Output / Risposta**: Nuova cartella dove posso aggiungere spot legati a quella regione
 
 
-#### 3.2.4 Pianificazione
+#### 3.2.3 Pianificazione
 
 * **[REQ-FUN-07]** - *Could have*
   * **Descrizione**: Il sistema potrebbe permettere la pianificazione di battute future (spot, data, fascia oraria, note), in analogia al piano di battaglia oggi tenuto sul foglio di calcolo.
   * **Input**: Spot, data, fascia oraria e note per l'uscita pianificata.
   * **Output**: Elenco delle uscite pianificate, convertibili in battuta registrata una volta svolte.
 
+* **[REQ-FUN-08]** - *Should have*
+  * **Descrizione**: Il sistema potrebbe permettere la pianificazione di obiettivi per la stagione, tutti gli obiettivi terminano di validità a fine anno solare
+  * **Input**:  l'utente seleziona la specie per qui vuole aggiungere obiettivo e poi la quantità, può associare l'obiettivo ad una o più caratteristiche che ha aggiunto.
+  * **Output**: Sistema di monitoraggio e stato avanzamento obiettivi, avvisi al raggiungimento, riepilogo ragggiungimento obiettivi
 
-#### 3.2.5 Consultazione Meteo
 
-* **[REQ-FUN-8]** - *Should have*
+#### 3.2.4 Consultazione Meteo
+
+* **[REQ-FUN-9]** - *Should have*
   * **Descrizione**: Il sistema dovrebbe permettere la consultazione delle condizioni meteo correnti o previste per le coordinate di uno spot selezionato.
   * **Input**: Spot selezionato dall'utente.
   * **Elaborazione**: Invocazione dell'API meteo esterna con le coordinate dello spot.
   * **Output / Risposta**: Visualizzazione delle condizioni meteo restituite (temperatura, precipitazioni, ecc.) all'interno della scheda dello spot o della battuta.
 
 
-#### 3.2.6 Backup e Ripristino Dati
+#### 3.2.5 Backup e Ripristino Dati
 
-* **[REQ-FUN-9]** - *Should have*
+* **[REQ-FUN-10]** - *Should have*
   * **Descrizione**: Il sistema deve consentire l'esportazione manuale di tutti i dati registrati nell'applicazione (spot, battute, catture, campi personalizzati, pianificazione) e il loro salvataggio in formato JSON sullo spazio Google Drive dell'utente.
   * **Input**: Comando di avvio backup da parte dell'utente e autenticazione tramite il proprio account Google.
   * **Elaborazione**: Verifica della connettività di rete e autenticazione tramite OAuth; lettura dei record dal database locale embedded e serializzazione dei dati in formato JSON strutturato (inclusi i riferimenti e metadati delle foto); caricamento del file JSON generato all'interno di una cartella dedicata su Google Drive.
   * **Output / Risposta**: File JSON di backup salvato su Google Drive e messaggio di conferma a schermo contenente la data e l'ora dell'avvenuto salvataggio.
 
-* **[REQ-FUN-10]** - *Should have*
+* **[REQ-FUN-11]** - *Should have*
   * **Descrizione**: Il sistema deve consentire l'importazione e il ripristino dei dati dell'applicazione a partire da un file di backup in formato JSON precedentemente salvato su Google Drive.
   * **Input**: Comando di ripristino dati, autenticazione dell'account Google e selezione del file di backup JSON desiderato da Google Drive.
   * **Elaborazione**: Download del file JSON scelto; verifica della validità dello schema dei dati e della versione del backup; richiesta di conferma all'utente in caso di sovrascrittura del database locale esistente; deserializzazione del JSON e ripopolamento delle tabelle del database locale embedded.
@@ -174,17 +181,16 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 
 
-### 3.4 Vincoli di Progettazione ed Implementazione
+### 3.3 Vincoli di Progettazione ed Implementazione
 
 * **[REQ-DES-01]**: L'app deve essere sviluppata in Flutter (Dart), per garantire una base di codice unica cross-platform Android/iOS.
 * **[REQ-DES-02]**: La persistenza dei dati deve avvenire esclusivamente tramite database locale embedded (SQLite, tramite ORM drift o equivalente); non è prevista, nella versione base, alcuna componente server-side (es. backend PHP) né database relazionale remoto.
 * **[REQ-DES-03]**: I file immagine (foto delle catture) devono essere salvati sul file system del dispositivo, referenziati nel database tramite il relativo percorso; il database non deve contenere file binari.
-* **[REQ-DES-04]**: I campi personalizzati definiti dall'utente devono essere gestiti tramite uno schema a metadati (pattern Entity-Attribute-Value), per evitare migrazioni strutturali del database a ogni nuovo campo aggiunto dall'utente.
 * **[REQ-DES-05]**: L'architettura del codice deve essere organizzata a livelli (presentazione, logica applicativa, accesso ai dati), per favorire manutenibilità e testabilità delle singole componenti.
 
 ---
 
-### 3.5 Attributi di Qualità del Sistema (Requisiti Non Funzionali)
+### 3.4 Attributi di Qualità del Sistema (Requisiti Non Funzionali)
 
 * **Sicurezza (Security)**: I dati dell'utente risiedono esclusivamente in locale sul dispositivo; non è prevista trasmissione di dati personali (catture, foto) verso server esterni. L'unica comunicazione di rete prevista (interrogazione API meteo) trasmette esclusivamente coordinate geografiche, senza dati identificativi dell'utente.
 * **Affidabilità e Disponibilità**: Non essendo prevista alcuna componente server-side, non si applicano requisiti di uptime; l'affidabilità è demandata all'integrità del database locale e a un'eventuale funzione di esportazione manuale dei dati come backup, a discrezione dell'utente.
