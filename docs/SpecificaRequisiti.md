@@ -115,6 +115,15 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Input**: Selezione di uno spot esistente e nuovi valori per i campi modificabili.
   * **Output**: Scheda dello spot aggiornata con i nuovi valori.
 
+* **[REQ-FUN-02]** - *Should have*
+  * **Descrizione**: Il sistema dovrebbe permettere all'utente di aggiungere nuovi territori (cartelle per spot), che può prendere nome ad esempio dalla valle che ospita
+  * **Output**: Possibilità di assegnare uno o più spot ad un territorio
+
+* **[REQ-FUN-03]** - *Should have*
+  * **Descrizione**: l'utente può aggiungere una nuova classificazione a quelle gia presenti generali di base (FIUME, LAGO, MARE, TORRENTE) e poi usarla quando definisce nuovi spot
+  * **Input**: Inserimento nome nuova classificazione
+  * **Output**: Elenco più vasto tra cui scegliere per inidicare il tipo di spot
+
 #### 3.2.2 Gestione Battute e Catture
 
 * **[REQ-FUN-03]** - *Must have*

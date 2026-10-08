@@ -54,6 +54,7 @@ L'utilizzo tipico dell'applicazione può seguire la seguente scaletta:
 - Inserimento informazioni facoltative: lunghezza del tratto, valutazione personale, note su punti inaccessibili, parcheggi nelle vicinanze.
 - Salvataggio dello spot nel database locale.
 - Inserimento categorie: sono macrogruppi che includono gli spot, ad esempio all'interno della val taleggio sono stati salvati 4 spot.
+- Inserimento nuova classificazione: l'utente può aggiungere un nuovo tipo di spot a quelli già presenti di base (FIUME, LAGO, MARE, TORRENTE).
 
 #### 3.1.2 Gestione e Consultazione Spot (CRUD)
 - Ricerca e filtraggio degli spot in base a parametri multipli.
