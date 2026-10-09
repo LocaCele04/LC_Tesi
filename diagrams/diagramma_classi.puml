@@ -1,0 +1,199 @@
+@startuml Diagramma_delle_classi
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam nodesep 40
+skinparam ranksep 55
+hide empty members
+
+' =====================================================
+'  ENUMERAZIONI
+' =====================================================
+enum Ambiente {
+  TORRENTE
+  FIUME
+  LAGO
+  MARE
+}
+
+enum Difficolta {
+  BASSA
+  MEDIA
+  ALTA
+}
+
+enum StatoAccessibilita {
+  ACCESSIBILE
+  INACCESSIBILE
+}
+
+enum FasciaOraria {
+  ALBA
+  MATTINA
+  POMERIGGIO
+  SERA
+}
+
+' =====================================================
+'  GESTIONE SPOT
+' =====================================================
+class Categoria {
+  - nome : String
+  + spostaSpot(destinazione : Categoria)
+}
+
+class Spot {
+  - nome : String
+  - ambiente : Ambiente
+  - lunghezzaMetri : int [0..1]
+  - difficolta : Difficolta [0..1]
+  - voto : double [0..1]
+  - esposizioneSole : String [0..1]
+  - note : String [0..1]
+  - noteOstacoli : String [0..1]
+  - linkParcheggio : String [0..1]
+  - accessibilita : StatoAccessibilita
+  - battuto : boolean
+  /numeroBattute : int
+  /mediaCatture : double
+  + segnalaOstacolo()
+  + terminaOstacoli()
+}
+
+class Tratto
+
+class Coordinata {
+  - latitudine : double
+  - longitudine : double
+}
+
+' =====================================================
+'  SPECIE E CARATTERISTICHE
+' =====================================================
+class Specie {
+  - nome : String
+}
+
+class Caratteristica {
+  - nome : String
+}
+
+' =====================================================
+'  BATTUTE E CATTURE
+' =====================================================
+class Pescata{
+  - data : Date
+  - fasciaOraria : FasciaOraria
+  - note : String [0..1]
+  /totaleCatture : int
+}
+
+class CondizioniMeteo {
+  - temperatura : double
+  - precipitazioni : double
+  - descrizione : String
+}
+
+class RiepilogoSpecie {
+  - quantita : int
+}
+
+class RiepilogoCaratteristica {
+  - quantita : int
+}
+
+class CatturaMemorabile {
+  - esca : String [0..1]
+}
+
+class Foto {
+  - percorso : String
+  - percorsoThumbnail : String
+}
+
+' =====================================================
+'  PIANIFICAZIONE E OBIETTIVI
+' =====================================================
+class Pianificazione {
+  - data : Date
+  - fasciaOraria : FasciaOraria
+  - note : String [0..1]
+  + convertiInBattuta() : Battuta
+}
+
+class Obiettivo {
+  - anno : int
+  - quantita : int
+  + progresso() : int
+  + isRaggiunto() : boolean
+}
+
+' =====================================================
+'  RELAZIONI
+' =====================================================
+' --- spot ---
+Categoria "1" -right- "0..*" Spot : raggruppa >
+Spot "1" *-down- "1" Tratto
+Tratto "1" *-down- "2..*" Coordinata : {ordered}
+
+' --- specie e caratteristiche ---
+Specie "1" *-down- "0..*" Caratteristica : definisce >
+
+' --- battute ---
+Pescata "0..*" -left- "1" Spot : si svolge in >
+Pescata *-right- "0..1" CondizioniMeteo
+Pescata "1" *-down- "0..*" RiepilogoSpecie
+RiepilogoSpecie "1" *-down- "0..*" RiepilogoCaratteristica
+RiepilogoSpecie "0..*" -down- "1" Specie : riguarda >
+RiepilogoCaratteristica "0..*" -down- "1" Caratteristica : riguarda >
+
+Pescata "1" *-down- "0..*" CatturaMemorabile
+CatturaMemorabile "0..*" -left- "1" Specie : è di >
+CatturaMemorabile "0..*" -left- "0..*" Caratteristica : soddisfa >
+
+Pescata "0..1" *-down- "0..*" Foto
+CatturaMemorabile "0..1" *-down- "1..*" Foto
+
+' --- pianificazione e obiettivi ---
+Pianificazione "0..*" -down- "1" Spot : prevede >
+Pianificazione .right.> Battuta : <<create>>
+
+Obiettivo "0..*" -right- "1" Specie : riguarda >
+Obiettivo "0..*" -down- "0..*" Caratteristica : conta >
+
+' =====================================================
+'  NOTE / VINCOLI
+' =====================================================
+note right of Categoria
+  Eliminare una Categoria chiede conferma e
+  permette di spostare gli Spot altrove;
+  altrimenti elimina a cascata Spot e Battute.
+end note
+
+note bottom of Tratto
+  Eliminare lo Spot elimina il Tratto
+  e viceversa.
+end note
+
+note bottom of RiepilogoCaratteristica
+  {caratteristica.specie = riepilogoSpecie.specie}
+  {quantita <= riepilogoSpecie.quantita}
+end note
+
+note bottom of CatturaMemorabile
+  Data e spot derivano dalla Battuta.
+  {caratteristiche.specie = specie}
+end note
+
+note bottom of Foto
+  {xor}: appartiene a una Battuta
+  oppure a una CatturaMemorabile.
+end note
+
+note bottom of Obiettivo
+  Valido nell'anno solare indicato.
+  Progresso calcolato al volo: somma delle quantita
+  delle caratteristiche collegate (o della specie se
+  nessuna) nelle battute di quell'anno.
+end note
+
+@enduml
