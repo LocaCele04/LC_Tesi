@@ -31,6 +31,7 @@ enum FasciaOraria {
   MATTINA
   POMERIGGIO
   SERA
+  NOTTE
 }
 
 ' =====================================================
@@ -59,7 +60,9 @@ class Spot {
   + terminaOstacoli()
 }
 
-class Tratto
+class Tratto {
+  /colore: Color
+}
 
 class Coordinata {
   - latitudine : double
@@ -155,7 +158,7 @@ CatturaMemorabile "0..1" *-down- "1..*" Foto
 
 ' --- pianificazione e obiettivi ---
 Pianificazione "0..*" -down- "1" Spot : prevede >
-Pianificazione .right.> Battuta : <<create>>
+Pianificazione .right.> Pescata : <<create>>
 
 Obiettivo "0..*" -right- "1" Specie : riguarda >
 Obiettivo "0..*" -down- "0..*" Caratteristica : conta >
@@ -172,6 +175,11 @@ end note
 note bottom of Tratto
   Eliminare lo Spot elimina il Tratto
   e viceversa.
+end note
+
+note bottom of Tratto
+  Il colore dipende dalla valutazione
+  dello spot assegnata
 end note
 
 note bottom of RiepilogoCaratteristica

@@ -23,7 +23,7 @@ rectangle "Diario di Pesca" {
 	usecase "Nuova battuta" as UC_NuovaBattuta
 	usecase "Pianificazione battuta" as UC_Pianificazione
 	usecase "Nuova cattura ricordo" as UC_CatturaMemorabile
-	usecase "Aggiungi nuova classificazione" as UC_NuovaClassificazione
+	usecase "Aggiungi categoria spot" as UC_NuovaClassificazione
 	usecase "Nuovo territorio" as UC_NuovaValle
 	
   
