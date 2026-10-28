@@ -42,6 +42,11 @@ class Categoria {
   + spostaSpot(destinazione : Categoria)
 }
 
+class Esca{
+  - nome : String
+  - descrizione: String
+}
+
 class Spot {
   - nome : String
   - ambiente : Ambiente
@@ -105,7 +110,6 @@ class RiepilogoCaratteristica {
 }
 
 class CatturaMemorabile {
-  - esca : String [0..1]
 }
 
 class Foto {
@@ -150,11 +154,13 @@ RiepilogoSpecie "0..*" -down- "1" Specie : riguarda >
 RiepilogoCaratteristica "0..*" -down- "1" Caratteristica : riguarda >
 
 Pescata "1" *-down- "0..*" CatturaMemorabile
+Pescata "0..*" *-down- "0..*" Esca
 CatturaMemorabile "0..*" -left- "1" Specie : è di >
 CatturaMemorabile "0..*" -left- "0..*" Caratteristica : soddisfa >
 
 Pescata "0..1" *-down- "0..*" Foto
 CatturaMemorabile "0..1" *-down- "1..*" Foto
+CatturaMemorabile "0..1" *-down- "0..1" Esca
 
 ' --- pianificazione e obiettivi ---
 Pianificazione "0..*" -down- "1" Spot : prevede >

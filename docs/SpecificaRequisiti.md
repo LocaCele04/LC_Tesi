@@ -149,6 +149,12 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Elaborazione**: L'eliminazione di una categoria può comportare una serie di eliminazioni a cascata di spot e battute, necessario chiedere prima conferma e se si vuole spostare gli spot (se presenti) su altre categorie
   * **Output / Risposta**: Nuova cartella dove posso aggiungere spot legati a quella regione
 
+* **[REQ-FUN-06]** - *Could have*
+  * **Descrizione**: Nell'app è possibile salvare anche le esche utilizzate in pesca, può essere utile per fare ricerche filtrate delle battute o per qualche statistica (es: in quante battute questa stagione ho usato la gomma), (senza specificare la quantità di cattute per ciascuna in ogni battuta, lo ritengo troppo dettagliato e poco rilevante, inoltre rallenterebbe molto il processo per la creazione delle battute)
+  * **Input**: Nome esca, note varie (es: amo adottato, lunghezza, peso), foto (opzionale)
+  * **Elaborazione**: Si può sempre modificare le info di un esca, nelle battute si possono selezionare più esche con possibilità di crearne una al momento.
+  * **Output / Risposta**: Catalogo esche.
+
 
 #### 3.2.3 Pianificazione
 

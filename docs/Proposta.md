@@ -66,6 +66,7 @@ L'utilizzo tipico dell'applicazione può seguire la seguente scaletta:
 - Selezione dello spot (con possibilità di crearne uno contestualmente).
 - Registrazione del numero di catture e inserimento di materiale fotografico dalla galleria.
 - Salvataggio foto preferite per riepiloghi
+- Nella creazione delle battute possibilità di selezionare le esche utilizzate
 
 ### 3.3 Modulo Sessioni e Statistiche
 - **Statistiche Personali:** Numero di battute totali/settimanali, media pesci per sessione, stato di avanzamento degli obiettivi personali, confronti interannuali.
@@ -74,7 +75,7 @@ Le caratteristiche si associano generalmente alla battuta per la specie scelta o
 - **Obiettivi:** scheda inizialmente vuota, sta al pescatore se vuole popolarla. gli obiettivi che può aggiungere riguarda le quantità sulle specie oppure legate alle caratteristiche aggiunte dal pescatore per quella specie. Gli obiettivi hanno termine di validità al termine dell'anno solare.
 - **Cattura memorabile:** nella registrazione di una battuta (oppure a parte) si può aggiungere una o più catture speciali, sono catture che si vuole ricordare e che finiscono in una apposita sezione di statistiche per consultazioni future, la cattura memorabile è costituita da alcune info come data, spot di cattura, una o più foto, specie, esca usata e si possono spuntare le caratteristiche (se le soddisfa) legate a quella specie.
 - **Statistiche Spot:** Frequenza di visite, categoria/ambiente, distanza, livello di difficoltà, frequentazione, valutazione sintetica.
-
+- **Esche:** Possibilità di ricerche nelle battute con filtri (es: mostra battute dove è stata usata l'esca cucchiaino)
 
 ### 3.4 Gestione Dati e Persistenza
 - Funzionamento completamente offline
