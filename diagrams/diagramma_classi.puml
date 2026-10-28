@@ -143,24 +143,24 @@ Spot "1" *-down- "1" Tratto
 Tratto "1" *-down- "2..*" Coordinata : {ordered}
 
 ' --- specie e caratteristiche ---
-Specie "1" *-down- "0..*" Caratteristica : definisce >
+Specie "1" -down- "0..*" Caratteristica : definisce >
 
 ' --- battute ---
 Pescata "0..*" -left- "1" Spot : si svolge in >
 Pescata *-right- "0..1" CondizioniMeteo
-Pescata "1" *-down- "0..*" RiepilogoSpecie
+Pescata "1" -down- "0..*" RiepilogoSpecie
 RiepilogoSpecie "1" *-down- "0..*" RiepilogoCaratteristica
 RiepilogoSpecie "0..*" -down- "1" Specie : riguarda >
 RiepilogoCaratteristica "0..*" -down- "1" Caratteristica : riguarda >
 
-Pescata "1" *-down- "0..*" CatturaMemorabile
-Pescata "0..*" *-down- "0..*" Esca
+Pescata "1" -down- "0..*" CatturaMemorabile
+Pescata "0..*" -down- "0..*" Esca
 CatturaMemorabile "0..*" -left- "1" Specie : è di >
 CatturaMemorabile "0..*" -left- "0..*" Caratteristica : soddisfa >
 
-Pescata "0..1" *-down- "0..*" Foto
-CatturaMemorabile "0..1" *-down- "1..*" Foto
-CatturaMemorabile "0..1" *-down- "0..1" Esca
+Pescata "0..1" -down- "0..*" Foto
+CatturaMemorabile "0..1" -down- "1..*" Foto
+CatturaMemorabile "0..1" -down- "0..1" Esca
 
 ' --- pianificazione e obiettivi ---
 Pianificazione "0..*" -down- "1" Spot : prevede >
