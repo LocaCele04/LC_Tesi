@@ -54,6 +54,7 @@ L'utilizzo tipico dell'applicazione può seguire la seguente scaletta:
 - Inserimento informazioni facoltative: lunghezza del tratto, valutazione personale, note su punti inaccessibili, parcheggi nelle vicinanze.
 - Salvataggio dello spot nel database locale.
 - Inserimento categorie: sono macrogruppi che includono gli spot, ad esempio all'interno della val taleggio sono stati salvati 4 spot.
+- Inserimento nuova classificazione: l'utente può aggiungere un nuovo tipo di spot a quelli già presenti di base (FIUME, LAGO, MARE, TORRENTE).
 
 #### 3.1.2 Gestione e Consultazione Spot (CRUD)
 - Ricerca e filtraggio degli spot in base a parametri multipli.
@@ -65,14 +66,16 @@ L'utilizzo tipico dell'applicazione può seguire la seguente scaletta:
 - Selezione dello spot (con possibilità di crearne uno contestualmente).
 - Registrazione del numero di catture e inserimento di materiale fotografico dalla galleria.
 - Salvataggio foto preferite per riepiloghi
+- Nella creazione delle battute possibilità di selezionare le esche utilizzate
 
 ### 3.3 Modulo Sessioni e Statistiche
 - **Statistiche Personali:** Numero di battute totali/settimanali, media pesci per sessione, stato di avanzamento degli obiettivi personali, confronti interannuali.
 - **Caratteristiche:** un pescatore può inserire una o più caratteristiche ad una singola specie andando a ad aggiungerla nelle impostazioni. Una caratteristica può essere qualsiasi aspetto che un pescatore vuole evidenziare di una cattura come il colore, una misura (es: trota over 35cm), un peso, ecc..
+Le caratteristiche si associano generalmente alla battuta per la specie scelta oppure per la cattura singola (cattura memorabile).
 - **Obiettivi:** scheda inizialmente vuota, sta al pescatore se vuole popolarla. gli obiettivi che può aggiungere riguarda le quantità sulle specie oppure legate alle caratteristiche aggiunte dal pescatore per quella specie. Gli obiettivi hanno termine di validità al termine dell'anno solare.
 - **Cattura memorabile:** nella registrazione di una battuta (oppure a parte) si può aggiungere una o più catture speciali, sono catture che si vuole ricordare e che finiscono in una apposita sezione di statistiche per consultazioni future, la cattura memorabile è costituita da alcune info come data, spot di cattura, una o più foto, specie, esca usata e si possono spuntare le caratteristiche (se le soddisfa) legate a quella specie.
 - **Statistiche Spot:** Frequenza di visite, categoria/ambiente, distanza, livello di difficoltà, frequentazione, valutazione sintetica.
-
+- **Esche:** Possibilità di ricerche nelle battute con filtri (es: mostra battute dove è stata usata l'esca cucchiaino)
 
 ### 3.4 Gestione Dati e Persistenza
 - Funzionamento completamente offline

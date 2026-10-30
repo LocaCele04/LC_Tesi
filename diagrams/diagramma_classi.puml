@@ -1,0 +1,219 @@
+@startuml Diagramma_delle_classi
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam nodesep 60
+skinparam ranksep 60
+skinparam packageStyle rectangle
+hide empty members
+
+' =====================================================
+'  ENUMERAZIONI
+' =====================================================
+package "Enumerazioni" {
+  enum Ambiente {
+    TORRENTE
+    FIUME
+    LAGO
+    MARE
+  }
+
+  enum Difficolta {
+    BASSA
+    MEDIA
+    ALTA
+  }
+
+  enum StatoAccessibilita {
+    ACCESSIBILE
+    INACCESSIBILE
+  }
+
+  enum FasciaOraria {
+    ALBA
+    MATTINA
+    POMERIGGIO
+    SERA
+    NOTTE
+  }
+}
+
+' =====================================================
+'  AREA TERRITORIO E SPOT (Sinistra)
+' =====================================================
+package "Territorio e Spot" {
+  class Categoria {
+    - nome : String
+    + spostaSpot(destinazione : Categoria)
+  }
+
+  class Spot {
+    - nome : String
+    - ambiente : Ambiente
+    - lunghezzaMetri : int [0..1]
+    - difficolta : Difficolta [0..1]
+    - voto : double [0..1]
+    - esposizioneSole : String [0..1]
+    - note : String [0..1]
+    - noteOstacoli : String [0..1]
+    - linkParcheggio : String [0..1]
+    - accessibilita : StatoAccessibilita
+    - battuto : boolean
+    /numeroBattute : int
+    /mediaCatture : double
+    + segnalaOstacolo()
+    + terminaOstacoli()
+  }
+
+  class Tratto {
+    /colore: Color
+  }
+
+  class Coordinata {
+    - latitudine : double
+    - longitudine : double
+  }
+
+  Categoria "1" -down-> "0..*" Spot : raggruppa
+  Spot "1" *-down- "1" Tratto
+  Tratto "1" *-down- "2..*" Coordinata : {ordered}
+}
+
+' =====================================================
+'  AREA SPECIE E OBIETTIVI (Destra)
+' =====================================================
+package "Specie e Obiettivi" {
+  class Specie {
+    - nome : String
+  }
+
+  class Caratteristica {
+    - nome : String
+  }
+
+  class Obiettivo {
+    - anno : int
+    - quantita : int
+    + progresso() : int
+    + isRaggiunto() : boolean
+  }
+
+  Specie "1" -down- "0..*" Caratteristica : definisce >
+  Obiettivo "0..*" -right- "1" Specie : riguarda >
+  Obiettivo "0..*" -down- "0..*" Caratteristica : conta >
+}
+
+' =====================================================
+'  AREA BATTUTE ED EVENTI (Centro)
+' =====================================================
+package "Battute e Catture" {
+  class Pianificazione {
+    - data : Date
+    - fasciaOraria : FasciaOraria
+    - note : String [0..1]
+    + convertiInBattuta() : Battuta
+  }
+
+  class Pescata {
+    - data : Date
+    - fasciaOraria : FasciaOraria
+    - note : String [0..1]
+    /totaleCatture : int
+  }
+
+  class CondizioniMeteo {
+    - temperatura : double
+    - precipitazioni : double
+    - descrizione : String
+  }
+
+  class CatturaMemorabile {
+  }
+
+  class Esca {
+    - nome : String
+    - descrizione: String
+  }
+
+  class Foto {
+    - percorso : String
+    - percorsoThumbnail : String
+  }
+
+  ' Struttura interna Battuta
+  Pianificazione .right.> Pescata : <<create>>
+  Pescata *-right- "0..1" CondizioniMeteo
+  Pescata "0..1" -left- "0..*" Foto
+  Pescata "0..*" -down- "0..*" Esca
+
+  ' Connessioni ordinate a stella per CatturaMemorabile
+  Pescata "1" -down- "0..*" CatturaMemorabile
+  CatturaMemorabile "0..1" -left- "0..1" Esca
+  CatturaMemorabile "0..1" -right- "1..*" Foto
+}
+
+' =====================================================
+'  CLASSI ASSOCIATIVE (Posizionate al centro-destra)
+' =====================================================
+class RiepilogoSpecie {
+  - quantita : int
+}
+
+class RiepilogoCaratteristica {
+  - quantita : int
+}
+
+' =====================================================
+'  RELAZIONI INTER-PACCHETTO E ALINEAMENTO
+' =====================================================
+Pianificazione "0..*" -left- "1" Spot : prevede >
+Pescata "0..*" -left- "1" Spot : si svolge in >
+
+' Collegamenti CatturaMemorabile -> Specie / Caratteristica (dal basso)
+CatturaMemorabile "0..*" -down- "1" Specie : è di >
+CatturaMemorabile "0..*" -down- "0..*" Caratteristica : soddisfa >
+
+' 1. Associazione Pescata - Specie (RiepilogoSpecie)
+Pescata "0..*" -right- "0..*" Specie
+(Pescata, Specie) .. RiepilogoSpecie
+
+' 2. Associazione RiepilogoSpecie - Caratteristica (RiepilogoCaratteristica adiacente)
+RiepilogoSpecie "0..*" -down- "0..*" Caratteristica
+(RiepilogoSpecie, Caratteristica) .. RiepilogoCaratteristica
+
+' =====================================================
+'  NOTE FORMATTATE
+' =====================================================
+note top of Categoria
+  Eliminare una Categoria chiede conferma e
+  permette di spostare gli Spot altrove;
+  altrimenti elimina a cascata Spot e Battute.
+end note
+
+note bottom of Tratto
+  Eliminare lo Spot elimina il Tratto e viceversa.
+  Il colore dipende dalla valutazione dello spot.
+end note
+
+note right of RiepilogoCaratteristica
+  {caratteristica.specie = riepilogoSpecie.specie}
+  {quantita <= riepilogoSpecie.quantita}
+end note
+
+note bottom of CatturaMemorabile
+  Data e spot derivano dalla Battuta.
+  {caratteristiche.specie = specie}
+end note
+
+note bottom of Foto
+  {xor}: appartiene a una Battuta
+  oppure a una CatturaMemorabile.
+end note
+
+note bottom of Obiettivo
+  Valido nell'anno solare indicato.
+  Progresso calcolato al volo: somma delle quantita
+  delle caratteristiche collegate (o della specie se
+  nessuna) nelle battute di quell'anno.
+end note
+
+@enduml

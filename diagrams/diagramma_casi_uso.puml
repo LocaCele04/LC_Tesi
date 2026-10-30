@@ -12,6 +12,8 @@ rectangle "Diario di Pesca" {
 	usecase "Disegno tratto" as UC_DisegnoTratto
 	usecase "Elimina battuta" as UC_EliminaBattuta
 	usecase "Inserisci caratteristica" as UC_NuovaCaratteristica
+	usecase "Nuova esca" as UC_InserisciEsca
+	usecase "Allega esca" as UC_AllegaEsca
 	usecase "Scrive obiettivi" as UC_NuovoObiettivo
 	usecase "Previsioni meteo" as UC_Previsioni
 	usecase "Inserimento nuovo spot" as UC_NuovoSpot
@@ -23,6 +25,8 @@ rectangle "Diario di Pesca" {
 	usecase "Nuova battuta" as UC_NuovaBattuta
 	usecase "Pianificazione battuta" as UC_Pianificazione
 	usecase "Nuova cattura ricordo" as UC_CatturaMemorabile
+	usecase "Aggiungi categoria spot" as UC_NuovaClassificazione
+	usecase "Nuovo territorio" as UC_NuovaValle
 	
   
 
@@ -34,8 +38,8 @@ rectangle "Diario di Pesca" {
 	UC_Pianificazione ..> UC_SceltaSpot : <<include>>
 	UC_NuovaCaratteristica ..> UC_NuovoObiettivo : <<extend>>  
 	UC_EliminaBattuta ..> UC_EliminaSpot : <<extend>> 
-
-
+	UC_InserisciEsca ..> UC_AllegaEsca : <<extend>>
+	UC_AllegaEsca ..> UC_NuovaBattuta : <<extend>>
   
 
 
@@ -46,6 +50,7 @@ rectangle "Diario di Pesca" {
 	Meteo --> UC_Previsioni
 	Storage --> UC_Backup
 	Pescatore --> UC_NuovoSpot
+	Pescatore --> UC_InserisciEsca
 	Pescatore --> UC_ModificaSpot
 	Pescatore --> UC_SceltaSpot
 	Pescatore --> UC_EliminaSpot
@@ -59,5 +64,7 @@ rectangle "Diario di Pesca" {
 	Pescatore --> UC_Pianificazione
 	Pescatore --> UC_NuovoObiettivo
 	Pescatore --> UC_Previsioni
+	Pescatore --> UC_NuovaClassificazione
+	Pescatore --> UC_NuovaValle
 
 @enduml
