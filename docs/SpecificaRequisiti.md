@@ -165,7 +165,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 * **[REQ-FUN-08]** - *Should have*
   * **Descrizione**: Il sistema potrebbe permettere la pianificazione di obiettivi per la stagione, tutti gli obiettivi terminano di validità a fine anno solare
-  * **Input**:  l'utente seleziona la specie per qui vuole aggiungere obiettivo e poi la quantità, può associare l'obiettivo ad una o più caratteristiche che ha aggiunto.
+  * **Input**:  l'utente seleziona la specie per qui vuole aggiungere obiettivo e poi la quantità, può associare l'obiettivo ad una solo caratteristica che ha aggiunto (si veda vincolo REQ-DES-04).
   * **Output**: Sistema di monitoraggio e stato avanzamento obiettivi, avvisi al raggiungimento, riepilogo ragggiungimento obiettivi
 
 
@@ -201,7 +201,9 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **[REQ-DES-01]**: L'app deve essere sviluppata in Flutter (Dart), per garantire una base di codice unica cross-platform Android/iOS.
 * **[REQ-DES-02]**: La persistenza dei dati deve avvenire esclusivamente tramite database locale embedded (SQLite, tramite ORM drift o equivalente); non è prevista, nella versione base, alcuna componente server-side (es. backend PHP) né database relazionale remoto.
 * **[REQ-DES-03]**: I file immagine (foto delle catture) devono essere salvati sul file system del dispositivo, referenziati nel database tramite il relativo percorso; il database non deve contenere file binari.
+* **[REQ-DES-04]**: Per obiettivi "complessi", ad esempio: per esempio trota "marmorata (car1) +"over 70" (car2) non si allegano più caratteristiche allo stesso obiettivo ma sarà il pescatore a scrivere una nuova caratteristica con quel nome associata alla specie trota.
 * **[REQ-DES-05]**: L'architettura del codice deve essere organizzata a livelli (presentazione, logica applicativa, accesso ai dati), per favorire manutenibilità e testabilità delle singole componenti.
+* **[REQ-DES-06]**:Le caratteristiche aggiunte alla cattura memorabile non vengono aggiunte per il conteggio degli obiettivi, quindi il pescatore nella registrazione di una battuta considera la cattura memorabile come una cattura qualsiasi e inserisce già da subito i valori totali per caratteristiche e obiettivi, serve a semplificare l'inserimento dei dati, la cattura memorabile viene aggiunta a parte ma rimane comunque associata alla pescata.
 
 ---
 
