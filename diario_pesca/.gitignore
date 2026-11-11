@@ -46,3 +46,14 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Codice generato da build_runner (Drift): si rigenera con "dart run build_runner build"
+*.g.dart
+
+# Database, esportazioni e dati personali: non vanno mai nel repository
+*.db
+*.sqlite
+*.sqlite3
+*.kml
+backup_*.json
+dati_personali/
