@@ -5,12 +5,13 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 import 'services/database_helper.dart';
-import 'models/nota.dart';
+
+typedef SpecieData = List<Map<String, Object?>>;
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Configurazione del database per Web e Desktop (Windows/Mac/Linux)
+  // Inizializzazione per Web e Desktop
   if (kIsWeb) {
     databaseFactory = databaseFactoryFfiWeb;
   } else if (defaultTargetPlatform == TargetPlatform.windows ||
@@ -26,21 +27,31 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  Future<List<Nota>> _caricaDatiTest() async {
-    await DatabaseHelper.instance.insertNota(
-      Nota(testo: 'Test SQLite riuscito!'),
+  Future<SpecieData> _caricaSpecieTest() async {
+    final db = await DatabaseHelper.instance.database;
+
+    // Inseriamo una specie di prova
+    await db.insert(
+      'Specie',
+      {
+        'nome': 'Spigola',
+        'informazioni': 'Predatore molto diffuso sia in mare che in acque salmastre.',
+      },
+      conflictAlgorithm: ConflictAlgorithm.ignore,
     );
-    return await DatabaseHelper.instance.getNote();
+
+    // Leggiamo la lista delle specie presenti nel DB
+    return await db.query('Specie');
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(title: const Text('Test Database SQLite')),
+        appBar: AppBar(title: const Text('Diario di Pesca - Test Schema DB')),
         body: Center(
-          child: FutureBuilder<List<Nota>>(
-            future: _caricaDatiTest(),
+          child: FutureBuilder<SpecieData>(
+            future: _caricaSpecieTest(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const CircularProgressIndicator();
@@ -55,17 +66,21 @@ class MyApp extends StatelessWidget {
                 );
               }
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Text('Nessun dato trovato.');
+                return const Text('Nessuna specie trovata nel database.');
               }
 
-              final note = snapshot.data!;
+              final specieList = snapshot.data!;
               return ListView.builder(
-                itemCount: note.length,
+                itemCount: specieList.length,
                 itemBuilder: (context, index) {
-                  final item = note[index];
+                  final specie = specieList[index];
                   return ListTile(
-                    leading: CircleAvatar(child: Text('${item.id}')),
-                    title: Text(item.testo),
+                    leading: const Icon(Icons.set_meal, color: Colors.blue),
+                    title: Text(
+                      specie['nome'] as String,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(specie['informazioni'] as String? ?? ''),
                   );
                 },
               );
