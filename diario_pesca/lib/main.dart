@@ -443,7 +443,7 @@ class _PaginaVerificaDatabaseState extends State<PaginaVerificaDatabase> {
         carattTrotaId = await db.insert('Caratteristica', {
           'specie_nome': 'Trota',
           'nome': 'Livrea marmorata',
-          'descrizione': 'Striature tipiche bacino padano',
+          'descrizione': 'Trota autoctona tipica del bacino padano, si può ibridare con la fario',
         });
         carattSpigolaId = await db.insert('Caratteristica', {
           'specie_nome': 'Spigola',
