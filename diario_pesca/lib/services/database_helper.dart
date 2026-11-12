@@ -85,17 +85,17 @@ class DatabaseHelper {
 
     // 4. Pianificazione
     await db.execute('''
-      CREATE TABLE Pianificazione (
+    CREATE TABLE Pianificazione (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT NOT NULL,
         fasciaOraria TEXT NOT NULL,
         note TEXT,
         spot_nome TEXT,
         FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE CASCADE ON UPDATE CASCADE,
-        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data) = data),
+        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),
         CHECK (fasciaOraria IN ('mattina', 'pomeriggio', 'sera', 'notte'))
-      );
-    ''');
+    );
+''');
 
     // 5. Pescata
     await db.execute('''
@@ -112,7 +112,7 @@ class DatabaseHelper {
         note TEXT,
         spot_nome TEXT,
         FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE SET NULL ON UPDATE CASCADE,
-        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data) = data),
+        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),
         CHECK (fasciaOraria IN ('alba','mattina', 'pomeriggio', 'tramonto', 'sera', 'notte')),
         CHECK (meteo IN ('sereno', 'coperto', 'velato', 'variabile', 'plumbeo', 'pioggia', 'ventoso')),
         CHECK (trasparenza IN ('sporca', 'velata', 'chiara')),
