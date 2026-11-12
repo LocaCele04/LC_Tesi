@@ -44,14 +44,14 @@ class DatabaseHelper {
         ambiente TEXT NOT NULL,
         lunghezzaMetri REAL,
         voto INTEGER,
-        diffolta TEXT,
+        difficolta TEXT,
         esposizioneSole TEXT,
         noteOstacoli TEXT,
         note TEXT,
-        accessibilita_battuto INTEGER,
-        accessibilita_linkParcheggio TEXT,
+        battuto INTEGER NOT NULL DEFAULT 0,
+        linkParcheggio TEXT,
         categoria_nome TEXT,
-        FOREIGN KEY (categoria_nome) REFERENCES Categoria (nome) ON DELETE SET NULL ON UPDATE CASCADE
+        FOREIGN KEY (categoria_nome) REFERENCES Categoria (nome) ON DELETE RESTRICT ON UPDATE CASCADE
       );
     ''');
 
@@ -75,7 +75,7 @@ class DatabaseHelper {
         fasciaOraria TEXT NOT NULL,
         note TEXT,
         spot_nome TEXT,
-        FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE SET NULL ON UPDATE CASCADE
+        FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE CASCADE ON UPDATE CASCADE
       );
     ''');
 
@@ -85,6 +85,7 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT NOT NULL,
         fasciaOraria TEXT NOT NULL,
+        meteo TEXT NOT NULL,
         trasparenza TEXT,
         fondo TEXT,
         livello TEXT,
@@ -185,20 +186,23 @@ class DatabaseHelper {
       CREATE TABLE Cattura_Caratteristica (
         cattura_memorabile_id INTEGER NOT NULL,
         caratteristica_id INTEGER NOT NULL,
+        specie_nome TEXT NOT NULL,
         PRIMARY KEY (cattura_memorabile_id, caratteristica_id),
-        FOREIGN KEY (cattura_memorabile_id) REFERENCES CatturaMemorabile (id) ON DELETE CASCADE,
-        FOREIGN KEY (caratteristica_id) REFERENCES Caratteristica (id) ON DELETE CASCADE
-    );
+        FOREIGN KEY (cattura_memorabile_id, specie_nome) REFERENCES CatturaMemorabile (id, specie_nome) ON DELETE CASCADE ON UPDATE CASCADE,
+        FOREIGN KEY (caratteristica_id, specie_nome) REFERENCES Caratteristica (id, specie_nome) ON DELETE CASCADE ON UPDATE CASCADE
+      );
     ''');
 
     // 14. Obiettivo
     await db.execute('''
       CREATE TABLE Obiettivo (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        caratteristica_id INTEGER, -- Può essere NULL per obiettivi generali sulla specie
+        specie_nome TEXT NOT NULL,
         anno INTEGER NOT NULL,
         quantita INTEGER NOT NULL,
-        FOREIGN KEY (caratteristica_id) REFERENCES Caratteristica (id) ON DELETE CASCADE ON UPDATE CASCADE
+        caratteristica_id INTEGER,
+        FOREIGN KEY (specie_nome) REFERENCES Specie (nome) ON DELETE CASCADE ON UPDATE CASCADE,
+        FOREIGN KEY (caratteristica_id, specie_nome) REFERENCES Caratteristica (id, specie_nome) ON DELETE CASCADE ON UPDATE CASCADE
       );
     ''');
 
@@ -207,11 +211,12 @@ class DatabaseHelper {
      CREATE TABLE DettaglioRiepilogo (
         riepilogo_specie_id INTEGER NOT NULL,
         caratteristica_id INTEGER NOT NULL,
+        specie_nome TEXT NOT NULL,
         quantita INTEGER NOT NULL,
         PRIMARY KEY (riepilogo_specie_id, caratteristica_id),
-        FOREIGN KEY (riepilogo_specie_id) REFERENCES RiepilogoSpecie (id) ON DELETE CASCADE,
-        FOREIGN KEY (caratteristica_id) REFERENCES Caratteristica (id) ON DELETE CASCADE
-    );
+        FOREIGN KEY (riepilogo_specie_id, specie_nome) REFERENCES RiepilogoSpecie (id, specie_nome) ON DELETE CASCADE ON UPDATE CASCADE,
+        FOREIGN KEY (caratteristica_id, specie_nome) REFERENCES Caratteristica (id, specie_nome) ON DELETE CASCADE ON UPDATE CASCADE
+     );
     ''');
   }
 
@@ -219,5 +224,6 @@ class DatabaseHelper {
   Future close() async {
     final db = await instance.database;
     db.close();
+    db = null;
   }
 }
