@@ -100,7 +100,7 @@ class DatabaseHelper {
         spot_nome TEXT,
         FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE CASCADE ON UPDATE CASCADE,
         CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),
-        CHECK (fasciaOraria IN ('mattina', 'pomeriggio', 'sera', 'notte'))
+        CHECK (fasciaOraria IN ('alba','mattina', 'pomeriggio', 'tramonto', 'sera', 'notte'))
     );
 ''');
 
