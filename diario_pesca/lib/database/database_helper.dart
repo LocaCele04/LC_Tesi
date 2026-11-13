@@ -1,6 +1,13 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
+
+/** guida per copiare nuova istanza db e aprirla poi su dbeaver da pc:
+    1. per vedere i file: %LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe shell "run-as com.example.diario_pesca ls -la databases"
+    2. per estrarlo: %LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe shell "run-as com.example.diario_pesca cat databases/diario_pesca.db > /data/local/tmp/diario_pesca.db"
+    3. per copiarlo su pc: %LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe pull /data/local/tmp/diario_pesca.db C:\Users\Celeste\Documents\GitHub\LC_Tesi\diario_pesca
+ */
+
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
@@ -85,17 +92,17 @@ class DatabaseHelper {
 
     // 4. Pianificazione
     await db.execute('''
-      CREATE TABLE Pianificazione (
+    CREATE TABLE Pianificazione (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT NOT NULL,
         fasciaOraria TEXT NOT NULL,
         note TEXT,
         spot_nome TEXT,
         FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE CASCADE ON UPDATE CASCADE,
-        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data) = data),
-        CHECK (fasciaOraria IN ('mattina', 'pomeriggio', 'sera', 'notte'))
-      );
-    ''');
+        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),
+        CHECK (fasciaOraria IN ('alba','mattina', 'pomeriggio', 'tramonto', 'sera', 'notte'))
+    );
+''');
 
     // 5. Pescata
     await db.execute('''
@@ -112,7 +119,7 @@ class DatabaseHelper {
         note TEXT,
         spot_nome TEXT,
         FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE SET NULL ON UPDATE CASCADE,
-        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data) = data),
+        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),
         CHECK (fasciaOraria IN ('alba','mattina', 'pomeriggio', 'tramonto', 'sera', 'notte')),
         CHECK (meteo IN ('sereno', 'coperto', 'velato', 'variabile', 'plumbeo', 'pioggia', 'ventoso')),
         CHECK (trasparenza IN ('sporca', 'velata', 'chiara')),

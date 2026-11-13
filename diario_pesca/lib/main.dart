@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
-import 'services/database_helper.dart';
+import 'database/database_helper.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -301,15 +301,15 @@ class _PaginaVerificaDatabaseState extends State<PaginaVerificaDatabase> {
     await _verificaSuccesso(
       risultati,
       sec2,
-      '[4/15] Inserimento in Pianificazione',
+      '[4/15] Inserimento in Pianificazione (fasciaOraria unificata)',
       () async {
         pianificazioneId = await db.insert('Pianificazione', {
           'data': '2026-11-20',
-          'fasciaOraria': 'mattina',
+          'fasciaOraria': 'alba',
           'note': 'Uscita esplorativa',
           'spot_nome': 'Ponte Vecchio',
         });
-        return 'Inserita pianificazione ID=$pianificazioneId';
+        return 'Inserita pianificazione ID=$pianificazioneId (fasciaOraria: alba)';
       },
     );
 
@@ -443,7 +443,7 @@ class _PaginaVerificaDatabaseState extends State<PaginaVerificaDatabase> {
         carattTrotaId = await db.insert('Caratteristica', {
           'specie_nome': 'Trota',
           'nome': 'Livrea marmorata',
-          'descrizione': 'Striature tipiche bacino padano',
+          'descrizione': 'Trota autoctona tipica del bacino padano, si può ibridare con la fario atlantica (alloctona)',
         });
         carattSpigolaId = await db.insert('Caratteristica', {
           'specie_nome': 'Spigola',
@@ -586,10 +586,10 @@ class _PaginaVerificaDatabaseState extends State<PaginaVerificaDatabase> {
     await _verificaBloccoVincolo(
       risultati,
       sec3,
-      'Pianificazione: fasciaOraria "alba" non ammessa in pianificazione rifiutata',
+      'Pianificazione: fasciaOraria non ammessa ("mezzogiorno") rifiutata',
       () => db.insert('Pianificazione', {
         'data': '2026-11-25',
-        'fasciaOraria': 'alba',
+        'fasciaOraria': 'mezzogiorno',
         'spot_nome': 'Ponte Vecchio',
       }),
     );
