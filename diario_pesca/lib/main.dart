@@ -4,7 +4,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
-import 'services/database_helper.dart';
+import 'database/database_helper.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -443,7 +443,7 @@ class _PaginaVerificaDatabaseState extends State<PaginaVerificaDatabase> {
         carattTrotaId = await db.insert('Caratteristica', {
           'specie_nome': 'Trota',
           'nome': 'Livrea marmorata',
-          'descrizione': 'Trota autoctona tipica del bacino padano, si può ibridare con la fario',
+          'descrizione': 'Trota autoctona tipica del bacino padano, si può ibridare con la fario atlantica (alloctona)',
         });
         carattSpigolaId = await db.insert('Caratteristica', {
           'specie_nome': 'Spigola',
