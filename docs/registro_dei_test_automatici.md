@@ -24,9 +24,15 @@ Questa suite verifica la traduzione tra righe SQLite e modelli immutabili Dart, 
 
 * **Gestione di Spot e Coordinate:** verifica il salvataggio transazionale di uno spot con le relative coordinate GPS ordinate e il calcolo automatico della lunghezza in metri tramite formula di Haversine quando non inserita manualmente. Testa inoltre la ricerca parametrica combinata (per categoria, ambiente *case-insensitive*, voto minimo e lunghezza massima), l'aggiornamento di uno spot esistente con risincronizzazione dei punti GPS e l'eliminazione completa di spot e categoria una volta liberata.
 
-## 3. `test/statistiche_repository_test.dart` *(Da implementare)*
+## 3. `test/statistiche_repository_test.dart` (7 test)
 
-*Sezione predisposta per documentare i test su `Specie`, `Caratteristica`, `Obiettivo` e sul salvataggio/lettura transazionale di `RiepilogoSpecie` con i relativi `DettaglioRiepilogo`.*
+Questa suite verifica in isolamento le operazioni CRUD, i filtri parametrici e la coerenza transazionale gestiti da `StatisticheRepository`:
+
+* **Gestione delle Specie:** testa inserimento, recupero ordinato alfabeticamente e ricerca testuale *case-insensitive*, oltre alla propagazione a cascata della rinomina (`ON UPDATE CASCADE`) e al blocco dell'eliminazione quando la specie è referenziata (`ON DELETE RESTRICT`).
+
+* **Caratteristiche e Obiettivi:** verifica salvataggio, aggiornamento, filtri combinati (per specie, nome, anno e distinzione tra obiettivi generici e legati a una caratteristica) ed eliminazione. Controlla inoltre il rifiuto di obiettivi associati a una caratteristica appartenente a una specie diversa.
+
+* **Riepiloghi Specie e Dettagli:** testa il salvataggio e l'aggiornamento transazionale di `RiepilogoSpecie` con la risincronizzazione dei relativi `DettaglioRiepilogo` per caratteristica, il filtraggio per pescata o specie, l'eliminazione e il blocco di associazioni incrociate tra specie non coerenti.
 
 ## 4. `test/battute_repository_test.dart` (7 test)
 
