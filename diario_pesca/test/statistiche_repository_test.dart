@@ -51,7 +51,7 @@ void main() {
       expect((await statisticheRepo.getSpecie()).map((s) => s.nome), ['Trota']);
     });
 
-    test('aggiornaSpecie propaga la rinomina (CASCADE) ed eliminaSpecie è bloccata se usata (RESTRICT)', () async {
+    test('aggiornaSpecie propaga la rinomina (CASCADE) ed eliminaSpecie è bloccata se usata in catture (RESTRICT)', () async {
       await statisticheRepo.inserisciSpecie(const Specie(nome: 'Trota'));
       await statisticheRepo.salvaCaratteristica(
         const Caratteristica(specieNome: 'Trota', nome: 'Livrea marmorata'),
@@ -60,13 +60,26 @@ void main() {
         const Obiettivo(specieNome: 'Trota', anno: 2026, quantita: 15),
       );
 
-      // Eliminazione bloccata finché esistono record collegati
-      expect(
+      final pescataId = await db.insert('Pescata', {
+        'data': '2026-11-10',
+        'fasciaOraria': 'alba',
+        'meteo': 'velato',
+      });
+      final riepilogo = await statisticheRepo.salvaRiepilogoSpecie(
+        RiepilogoSpecie(
+          pescataId: pescataId,
+          specieNome: 'Trota',
+          quantita: 2,
+        ),
+      );
+
+      // 1. Eliminazione bloccata finché esiste un riepilogo catture (ON DELETE RESTRICT)
+      await expectLater(
         () => statisticheRepo.eliminaSpecie('Trota'),
         throwsA(isA<DatabaseException>()),
       );
 
-      // Rinomina con propagazione automatica
+      // 2. Rinomina con propagazione automatica su tutte le tabelle (ON UPDATE CASCADE)
       await statisticheRepo.aggiornaSpecie(
         nomeOriginale: 'Trota',
         specieAggiornata: const Specie(
@@ -75,14 +88,28 @@ void main() {
         ),
       );
 
-      final carattAggiornate =
-          await statisticheRepo.getCaratteristiche(specieNome: 'Trota Fario');
-      final obiettiviAggiornati =
-          await statisticheRepo.getObiettivi(specieNome: 'Trota Fario');
+      expect(
+        (await statisticheRepo.getCaratteristiche(specieNome: 'Trota Fario')).length,
+        1,
+      );
+      expect(
+        (await statisticheRepo.getObiettivi(specieNome: 'Trota Fario')).length,
+        1,
+      );
+      expect(
+        (await statisticheRepo.getRiepiloghi(specieNome: 'Trota Fario')).length,
+        1,
+      );
 
-      expect(carattAggiornate.length, 1);
-      expect(obiettiviAggiornati.length, 1);
+      // 3. Rimossa la cattura, eliminaSpecie riesce e rimuove a cascata caratteristica e obiettivo
+      await statisticheRepo.eliminaRiepilogoSpecie(riepilogo.id!);
+      await statisticheRepo.eliminaSpecie('Trota Fario');
+
+      expect(await statisticheRepo.getSpecie(), isEmpty);
+      expect(await statisticheRepo.getCaratteristiche(), isEmpty);
+      expect(await statisticheRepo.getObiettivi(), isEmpty);
     });
+
   });
 
   group('StatisticheRepository - Caratteristiche', () {
