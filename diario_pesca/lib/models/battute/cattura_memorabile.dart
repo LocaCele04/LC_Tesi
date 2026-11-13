@@ -1,6 +1,11 @@
 import '../statistiche/caratteristica.dart';
 import 'foto.dart';
 
+/**Prima del salvataggio (in memoria):
+ *  Quando l'utente compila un form per creare un nuovo record (ad esempio un nuovo Obiettivo), 
+ * l'ID non esiste ancora, quindi istanzi l'oggetto con id: null */
+
+
 class CatturaMemorabile {
   final int? id;
   final String? descrizione;
