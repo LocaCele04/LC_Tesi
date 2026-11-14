@@ -1,11 +1,11 @@
 class Coordinata {
-  final String spotNome;
+  final String? spotNome;
   final int ordine;
   final double latitudine;
   final double longitudine;
 
   const Coordinata({
-    required this.spotNome,
+    this.spotNome,
     required this.ordine,
     required this.latitudine,
     required this.longitudine,
@@ -26,18 +26,14 @@ class Coordinata {
   }
 
   @override
-  String toString() =>
-      'Coordinata(spotNome: $spotNome, ordine: $ordine, latitudine: $latitudine, longitudine: $longitudine)';
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is Coordinata &&
-        other.spotNome == spotNome &&
-        other.ordine == ordine &&
-        other.latitudine == latitudine &&
-        other.longitudine == longitudine;
-  }
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Coordinata &&
+          runtimeType == other.runtimeType &&
+          spotNome == other.spotNome &&
+          ordine == other.ordine &&
+          latitudine == other.latitudine &&
+          longitudine == other.longitudine;
 
   @override
   int get hashCode => Object.hash(spotNome, ordine, latitudine, longitudine);
