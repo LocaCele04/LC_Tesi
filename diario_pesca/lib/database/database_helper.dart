@@ -1,7 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 
-
 /** guida per copiare nuova istanza db e aprirla poi su dbeaver da pc:
     1. per vedere i file: %LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe shell "run-as com.example.diario_pesca ls -la databases"
     2. per estrarlo: %LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe shell "run-as com.example.diario_pesca cat databases/diario_pesca.db > /data/local/tmp/diario_pesca.db"
@@ -10,10 +9,20 @@ import 'package:path/path.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
-  static Database? _database;
   static const String _nomeFile = 'diario_pesca.db';
 
-  DatabaseHelper._init();
+  final bool _inMemory;
+  Database? _database;
+
+  DatabaseHelper._init() : _inMemory = false;
+
+  /// Istanza isolata in RAM per i test automatici.
+  DatabaseHelper.inMemory() : _inMemory = true;
+
+  /// Istanza che avvolge un Database già aperto dall'esterno.
+  DatabaseHelper.fromDatabase(Database db)
+      : _inMemory = true,
+        _database = db;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -22,6 +31,16 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDB(String filePath) async {
+    if (_inMemory) {
+      return await openDatabase(
+        inMemoryDatabasePath,
+        version: 1,
+        onConfigure: onConfigure,
+        onCreate: onCreate,
+        singleInstance: false,
+      );
+    }
+
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
@@ -63,15 +82,17 @@ class DatabaseHelper {
         noteOstacoli TEXT,
         note TEXT,
         battuto INTEGER NOT NULL DEFAULT 0,
+        accessibilita TEXT NOT NULL DEFAULT 'accessibile',
         linkParcheggio TEXT,
-        categoria_nome TEXT,
+        categoria_nome TEXT NOT NULL,
         FOREIGN KEY (categoria_nome) REFERENCES Categoria (nome) ON DELETE RESTRICT ON UPDATE CASCADE,
         CHECK (length(trim(nome)) > 0),
         CHECK (length(trim(ambiente)) > 0),
         CHECK (lunghezzaMetri > 0),
         CHECK (voto BETWEEN 0 AND 10),
         CHECK (difficolta IN ('bassa', 'media', 'alta')),
-        CHECK (battuto IN (0, 1))
+        CHECK (battuto IN (0, 1)),
+        CHECK (accessibilita IN ('accessibile', 'inaccessibile'))
       );
     ''');
 
@@ -299,7 +320,9 @@ class DatabaseHelper {
   /// apertura viene ricreato con lo schema aggiornato.
   Future<void> resetPerSviluppo() async {
     await close();
-    final path = join(await getDatabasesPath(), _nomeFile);
-    await deleteDatabase(path);
+    if (!_inMemory) {
+      final path = join(await getDatabasesPath(), _nomeFile);
+      await deleteDatabase(path);
+    }
   }
 }
