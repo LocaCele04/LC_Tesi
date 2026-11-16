@@ -133,12 +133,21 @@ void main() {
       'percorsoThumbnail': '/img/thumb_pescata_1.jpg',
       'pescata_id': pescataId,
       'cattura_memorabile_id': null,
+      'esca_id': null,
     });
     await db.insert('Foto', {
       'percorso': '/img/cattura_1.jpg',
       'percorsoThumbnail': '/img/thumb_cattura_1.jpg',
       'pescata_id': null,
       'cattura_memorabile_id': catturaId,
+      'esca_id': null,
+    });
+    await db.insert('Foto', {
+      'percorso': '/img/esca_1.jpg',
+      'percorsoThumbnail': '/img/thumb_esca_1.jpg',
+      'pescata_id': null,
+      'cattura_memorabile_id': null,
+      'esca_id': esca1Id,
     });
 
     final riepilogoId = await db.insert('RiepilogoSpecie', {
@@ -230,11 +239,11 @@ void main() {
       expect(presenti.length, tabelleAttese.length);
     });
 
-    test('Esistono tutti i 14 indici idx_*', () async {
+    test('Esistono tutti i 15 indici idx_*', () async {
       final rows = await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%';",
       );
-      expect(rows.length, 14);
+      expect(rows.length, 15);
     });
   });
 
@@ -359,23 +368,65 @@ void main() {
       );
     });
 
-    test('Foto: vincolo XOR tra pescata_id e cattura_memorabile_id', () async {
+    test('Foto: vincolo XOR tra pescata_id, cattura_memorabile_id ed esca_id', () async {
       final ids = await popolaDatiBase();
+
+      // Tutti null
       expect(
         () => db.insert('Foto', {
           'percorso': '/a.jpg',
           'percorsoThumbnail': '/ta.jpg',
           'pescata_id': null,
           'cattura_memorabile_id': null,
+          'esca_id': null,
         }),
         throwsA(isA<DatabaseException>()),
       );
+
+      // Due genitori valorizzati (pescata + cattura)
       expect(
         () => db.insert('Foto', {
           'percorso': '/b.jpg',
           'percorsoThumbnail': '/tb.jpg',
           'pescata_id': ids.pescataId,
           'cattura_memorabile_id': ids.catturaId,
+          'esca_id': null,
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      // Due genitori valorizzati (pescata + esca)
+      expect(
+        () => db.insert('Foto', {
+          'percorso': '/c.jpg',
+          'percorsoThumbnail': '/tc.jpg',
+          'pescata_id': ids.pescataId,
+          'cattura_memorabile_id': null,
+          'esca_id': ids.esca1Id,
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      // Due genitori valorizzati (cattura + esca)
+      expect(
+        () => db.insert('Foto', {
+          'percorso': '/d.jpg',
+          'percorsoThumbnail': '/td.jpg',
+          'pescata_id': null,
+          'cattura_memorabile_id': ids.catturaId,
+          'esca_id': ids.esca1Id,
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      // Tutti e tre valorizzati
+      expect(
+        () => db.insert('Foto', {
+          'percorso': '/e.jpg',
+          'percorsoThumbnail': '/te.jpg',
+          'pescata_id': ids.pescataId,
+          'cattura_memorabile_id': ids.catturaId,
+          'esca_id': ids.esca1Id,
         }),
         throwsA(isA<DatabaseException>()),
       );
@@ -486,12 +537,14 @@ void main() {
     test('ON DELETE SET NULL + CASCADE su Esca, Spot e Pescata', () async {
       final ids = await popolaDatiBase();
 
-      // Eliminazione Esca
+      // Eliminazione Esca: SET NULL su CatturaMemorabile, CASCADE su Pescata_Esca e Foto dell'esca
       await db.delete('Esca', where: 'id = ?', whereArgs: [ids.esca1Id]);
       final cattura = await db.query('CatturaMemorabile', where: 'id = ?', whereArgs: [ids.catturaId]);
       final ponteEsca = await db.query('Pescata_Esca', where: 'esca_id = ?', whereArgs: [ids.esca1Id]);
+      final fotoEsca = await db.query('Foto', where: 'esca_id = ?', whereArgs: [ids.esca1Id]);
       expect(cattura.first['esca_id'], isNull);
       expect(ponteEsca, isEmpty);
+      expect(fotoEsca, isEmpty);
 
       // Eliminazione Spot
       await db.delete('Spot', where: 'nome = ?', whereArgs: ['Ponte Vecchio']);
