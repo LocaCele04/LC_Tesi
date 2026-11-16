@@ -91,33 +91,48 @@ class DbMappers {
 
   // --- BATTUTE ---
 
-  static Esca escaFromMap(Map<String, Object?> map) => Esca(
-        id: map['id'] as int?,
-        nome: map['nome'] as String,
-        descrizione: map['descrizione'] as String?,
-      );
+  static Esca escaFromMap(
+    Map<String, Object?> map, {
+    List<Foto> foto = const [],
+  }) {
+    return Esca(
+      id: map['id'] as int?,
+      nome: map['nome'] as String,
+      descrizione: map['descrizione'] as String?,
+      foto: foto,
+    );
+  }
 
-  static Map<String, Object?> escaToMap(Esca e) => {
-        if (e.id != null) 'id': e.id,
-        'nome': e.nome,
-        'descrizione': e.descrizione,
-      };
+  static Map<String, Object?> escaToMap(Esca esca) {
+    return {
+      if (esca.id != null) 'id': esca.id,
+      'nome': esca.nome,
+      'descrizione': esca.descrizione,
+    };
+  }
 
-  static Foto fotoFromMap(Map<String, Object?> map) => Foto(
-        id: map['id'] as int?,
-        percorso: map['percorso'] as String,
-        percorsoThumbnail: map['percorsoThumbnail'] as String,
-        pescataId: map['pescata_id'] as int?,
-        catturaMemorabileId: map['cattura_memorabile_id'] as int?,
-      );
 
-  static Map<String, Object?> fotoToMap(Foto f) => {
-        if (f.id != null) 'id': f.id,
-        'percorso': f.percorso,
-        'percorsoThumbnail': f.percorsoThumbnail,
-        'pescata_id': f.pescataId,
-        'cattura_memorabile_id': f.catturaMemorabileId,
-      };
+  static Foto fotoFromMap(Map<String, Object?> map) {
+    return Foto(
+      id: map['id'] as int?,
+      percorso: map['percorso'] as String,
+      percorsoThumbnail: map['percorsoThumbnail'] as String,
+      pescataId: map['pescata_id'] as int?,
+      catturaMemorabileId: map['cattura_memorabile_id'] as int?,
+      escaId: map['esca_id'] as int?,
+    );
+  }
+
+  static Map<String, Object?> fotoToMap(Foto foto) {
+    return {
+      if (foto.id != null) 'id': foto.id,
+      'percorso': foto.percorso,
+      'percorsoThumbnail': foto.percorsoThumbnail,
+      'pescata_id': foto.pescataId,
+      'cattura_memorabile_id': foto.catturaMemorabileId,
+      'esca_id': foto.escaId,
+    };
+  }
 
   static Pianificazione pianificazioneFromMap(Map<String, Object?> map) =>
       Pianificazione(

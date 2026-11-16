@@ -203,12 +203,15 @@ class DatabaseHelper {
         percorso TEXT NOT NULL,
         percorsoThumbnail TEXT NOT NULL,
         pescata_id INTEGER,
+        esca_id INTEGER,
         cattura_memorabile_id INTEGER,
         FOREIGN KEY (pescata_id) REFERENCES Pescata (id) ON DELETE CASCADE,
         FOREIGN KEY (cattura_memorabile_id) REFERENCES CatturaMemorabile (id) ON DELETE CASCADE,
+        FOREIGN KEY (esca_id) REFERENCES Esca(id) ON DELETE CASCADE,
         CHECK (
-          (pescata_id IS NOT NULL AND cattura_memorabile_id IS NULL) OR
-          (pescata_id IS NULL AND cattura_memorabile_id IS NOT NULL)
+          (pescata_id IS NOT NULL AND cattura_memorabile_id IS NULL AND esca_id IS NULL) OR
+          (pescata_id IS NULL AND cattura_memorabile_id IS NOT NULL AND esca_id IS NULL) OR
+          (pescata_id IS NULL AND cattura_memorabile_id IS NULL AND esca_id IS NOT NULL)
         )
       );
     ''');
@@ -300,6 +303,7 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_cattura_specie ON CatturaMemorabile (specie_nome);');
     await db.execute('CREATE INDEX idx_cattura_esca ON CatturaMemorabile (esca_id);');
     await db.execute('CREATE INDEX idx_foto_pescata ON Foto (pescata_id);');
+    await db.execute('CREATE INDEX idx_foto_esca ON Foto(esca_id);');
     await db.execute('CREATE INDEX idx_foto_cattura ON Foto (cattura_memorabile_id);');
     await db.execute('CREATE INDEX idx_riepilogo_specie ON RiepilogoSpecie (specie_nome);');
     await db.execute('CREATE INDEX idx_cattcar_caratteristica ON Cattura_Caratteristica (caratteristica_id);');

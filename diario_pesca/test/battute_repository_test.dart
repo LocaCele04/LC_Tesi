@@ -46,34 +46,72 @@ void main() {
   }
 
   group('BattuteRepository - Esche', () {
-    test('salvaEsca (insert/update), getEsche (ordine e filtro) ed eliminaEsca', () async {
+    test('salvaEsca (insert/update con 0, 1 o più foto), getEsche (ordine e filtro) ed eliminaEsca', () async {
       final minnow = await battuteRepo.salvaEsca(
-        const Esca(nome: 'Minnow 7cm', descrizione: 'Livrea vairone'),
+        const Esca(
+          nome: 'Minnow 7cm',
+          descrizione: 'Livrea vairone',
+          foto: [
+            Foto(
+              percorso: '/img/esca1_a.jpg',
+              percorsoThumbnail: '/img/thumb_esca1_a.jpg',
+              escaId: 0,
+            ),
+            Foto(
+              percorso: '/img/esca1_b.jpg',
+              percorsoThumbnail: '/img/thumb_esca1_b.jpg',
+              escaId: 0,
+            ),
+          ],
+        ),
       );
       final cucchiaino = await battuteRepo.salvaEsca(
         const Esca(nome: 'Cucchiaino #2'),
       );
 
       expect(minnow.id, isNotNull);
+      expect(minnow.foto.length, 2);
+      expect(
+        minnow.foto.every(
+          (f) =>
+              f.id != null &&
+              f.escaId == minnow.id &&
+              f.pescataId == null &&
+              f.catturaMemorabileId == null,
+        ),
+        isTrue,
+      );
       expect(cucchiaino.id, isNotNull);
+      expect(cucchiaino.foto, isEmpty);
 
-      // Aggiornamento
+      // Aggiornamento descrizione e riduzione a 1 foto
       await battuteRepo.salvaEsca(
-        minnow.copyWith(descrizione: 'Affondante 8g'),
+        minnow.copyWith(
+          descrizione: 'Affondante 8g',
+          foto: [minnow.foto.first],
+        ),
       );
 
       final tutte = await battuteRepo.getEsche();
       expect(tutte.map((e) => e.nome), ['Cucchiaino #2', 'Minnow 7cm']);
+      expect(tutte[0].foto, isEmpty);
       expect(tutte[1].descrizione, 'Affondante 8g');
+      expect(tutte[1].foto.length, 1);
+      expect(tutte[1].foto.single.percorso, '/img/esca1_a.jpg');
 
       // Filtro testuale case-insensitive
       final filtrate = await battuteRepo.getEsche(filtroNome: 'minnow');
       expect(filtrate.length, 1);
       expect(filtrate.first.id, minnow.id);
+      expect(filtrate.first.foto.length, 1);
 
-      // Eliminazione
+      // Eliminazione esca senza foto ed esca con foto
       await battuteRepo.eliminaEsca(cucchiaino.id!);
       expect((await battuteRepo.getEsche()).length, 1);
+
+      await battuteRepo.eliminaEsca(minnow.id!);
+      expect(await battuteRepo.getEsche(), isEmpty);
+      expect(await db.query('Foto'), isEmpty);
     });
   });
 
@@ -312,11 +350,21 @@ void main() {
       expect((await battuteRepo.getCattureMemorabili()).length, 1);
     });
 
-    test('salvaPescata salva atomicamente anche nuove esche e caratteristiche create al volo', () async {
+    test('salvaPescata salva atomicamente anche nuove esche (con foto) e caratteristiche create al volo', () async {
       await inserisciSpotDiProva('Ponte Vecchio');
       await db.insert('Specie', {'nome': 'Trota'});
 
-      const nuovaEsca = Esca(nome: 'Jerk 9cm', descrizione: 'Creata al volo');
+      const nuovaEsca = Esca(
+        nome: 'Jerk 9cm',
+        descrizione: 'Creata al volo',
+        foto: [
+          Foto(
+            percorso: '/img/esca_jerk.jpg',
+            percorsoThumbnail: '/img/thumb_esca_jerk.jpg',
+            escaId: 0,
+          ),
+        ],
+      );
       const nuovaCaratt = Caratteristica(
         specieNome: 'Trota',
         nome: 'Pinna bianca',
@@ -375,9 +423,17 @@ void main() {
       expect(completa!.spotNome, 'Ponte Vecchio');
       expect(completa.esche.map((e) => e.nome), ['Jerk 9cm']);
       expect(completa.esche.single.id, isNotNull);
+      expect(
+        completa.esche.single.foto.map((f) => f.percorso),
+        ['/img/esca_jerk.jpg'],
+      );
       expect(completa.foto.map((f) => f.percorso), ['/img/pescata.jpg']);
       expect(completa.cattureMemorabili.length, 1);
       expect(completa.cattureMemorabili.first.esca?.nome, 'Jerk 9cm');
+      expect(
+        completa.cattureMemorabili.first.esca?.foto.map((f) => f.percorso),
+        ['/img/esca_jerk.jpg'],
+      );
       expect(
         completa.cattureMemorabili.first.caratteristiche.map((c) => c.nome),
         ['Pinna bianca'],
