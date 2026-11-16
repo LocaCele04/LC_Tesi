@@ -1,4 +1,5 @@
 import '../database/database_helper.dart';
+import '../database/db_mappers.dart';
 import '../models/statistiche/caratteristica.dart';
 import '../models/statistiche/obiettivo.dart';
 import '../models/statistiche/riepilogo_caratteristica.dart';
@@ -26,7 +27,7 @@ class StatisticheRepository {
       whereArgs: hasFiltro ? ['%${filtroNome.trim()}%'] : null,
       orderBy: 'nome ASC',
     );
-    return righe.map(_specieFromMap).toList();
+    return righe.map(DbMappers.specieFromMap).toList();
   }
 
   /// Elenco caratteristiche filtrabili per specie e/o nome.
@@ -54,7 +55,7 @@ class StatisticheRepository {
       whereArgs: argomenti.isEmpty ? null : argomenti,
       orderBy: 'specie_nome ASC, nome ASC',
     );
-    return righe.map(_caratteristicaFromMap).toList();
+    return righe.map(DbMappers.caratteristicaFromMap).toList();
   }
 
   /// Elenco obiettivi filtrabili per anno, specie, caratteristica o tipologia
@@ -72,32 +73,49 @@ class StatisticheRepository {
     final argomenti = <Object?>[];
 
     if (anno != null) {
-      condizioni.add('anno = ?');
+      condizioni.add('o.anno = ?');
       argomenti.add(anno);
     }
     if (specieNome != null) {
-      condizioni.add('specie_nome = ?');
+      condizioni.add('o.specie_nome = ?');
       argomenti.add(specieNome);
     }
     if (caratteristicaId != null) {
-      condizioni.add('caratteristica_id = ?');
+      condizioni.add('o.caratteristica_id = ?');
       argomenti.add(caratteristicaId);
     }
     if (soloGenerici != null) {
       condizioni.add(
         soloGenerici
-            ? 'caratteristica_id IS NULL'
-            : 'caratteristica_id IS NOT NULL',
+            ? 'o.caratteristica_id IS NULL'
+            : 'o.caratteristica_id IS NOT NULL',
       );
     }
 
-    final righe = await db.query(
-      'Obiettivo',
-      where: condizioni.isEmpty ? null : condizioni.join(' AND '),
-      whereArgs: argomenti.isEmpty ? null : argomenti,
-      orderBy: 'anno DESC, specie_nome ASC, id ASC',
-    );
-    return righe.map(_obiettivoFromMap).toList();
+    final whereSql =
+        condizioni.isEmpty ? '' : 'WHERE ${condizioni.join(' AND ')}';
+
+    final righe = await db.rawQuery('''
+      SELECT o.*,
+             c.id AS c_id, c.specie_nome AS c_specie_nome,
+             c.nome AS c_nome, c.descrizione AS c_descrizione
+      FROM Obiettivo o
+      LEFT JOIN Caratteristica c ON c.id = o.caratteristica_id
+      $whereSql
+      ORDER BY o.anno DESC, o.specie_nome ASC, o.id ASC
+    ''', argomenti);
+
+    return righe.map((riga) {
+      final caratt = riga['c_id'] != null
+          ? Caratteristica(
+              id: riga['c_id'] as int,
+              specieNome: riga['c_specie_nome'] as String,
+              nome: riga['c_nome'] as String,
+              descrizione: riga['c_descrizione'] as String?,
+            )
+          : null;
+      return DbMappers.obiettivoFromMap(riga, caratteristica: caratt);
+    }).toList();
   }
 
   /// Elenco riepiloghi specie filtrabili per pescata e/o specie, completi
@@ -107,43 +125,11 @@ class StatisticheRepository {
     String? specieNome,
   }) async {
     final db = await _dbHelper.database;
-
-    final condizioni = <String>[];
-    final argomenti = <Object?>[];
-
-    if (pescataId != null) {
-      condizioni.add('pescata_id = ?');
-      argomenti.add(pescataId);
-    }
-    if (specieNome != null) {
-      condizioni.add('specie_nome = ?');
-      argomenti.add(specieNome);
-    }
-
-    final righeRiepilogo = await db.query(
-      'RiepilogoSpecie',
-      where: condizioni.isEmpty ? null : condizioni.join(' AND '),
-      whereArgs: argomenti.isEmpty ? null : argomenti,
-      orderBy: 'specie_nome ASC',
+    return DbMappers.queryRiepiloghiConDettagli(
+      db,
+      pescataId: pescataId,
+      specieNome: specieNome,
     );
-
-    final risultati = <RiepilogoSpecie>[];
-    for (final riga in righeRiepilogo) {
-      final riepilogoId = riga['id'] as int;
-      final righeDettagli = await db.query(
-        'DettaglioRiepilogo',
-        where: 'riepilogo_specie_id = ?',
-        whereArgs: [riepilogoId],
-      );
-      risultati.add(
-        _riepilogoSpecieFromMap(
-          riga,
-          dettagli:
-              righeDettagli.map(_riepilogoCaratteristicaFromMap).toList(),
-        ),
-      );
-    }
-    return risultati;
   }
 
   // ===========================================================================
@@ -152,7 +138,7 @@ class StatisticheRepository {
 
   Future<void> inserisciSpecie(Specie specie) async {
     final db = await _dbHelper.database;
-    await db.insert('Specie', _specieToMap(specie));
+    await db.insert('Specie', DbMappers.specieToMap(specie));
   }
 
   Future<void> aggiornaSpecie({
@@ -162,7 +148,7 @@ class StatisticheRepository {
     final db = await _dbHelper.database;
     await db.update(
       'Specie',
-      _specieToMap(specieAggiornata),
+      DbMappers.specieToMap(specieAggiornata),
       where: 'nome = ?',
       whereArgs: [nomeOriginale],
     );
@@ -176,12 +162,39 @@ class StatisticheRepository {
   Future<Caratteristica> salvaCaratteristica(Caratteristica c) async {
     final db = await _dbHelper.database;
     if (c.id == null) {
-      final id = await db.insert('Caratteristica', _caratteristicaToMap(c));
+      final id =
+          await db.insert('Caratteristica', DbMappers.caratteristicaToMap(c));
       return c.copyWith(id: id);
     }
+
+    final esistente = await db.query(
+      'Caratteristica',
+      columns: ['specie_nome'],
+      where: 'id = ?',
+      whereArgs: [c.id],
+      limit: 1,
+    );
+    if (esistente.isNotEmpty &&
+        esistente.first['specie_nome'] != c.specieNome) {
+      final usata = await db.rawQuery('''
+        SELECT 1 FROM Cattura_Caratteristica WHERE caratteristica_id = ?
+        UNION ALL
+        SELECT 1 FROM DettaglioRiepilogo WHERE caratteristica_id = ?
+        UNION ALL
+        SELECT 1 FROM Obiettivo WHERE caratteristica_id = ?
+        LIMIT 1
+      ''', [c.id, c.id, c.id]);
+
+      if (usata.isNotEmpty) {
+        throw StateError(
+          'Impossibile cambiare la specie di una caratteristica già usata in catture, riepiloghi o obiettivi',
+        );
+      }
+    }
+
     await db.update(
       'Caratteristica',
-      _caratteristicaToMap(c),
+      DbMappers.caratteristicaToMap(c),
       where: 'id = ?',
       whereArgs: [c.id],
     );
@@ -195,17 +208,42 @@ class StatisticheRepository {
 
   Future<Obiettivo> salvaObiettivo(Obiettivo obiettivo) async {
     final db = await _dbHelper.database;
-    if (obiettivo.id == null) {
-      final id = await db.insert('Obiettivo', _obiettivoToMap(obiettivo));
-      return obiettivo.copyWith(id: id);
-    }
-    await db.update(
-      'Obiettivo',
-      _obiettivoToMap(obiettivo),
-      where: 'id = ?',
-      whereArgs: [obiettivo.id],
-    );
-    return obiettivo;
+
+    return await db.transaction((txn) async {
+      Caratteristica? carattAllineata = obiettivo.caratteristica;
+
+      if (carattAllineata != null && carattAllineata.id == null) {
+        if (carattAllineata.specieNome != obiettivo.specieNome) {
+          throw ArgumentError(
+            'La nuova caratteristica "${carattAllineata.nome}" appartiene a ${carattAllineata.specieNome}, non a ${obiettivo.specieNome}',
+          );
+        }
+        final carattId = await txn.insert(
+          'Caratteristica',
+          DbMappers.caratteristicaToMap(carattAllineata),
+        );
+        carattAllineata = carattAllineata.copyWith(id: carattId);
+      }
+
+      final obiettivoAllineato =
+          obiettivo.copyWith(caratteristica: carattAllineata);
+
+      if (obiettivoAllineato.id == null) {
+        final id = await txn.insert(
+          'Obiettivo',
+          DbMappers.obiettivoToMap(obiettivoAllineato),
+        );
+        return obiettivoAllineato.copyWith(id: id);
+      }
+
+      await txn.update(
+        'Obiettivo',
+        DbMappers.obiettivoToMap(obiettivoAllineato),
+        where: 'id = ?',
+        whereArgs: [obiettivoAllineato.id],
+      );
+      return obiettivoAllineato;
+    });
   }
 
   Future<void> eliminaObiettivo(int id) async {
@@ -218,6 +256,27 @@ class StatisticheRepository {
   Future<RiepilogoSpecie> salvaRiepilogoSpecie(
     RiepilogoSpecie riepilogo,
   ) async {
+    if (riepilogo.pescataId == null) {
+      throw ArgumentError(
+        'pescataId è obbligatorio per salvare un RiepilogoSpecie singolarmente',
+      );
+    }
+    if (riepilogo.quantita < 0) {
+      throw ArgumentError(
+        'La quantità totale per ${riepilogo.specieNome} non può essere negativa',
+      );
+    }
+    for (final d in riepilogo.dettagli) {
+      if (d.quantita < 0) {
+        throw ArgumentError('La quantità del dettaglio non può essere negativa');
+      }
+      if (d.quantita > riepilogo.quantita) {
+        throw ArgumentError(
+          'Il dettaglio (${d.quantita}) non può superare il totale (${riepilogo.quantita}) per ${riepilogo.specieNome}',
+        );
+      }
+    }
+
     final db = await _dbHelper.database;
 
     return await db.transaction((txn) async {
@@ -226,32 +285,49 @@ class StatisticheRepository {
       if (riepilogo.id == null) {
         riepilogoId = await txn.insert(
           'RiepilogoSpecie',
-          _riepilogoSpecieToMap(riepilogo),
+          DbMappers.riepilogoSpecieToMap(riepilogo),
         );
       } else {
         riepilogoId = riepilogo.id!;
-        await txn.update(
-          'RiepilogoSpecie',
-          _riepilogoSpecieToMap(riepilogo),
-          where: 'id = ?',
-          whereArgs: [riepilogoId],
-        );
         await txn.delete(
           'DettaglioRiepilogo',
           where: 'riepilogo_specie_id = ?',
+          whereArgs: [riepilogoId],
+        );
+        await txn.update(
+          'RiepilogoSpecie',
+          DbMappers.riepilogoSpecieToMap(riepilogo),
+          where: 'id = ?',
           whereArgs: [riepilogoId],
         );
       }
 
       final dettagliSalvati = <RiepilogoCaratteristica>[];
       for (final d in riepilogo.dettagli) {
+        var carattAllineata = d.caratteristica;
+        if (carattAllineata.id == null) {
+          if (carattAllineata.specieNome != riepilogo.specieNome) {
+            throw ArgumentError(
+              'La nuova caratteristica "${carattAllineata.nome}" appartiene a ${carattAllineata.specieNome}, non a ${riepilogo.specieNome}',
+            );
+          }
+          final carattId = await txn.insert(
+            'Caratteristica',
+            DbMappers.caratteristicaToMap(carattAllineata),
+          );
+          carattAllineata = carattAllineata.copyWith(id: carattId);
+        }
+
         final allineato = d.copyWith(
           riepilogoSpecieId: riepilogoId,
-          specieNome: riepilogo.specieNome,
+          caratteristica: carattAllineata,
         );
         await txn.insert(
           'DettaglioRiepilogo',
-          _riepilogoCaratteristicaToMap(allineato),
+          DbMappers.riepilogoCaratteristicaToMap(
+            allineato,
+            specieNome: riepilogo.specieNome,
+          ),
         );
         dettagliSalvati.add(allineato);
       }
@@ -264,88 +340,4 @@ class StatisticheRepository {
     final db = await _dbHelper.database;
     await db.delete('RiepilogoSpecie', where: 'id = ?', whereArgs: [id]);
   }
-
-  // ===========================================================================
-  // MAPPING PRIVATO
-  // ===========================================================================
-
-  Specie _specieFromMap(Map<String, Object?> map) => Specie(
-        nome: map['nome'] as String,
-        informazioni: map['informazioni'] as String?,
-      );
-
-  Map<String, Object?> _specieToMap(Specie s) => {
-        'nome': s.nome,
-        'informazioni': s.informazioni,
-      };
-
-  Caratteristica _caratteristicaFromMap(Map<String, Object?> map) =>
-      Caratteristica(
-        id: map['id'] as int?,
-        specieNome: map['specie_nome'] as String,
-        nome: map['nome'] as String,
-        descrizione: map['descrizione'] as String?,
-      );
-
-  Map<String, Object?> _caratteristicaToMap(Caratteristica c) => {
-        if (c.id != null) 'id': c.id,
-        'specie_nome': c.specieNome,
-        'nome': c.nome,
-        'descrizione': c.descrizione,
-      };
-
-  Obiettivo _obiettivoFromMap(Map<String, Object?> map) => Obiettivo(
-        id: map['id'] as int?,
-        specieNome: map['specie_nome'] as String,
-        anno: map['anno'] as int,
-        quantita: map['quantita'] as int,
-        caratteristicaId: map['caratteristica_id'] as int?,
-      );
-
-  Map<String, Object?> _obiettivoToMap(Obiettivo o) => {
-        if (o.id != null) 'id': o.id,
-        'specie_nome': o.specieNome,
-        'anno': o.anno,
-        'quantita': o.quantita,
-        'caratteristica_id': o.caratteristicaId,
-      };
-
-  RiepilogoCaratteristica _riepilogoCaratteristicaFromMap(
-    Map<String, Object?> map,
-  ) =>
-      RiepilogoCaratteristica(
-        riepilogoSpecieId: map['riepilogo_specie_id'] as int,
-        caratteristicaId: map['caratteristica_id'] as int,
-        specieNome: map['specie_nome'] as String,
-        quantita: map['quantita'] as int,
-      );
-
-  Map<String, Object?> _riepilogoCaratteristicaToMap(
-    RiepilogoCaratteristica d,
-  ) =>
-      {
-        'riepilogo_specie_id': d.riepilogoSpecieId,
-        'caratteristica_id': d.caratteristicaId,
-        'specie_nome': d.specieNome,
-        'quantita': d.quantita,
-      };
-
-  RiepilogoSpecie _riepilogoSpecieFromMap(
-    Map<String, Object?> map, {
-    List<RiepilogoCaratteristica> dettagli = const [],
-  }) =>
-      RiepilogoSpecie(
-        id: map['id'] as int?,
-        pescataId: map['pescata_id'] as int,
-        specieNome: map['specie_nome'] as String,
-        quantita: map['quantita'] as int,
-        dettagli: dettagli,
-      );
-
-  Map<String, Object?> _riepilogoSpecieToMap(RiepilogoSpecie r) => {
-        if (r.id != null) 'id': r.id,
-        'pescata_id': r.pescataId,
-        'specie_nome': r.specieNome,
-        'quantita': r.quantita,
-      };
 }

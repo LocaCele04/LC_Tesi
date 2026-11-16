@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import '../database/database_helper.dart';
+import '../database/db_mappers.dart';
 import '../models/enums.dart';
 import '../models/territorio/categoria.dart';
 import '../models/territorio/coordinata.dart';
@@ -19,7 +20,7 @@ class TerritorioRepository {
   Future<List<Categoria>> getCategorie() async {
     final db = await _dbHelper.database;
     final righe = await db.query('Categoria', orderBy: 'nome ASC');
-    return righe.map(_categoriaFromMap).toList();
+    return righe.map(DbMappers.categoriaFromMap).toList();
   }
 
   /// Elenco spot con filtri opzionali combinabili (senza caricare le coordinate).
@@ -30,6 +31,7 @@ class TerritorioRepository {
     double? lunghezzaMassima,
     Difficolta? difficolta,
     bool? battuto,
+    Accessibilita? accessibilita,
   }) async {
     final db = await _dbHelper.database;
 
@@ -60,6 +62,10 @@ class TerritorioRepository {
       condizioni.add('battuto = ?');
       argomenti.add(battuto ? 1 : 0);
     }
+    if (accessibilita != null) {
+      condizioni.add('accessibilita = ?');
+      argomenti.add(accessibilita.name);
+    }
 
     final righe = await db.query(
       'Spot',
@@ -67,7 +73,7 @@ class TerritorioRepository {
       whereArgs: argomenti.isEmpty ? null : argomenti,
       orderBy: 'nome ASC',
     );
-    return righe.map((r) => _spotFromMap(r)).toList();
+    return righe.map((r) => DbMappers.spotFromMap(r)).toList();
   }
 
   /// Dettaglio singolo spot completo delle sue coordinate ordinate.
@@ -88,10 +94,30 @@ class TerritorioRepository {
       orderBy: 'ordine ASC',
     );
 
-    return _spotFromMap(
+    return DbMappers.spotFromMap(
       righeSpot.first,
-      coordinate: righeCoord.map(_coordinataFromMap).toList(),
+      coordinate: righeCoord.map(DbMappers.coordinataFromMap).toList(),
     );
+  }
+
+  /// Carica tutte le coordinate di tutti gli spot in una sola query,
+  /// raggruppate per `spotNome` e ordinate per `ordine ASC` (per la mappa).
+  Future< Map<String, List<Coordinata>> > getTutteLeCoordinate() async {
+    final db = await _dbHelper.database;
+    final righe = await db.query(
+      'Coordinata',
+      orderBy: 'spot_nome ASC, ordine ASC',
+    );
+
+    final mappa = <String, List<Coordinata>>{};
+    for (final riga in righe) {
+      final coord = DbMappers.coordinataFromMap(riga);
+      final spotNome = coord.spotNome;
+      if (spotNome != null) {
+        mappa.putIfAbsent(spotNome, () => []).add(coord);
+      }
+    }
+    return mappa;
   }
 
   // ===========================================================================
@@ -100,7 +126,7 @@ class TerritorioRepository {
 
   Future<void> inserisciCategoria(Categoria categoria) async {
     final db = await _dbHelper.database;
-    await db.insert('Categoria', _categoriaToMap(categoria));
+    await db.insert('Categoria', DbMappers.categoriaToMap(categoria));
   }
 
   Future<void> aggiornaCategoria({
@@ -110,7 +136,7 @@ class TerritorioRepository {
     final db = await _dbHelper.database;
     await db.update(
       'Categoria',
-      _categoriaToMap(categoriaAggiornata),
+      DbMappers.categoriaToMap(categoriaAggiornata),
       where: 'nome = ?',
       whereArgs: [nomeOriginale],
     );
@@ -121,26 +147,51 @@ class TerritorioRepository {
     await db.delete('Categoria', where: 'nome = ?', whereArgs: [nome]);
   }
 
+  /// Sposta tutti gli spot (oppure solo `spotNome` se specificato) da una
+  /// categoria a un'altra. Utile prima di eliminare una categoria.
+  Future<int> spostaSpot({
+    required String daCategoria,
+    required String aCategoria,
+    String? spotNome,
+  }) async {
+    final db = await _dbHelper.database;
+    if (spotNome != null) {
+      return await db.update(
+        'Spot',
+        {'categoria_nome': aCategoria},
+        where: 'nome = ? AND categoria_nome = ?',
+        whereArgs: [spotNome, daCategoria],
+      );
+    }
+    return await db.update(
+      'Spot',
+      {'categoria_nome': aCategoria},
+      where: 'categoria_nome = ?',
+      whereArgs: [daCategoria],
+    );
+  }
+
   /// Inserisce (se [nomeOriginale] è null) o aggiorna uno Spot e le sue coordinate.
-  /// Se `lunghezzaMetri` non è stata impostata manualmente e ci sono almeno
-  /// 2 coordinate, la calcola automaticamente in metri.
+  /// Ricalcola automaticamente `lunghezzaMetri` ogni volta che ci sono almeno
+  /// 2 coordinate e allinea `battuto` alla presenza reale di pescate.
   Future<void> salvaSpotConCoordinate(
     Spot spot, {
     String? nomeOriginale,
   }) async {
     final db = await _dbHelper.database;
 
-    final lunghezzaEffettiva =
-        spot.lunghezzaMetri ?? calcolaLunghezzaMetri(spot.coordinate);
+    final lunghezzaEffettiva = spot.coordinate.length >= 2
+        ? calcolaLunghezzaMetri(spot.coordinate)
+        : spot.lunghezzaMetri;
     final spotDaSalvare = spot.copyWith(lunghezzaMetri: lunghezzaEffettiva);
 
     await db.transaction((txn) async {
       if (nomeOriginale == null) {
-        await txn.insert('Spot', _spotToMap(spotDaSalvare));
+        await txn.insert('Spot', DbMappers.spotToMap(spotDaSalvare));
       } else {
         await txn.update(
           'Spot',
-          _spotToMap(spotDaSalvare),
+          DbMappers.spotToMap(spotDaSalvare),
           where: 'nome = ?',
           whereArgs: [nomeOriginale],
         );
@@ -156,8 +207,17 @@ class TerritorioRepository {
           spotNome: spotDaSalvare.nome,
           ordine: i,
         );
-        await txn.insert('Coordinata', _coordinataToMap(coord));
+        await txn.insert('Coordinata', DbMappers.coordinataToMap(coord));
       }
+
+      await txn.rawUpdate('''
+        UPDATE Spot
+        SET battuto = CASE
+          WHEN EXISTS (SELECT 1 FROM Pescata WHERE spot_nome = ?) THEN 1
+          ELSE 0
+        END
+        WHERE nome = ?
+      ''', [spotDaSalvare.nome, spotDaSalvare.nome]);
     });
   }
 
@@ -199,69 +259,4 @@ class TerritorioRepository {
   }
 
   static double _gradiInRadianti(double gradi) => gradi * pi / 180.0;
-
-  // ===========================================================================
-  // MAPPING PRIVATO
-  // ===========================================================================
-
-  Categoria _categoriaFromMap(Map<String, Object?> map) => Categoria(
-        nome: map['nome'] as String,
-        note: map['note'] as String?,
-      );
-
-  Map<String, Object?> _categoriaToMap(Categoria c) => {
-        'nome': c.nome,
-        'note': c.note,
-      };
-
-  Coordinata _coordinataFromMap(Map<String, Object?> map) => Coordinata(
-        spotNome: map['spot_nome'] as String,
-        ordine: map['ordine'] as int,
-        latitudine: (map['latitudine'] as num).toDouble(),
-        longitudine: (map['longitudine'] as num).toDouble(),
-      );
-
-  Map<String, Object?> _coordinataToMap(Coordinata c) => {
-        'spot_nome': c.spotNome,
-        'ordine': c.ordine,
-        'latitudine': c.latitudine,
-        'longitudine': c.longitudine,
-      };
-
-  Spot _spotFromMap(
-    Map<String, Object?> map, {
-    List<Coordinata> coordinate = const [],
-  }) {
-    final difficoltaRaw = map['difficolta'] as String?;
-    return Spot(
-      nome: map['nome'] as String,
-      ambiente: map['ambiente'] as String,
-      lunghezzaMetri: (map['lunghezzaMetri'] as num?)?.toDouble(),
-      voto: map['voto'] as int?,
-      difficolta: difficoltaRaw != null
-          ? Difficolta.values.byName(difficoltaRaw)
-          : null,
-      esposizioneSole: map['esposizioneSole'] as String?,
-      noteOstacoli: map['noteOstacoli'] as String?,
-      note: map['note'] as String?,
-      battuto: (map['battuto'] as int) == 1,
-      linkParcheggio: map['linkParcheggio'] as String?,
-      categoriaNome: map['categoria_nome'] as String?,
-      coordinate: coordinate,
-    );
-  }
-
-  Map<String, Object?> _spotToMap(Spot s) => {
-        'nome': s.nome,
-        'ambiente': s.ambiente,
-        'lunghezzaMetri': s.lunghezzaMetri,
-        'voto': s.voto,
-        'difficolta': s.difficolta?.name,
-        'esposizioneSole': s.esposizioneSole,
-        'noteOstacoli': s.noteOstacoli,
-        'note': s.note,
-        'battuto': s.battuto ? 1 : 0,
-        'linkParcheggio': s.linkParcheggio,
-        'categoria_nome': s.categoriaNome,
-      };
 }

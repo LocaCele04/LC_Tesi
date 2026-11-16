@@ -43,4 +43,4 @@ class RiepilogoSpecie {
 
   @override
   int get hashCode => Object.hash(id, pescataId, specieNome, quantita);
-}
+} 

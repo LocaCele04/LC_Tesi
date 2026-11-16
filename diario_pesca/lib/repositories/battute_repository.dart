@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:sqflite/sqflite.dart';
 
 import '../database/database_helper.dart';
+import '../database/db_mappers.dart';
 import '../models/battute/cattura_memorabile.dart';
 import '../models/battute/esca.dart';
 import '../models/battute/foto.dart';
@@ -32,7 +35,7 @@ class BattuteRepository {
       whereArgs: hasFiltro ? ['%${filtroNome.trim()}%'] : null,
       orderBy: 'nome ASC',
     );
-    return righe.map(_escaFromMap).toList();
+    return righe.map(DbMappers.escaFromMap).toList();
   }
 
   /// Elenco uscite pianificate con filtri opzionali (es. prossime uscite con `daData`).
@@ -57,11 +60,11 @@ class BattuteRepository {
     }
     if (daData != null) {
       condizioni.add('data >= ?');
-      argomenti.add(_formatData(daData));
+      argomenti.add(DbMappers.formatData(daData));
     }
     if (aData != null) {
       condizioni.add('data <= ?');
-      argomenti.add(_formatData(aData));
+      argomenti.add(DbMappers.formatData(aData));
     }
 
     final righe = await db.query(
@@ -70,7 +73,7 @@ class BattuteRepository {
       whereArgs: argomenti.isEmpty ? null : argomenti,
       orderBy: 'data ASC, id ASC',
     );
-    return righe.map(_pianificazioneFromMap).toList();
+    return righe.map(DbMappers.pianificazioneFromMap).toList();
   }
 
   /// Elenco pescate con filtri ambientali e temporali combinabili (senza figli).
@@ -112,11 +115,11 @@ class BattuteRepository {
     }
     if (daData != null) {
       condizioni.add('data >= ?');
-      argomenti.add(_formatData(daData));
+      argomenti.add(DbMappers.formatData(daData));
     }
     if (aData != null) {
       condizioni.add('data <= ?');
-      argomenti.add(_formatData(aData));
+      argomenti.add(DbMappers.formatData(aData));
     }
 
     final righe = await db.query(
@@ -126,11 +129,11 @@ class BattuteRepository {
       orderBy: 'data DESC, id DESC',
       limit: limit,
     );
-    return righe.map((r) => _pescataFromMap(r)).toList();
+    return righe.map((r) => DbMappers.pescataFromMap(r)).toList();
   }
 
   /// Elenco catture memorabili filtrabili per pescata, specie o esca, complete
-  /// di caratteristiche e foto.
+  /// di esca, caratteristiche e foto.
   Future<List<CatturaMemorabile>> getCattureMemorabili({
     int? pescataId,
     String? specieNome,
@@ -165,7 +168,7 @@ class BattuteRepository {
       WHERE pe.pescata_id = ?
       ORDER BY e.nome ASC
     ''', [id]);
-    final esche = righeEsche.map(_escaFromMap).toList();
+    final esche = righeEsche.map(DbMappers.escaFromMap).toList();
 
     // 2. Foto della pescata
     final righeFoto = await db.query(
@@ -174,38 +177,18 @@ class BattuteRepository {
       whereArgs: [id],
       orderBy: 'id ASC',
     );
-    final foto = righeFoto.map(_fotoFromMap).toList();
+    final foto = righeFoto.map(DbMappers.fotoFromMap).toList();
 
-    // 3. Catture memorabili (riusa l'helper condiviso)
+    // 3. Catture memorabili
     final catture = await _queryCattureConDettagli(db, pescataId: id);
 
-    // 4. Riepiloghi specie con dettagli per caratteristica
-    final righeRiepiloghi = await db.query(
-      'RiepilogoSpecie',
-      where: 'pescata_id = ?',
-      whereArgs: [id],
-      orderBy: 'specie_nome ASC',
+    // 4. Riepiloghi specie con dettagli per caratteristica (query condivisa)
+    final riepiloghi = await DbMappers.queryRiepiloghiConDettagli(
+      db,
+      pescataId: id,
     );
-    final riepiloghi = <RiepilogoSpecie>[];
-    for (final rr in righeRiepiloghi) {
-      final riepilogoId = rr['id'] as int;
-      final righeDettagli = await db.query(
-        'DettaglioRiepilogo',
-        where: 'riepilogo_specie_id = ?',
-        whereArgs: [riepilogoId],
-      );
-      riepiloghi.add(
-        RiepilogoSpecie(
-          id: riepilogoId,
-          pescataId: rr['pescata_id'] as int,
-          specieNome: rr['specie_nome'] as String,
-          quantita: rr['quantita'] as int,
-          dettagli: righeDettagli.map(_dettaglioFromMap).toList(),
-        ),
-      );
-    }
 
-    return _pescataFromMap(
+    return DbMappers.pescataFromMap(
       righePescata.first,
       esche: esche,
       foto: foto,
@@ -221,12 +204,12 @@ class BattuteRepository {
   Future<Esca> salvaEsca(Esca esca) async {
     final db = await _dbHelper.database;
     if (esca.id == null) {
-      final id = await db.insert('Esca', _escaToMap(esca));
+      final id = await db.insert('Esca', DbMappers.escaToMap(esca));
       return esca.copyWith(id: id);
     }
     await db.update(
       'Esca',
-      _escaToMap(esca),
+      DbMappers.escaToMap(esca),
       where: 'id = ?',
       whereArgs: [esca.id],
     );
@@ -241,12 +224,13 @@ class BattuteRepository {
   Future<Pianificazione> salvaPianificazione(Pianificazione p) async {
     final db = await _dbHelper.database;
     if (p.id == null) {
-      final id = await db.insert('Pianificazione', _pianificazioneToMap(p));
+      final id =
+          await db.insert('Pianificazione', DbMappers.pianificazioneToMap(p));
       return p.copyWith(id: id);
     }
     await db.update(
       'Pianificazione',
-      _pianificazioneToMap(p),
+      DbMappers.pianificazioneToMap(p),
       where: 'id = ?',
       whereArgs: [p.id],
     );
@@ -258,23 +242,49 @@ class BattuteRepository {
     await db.delete('Pianificazione', where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Inserisce o aggiorna una Pescata insieme alle esche usate e alle sue foto.
+  /// Inserisce o aggiorna atomicamente una Pescata insieme a esche, foto,
+  /// riepiloghi specie con dettagli e catture memorabili, aggiornando
+  /// anche lo stato `battuto` dello spot.
   Future<Pescata> salvaPescata(Pescata pescata) async {
-    final db = await _dbHelper.database;
+    for (final r in pescata.riepiloghiSpecie) {
+      _validaRiepilogoSpecie(r);
+    }
 
-    return await db.transaction((txn) async {
+    final db = await _dbHelper.database;
+    final percorsiFotoDaRimuovere = <String>{};
+
+    final risultato = await db.transaction((txn) async {
       late final int pescataId;
+      String? vecchioSpotNome;
 
       if (pescata.id == null) {
-        pescataId = await txn.insert('Pescata', _pescataToMap(pescata));
+        pescataId = await txn.insert('Pescata', DbMappers.pescataToMap(pescata));
       } else {
         pescataId = pescata.id!;
-        await txn.update(
+
+        final prevPescata = await txn.query(
           'Pescata',
-          _pescataToMap(pescata),
+          columns: ['spot_nome'],
           where: 'id = ?',
           whereArgs: [pescataId],
+          limit: 1,
         );
+        if (prevPescata.isNotEmpty) {
+          vecchioSpotNome = prevPescata.first['spot_nome'] as String?;
+        }
+
+        final vecchieFoto = await txn.rawQuery('''
+          SELECT percorso, percorsoThumbnail FROM Foto
+          WHERE pescata_id = ?
+             OR cattura_memorabile_id IN (
+               SELECT id FROM CatturaMemorabile WHERE pescata_id = ?
+             )
+        ''', [pescataId, pescataId]);
+        for (final f in vecchieFoto) {
+          percorsiFotoDaRimuovere.add(f['percorso'] as String);
+          percorsiFotoDaRimuovere.add(f['percorsoThumbnail'] as String);
+        }
+
         await txn.delete(
           'Pescata_Esca',
           where: 'pescata_id = ?',
@@ -285,17 +295,37 @@ class BattuteRepository {
           where: 'pescata_id = ?',
           whereArgs: [pescataId],
         );
+        await txn.delete(
+          'RiepilogoSpecie',
+          where: 'pescata_id = ?',
+          whereArgs: [pescataId],
+        );
+        await txn.delete(
+          'CatturaMemorabile',
+          where: 'pescata_id = ?',
+          whereArgs: [pescataId],
+        );
+
+        await txn.update(
+          'Pescata',
+          DbMappers.pescataToMap(pescata),
+          where: 'id = ?',
+          whereArgs: [pescataId],
+        );
       }
 
+      // 1. Esche (salva al volo se id == null)
+      final escheSalvate = <Esca>[];
       for (final esca in pescata.esche) {
-        if (esca.id != null) {
-          await txn.insert('Pescata_Esca', {
-            'pescata_id': pescataId,
-            'esca_id': esca.id,
-          });
-        }
+        final escaAllineata = await _assicuraEscaSalvata(txn, esca);
+        await txn.insert('Pescata_Esca', {
+          'pescata_id': pescataId,
+          'esca_id': escaAllineata.id!,
+        });
+        escheSalvate.add(escaAllineata);
       }
 
+      // 2. Foto della pescata
       final fotoSalvate = <Foto>[];
       for (final f in pescata.foto) {
         final fotoAllineata = Foto(
@@ -304,87 +334,341 @@ class BattuteRepository {
           pescataId: pescataId,
           catturaMemorabileId: null,
         );
-        final fotoId = await txn.insert('Foto', _fotoToMap(fotoAllineata));
+        final fotoId = await txn.insert('Foto', DbMappers.fotoToMap(fotoAllineata));
         fotoSalvate.add(fotoAllineata.copyWith(id: fotoId));
+        percorsiFotoDaRimuovere.remove(f.percorso);
+        percorsiFotoDaRimuovere.remove(f.percorsoThumbnail);
       }
 
-      return pescata.copyWith(id: pescataId, foto: fotoSalvate);
+      // 3. Riepiloghi specie con dettagli per caratteristica
+      final riepiloghiSalvati = <RiepilogoSpecie>[];
+      for (final r in pescata.riepiloghiSpecie) {
+        final riepilogoAllineato = r.copyWith(pescataId: pescataId);
+        final riepilogoId = await txn.insert(
+          'RiepilogoSpecie',
+          DbMappers.riepilogoSpecieToMap(riepilogoAllineato),
+        );
+
+        final dettagliSalvati = <RiepilogoCaratteristica>[];
+        for (final d in r.dettagli) {
+          final carattAllineata = await _assicuraCaratteristicaSalvata(
+            txn,
+            d.caratteristica,
+            specieAttesa: r.specieNome,
+          );
+          final dettaglioAllineato = d.copyWith(
+            riepilogoSpecieId: riepilogoId,
+            caratteristica: carattAllineata,
+          );
+          await txn.insert(
+            'DettaglioRiepilogo',
+            DbMappers.riepilogoCaratteristicaToMap(
+              dettaglioAllineato,
+              specieNome: r.specieNome,
+            ),
+          );
+          dettagliSalvati.add(dettaglioAllineato);
+        }
+
+        riepiloghiSalvati.add(
+          riepilogoAllineato.copyWith(id: riepilogoId, dettagli: dettagliSalvati),
+        );
+      }
+
+      // 4. Catture memorabili con caratteristiche e foto
+      final cattureSalvate = <CatturaMemorabile>[];
+      for (final c in pescata.cattureMemorabili) {
+        final salvata = await _inserisciCatturaInTransazione(
+          txn,
+          c.copyWith(pescataId: pescataId),
+          percorsiFotoDaRimuovere,
+        );
+        cattureSalvate.add(salvata);
+      }
+
+      // 5. Sincronizza stato battuto dello spot (vecchio e nuovo)
+      if (vecchioSpotNome != null && vecchioSpotNome != pescata.spotNome) {
+        await _aggiornaStatoBattutoSpot(txn, vecchioSpotNome);
+      }
+      await _aggiornaStatoBattutoSpot(txn, pescata.spotNome);
+
+      return pescata.copyWith(
+        id: pescataId,
+        esche: escheSalvate,
+        foto: fotoSalvate,
+        riepiloghiSpecie: riepiloghiSalvati,
+        cattureMemorabili: cattureSalvate,
+      );
     });
+
+    await _eliminaFileSuDisco(percorsiFotoDaRimuovere);
+    return risultato;
   }
 
   Future<void> eliminaPescata(int id) async {
     final db = await _dbHelper.database;
-    await db.delete('Pescata', where: 'id = ?', whereArgs: [id]);
+    final percorsiFotoDaRimuovere = <String>[];
+
+    await db.transaction((txn) async {
+      final rows = await txn.query(
+        'Pescata',
+        columns: ['spot_nome'],
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+      if (rows.isEmpty) return;
+
+      final spotNome = rows.first['spot_nome'] as String?;
+
+      final fotoRows = await txn.rawQuery('''
+        SELECT percorso, percorsoThumbnail FROM Foto
+        WHERE pescata_id = ?
+           OR cattura_memorabile_id IN (
+             SELECT id FROM CatturaMemorabile WHERE pescata_id = ?
+           )
+      ''', [id, id]);
+      for (final f in fotoRows) {
+        percorsiFotoDaRimuovere.add(f['percorso'] as String);
+        percorsiFotoDaRimuovere.add(f['percorsoThumbnail'] as String);
+      }
+
+      await txn.delete('Pescata', where: 'id = ?', whereArgs: [id]);
+      await _aggiornaStatoBattutoSpot(txn, spotNome);
+    });
+
+    await _eliminaFileSuDisco(percorsiFotoDaRimuovere);
   }
 
   /// Inserisce o aggiorna una CatturaMemorabile con caratteristiche e foto.
   Future<CatturaMemorabile> salvaCatturaMemorabile(
     CatturaMemorabile cattura,
   ) async {
+    if (cattura.pescataId == null) {
+      throw ArgumentError(
+        'pescataId è obbligatorio per salvare una CatturaMemorabile singolarmente',
+      );
+    }
+
     final db = await _dbHelper.database;
+    final percorsiFotoDaRimuovere = <String>{};
 
-    return await db.transaction((txn) async {
-      late final int catturaId;
-
+    final risultato = await db.transaction((txn) async {
       if (cattura.id == null) {
-        catturaId = await txn.insert(
-          'CatturaMemorabile',
-          _catturaToMap(cattura),
-        );
-      } else {
-        catturaId = cattura.id!;
-        await txn.update(
-          'CatturaMemorabile',
-          _catturaToMap(cattura),
-          where: 'id = ?',
-          whereArgs: [catturaId],
-        );
-        await txn.delete(
-          'Cattura_Caratteristica',
-          where: 'cattura_memorabile_id = ?',
-          whereArgs: [catturaId],
-        );
-        await txn.delete(
-          'Foto',
-          where: 'cattura_memorabile_id = ?',
-          whereArgs: [catturaId],
+        return await _inserisciCatturaInTransazione(
+          txn,
+          cattura,
+          percorsiFotoDaRimuovere,
         );
       }
 
-      for (final caratt in cattura.caratteristiche) {
-        if (caratt.id != null) {
-          await txn.insert('Cattura_Caratteristica', {
-            'cattura_memorabile_id': catturaId,
-            'caratteristica_id': caratt.id,
-            'specie_nome': cattura.specieNome,
-          });
-        }
+      final catturaId = cattura.id!;
+
+      final vecchieFoto = await txn.query(
+        'Foto',
+        columns: ['percorso', 'percorsoThumbnail'],
+        where: 'cattura_memorabile_id = ?',
+        whereArgs: [catturaId],
+      );
+      for (final f in vecchieFoto) {
+        percorsiFotoDaRimuovere.add(f['percorso'] as String);
+        percorsiFotoDaRimuovere.add(f['percorsoThumbnail'] as String);
       }
 
-      final fotoSalvate = <Foto>[];
-      for (final f in cattura.foto) {
-        final fotoAllineata = Foto(
-          percorso: f.percorso,
-          percorsoThumbnail: f.percorsoThumbnail,
-          pescataId: null,
-          catturaMemorabileId: catturaId,
-        );
-        final fotoId = await txn.insert('Foto', _fotoToMap(fotoAllineata));
-        fotoSalvate.add(fotoAllineata.copyWith(id: fotoId));
-      }
+      // PRIMA elimina i figli, POI aggiorna il padre (evita errori FK composta al cambio specie)
+      await txn.delete(
+        'Cattura_Caratteristica',
+        where: 'cattura_memorabile_id = ?',
+        whereArgs: [catturaId],
+      );
+      await txn.delete(
+        'Foto',
+        where: 'cattura_memorabile_id = ?',
+        whereArgs: [catturaId],
+      );
 
-      return cattura.copyWith(id: catturaId, foto: fotoSalvate);
+      final escaRisolta = cattura.esca != null
+          ? await _assicuraEscaSalvata(txn, cattura.esca!)
+          : null;
+      final catturaAllineata = cattura.copyWith(esca: escaRisolta);
+
+      await txn.update(
+        'CatturaMemorabile',
+        DbMappers.catturaToMap(catturaAllineata),
+        where: 'id = ?',
+        whereArgs: [catturaId],
+      );
+
+      return await _salvaFigliCattura(
+        txn,
+        catturaAllineata,
+        percorsiFotoDaRimuovere,
+      );
     });
+
+    await _eliminaFileSuDisco(percorsiFotoDaRimuovere);
+    return risultato;
   }
 
   Future<void> eliminaCatturaMemorabile(int id) async {
     final db = await _dbHelper.database;
-    await db.delete('CatturaMemorabile', where: 'id = ?', whereArgs: [id]);
+    final percorsiFotoDaRimuovere = <String>[];
+
+    await db.transaction((txn) async {
+      final fotoRows = await txn.query(
+        'Foto',
+        columns: ['percorso', 'percorsoThumbnail'],
+        where: 'cattura_memorabile_id = ?',
+        whereArgs: [id],
+      );
+      for (final f in fotoRows) {
+        percorsiFotoDaRimuovere.add(f['percorso'] as String);
+        percorsiFotoDaRimuovere.add(f['percorsoThumbnail'] as String);
+      }
+
+      await txn.delete('CatturaMemorabile', where: 'id = ?', whereArgs: [id]);
+    });
+
+    await _eliminaFileSuDisco(percorsiFotoDaRimuovere);
   }
 
   // ===========================================================================
-  // HELPER PRIVATI E MAPPING
+  // HELPER PRIVATI
   // ===========================================================================
+
+  void _validaRiepilogoSpecie(RiepilogoSpecie r) {
+    if (r.quantita < 0) {
+      throw ArgumentError(
+        'La quantità totale per ${r.specieNome} non può essere negativa',
+      );
+    }
+    for (final d in r.dettagli) {
+      if (d.quantita < 0) {
+        throw ArgumentError('La quantità del dettaglio non può essere negativa');
+      }
+      if (d.quantita > r.quantita) {
+        throw ArgumentError(
+          'Il dettaglio (${d.quantita}) non può superare il totale (${r.quantita}) per ${r.specieNome}',
+        );
+      }
+    }
+  }
+
+  Future<Esca> _assicuraEscaSalvata(Transaction txn, Esca esca) async {
+    if (esca.id != null) return esca;
+    final id = await txn.insert('Esca', DbMappers.escaToMap(esca));
+    return esca.copyWith(id: id);
+  }
+
+  Future<Caratteristica> _assicuraCaratteristicaSalvata(
+    Transaction txn,
+    Caratteristica c, {
+    required String specieAttesa,
+  }) async {
+    if (c.id != null) return c;
+    if (c.specieNome != specieAttesa) {
+      throw ArgumentError(
+        'La nuova caratteristica "${c.nome}" appartiene a ${c.specieNome}, non a $specieAttesa',
+      );
+    }
+    final id = await txn.insert(
+      'Caratteristica',
+      DbMappers.caratteristicaToMap(c),
+    );
+    return c.copyWith(id: id);
+  }
+
+  Future<CatturaMemorabile> _inserisciCatturaInTransazione(
+    Transaction txn,
+    CatturaMemorabile cattura,
+    Set<String> percorsiFotoDaRimuovere,
+  ) async {
+    final escaRisolta = cattura.esca != null
+        ? await _assicuraEscaSalvata(txn, cattura.esca!)
+        : null;
+
+    final catturaDaInserire = cattura.copyWith(esca: escaRisolta);
+    final catturaId = await txn.insert(
+      'CatturaMemorabile',
+      DbMappers.catturaToMap(catturaDaInserire),
+    );
+
+    return await _salvaFigliCattura(
+      txn,
+      catturaDaInserire.copyWith(id: catturaId),
+      percorsiFotoDaRimuovere,
+    );
+  }
+
+  Future<CatturaMemorabile> _salvaFigliCattura(
+    Transaction txn,
+    CatturaMemorabile cattura,
+    Set<String> percorsiFotoDaRimuovere,
+  ) async {
+    final catturaId = cattura.id!;
+    final carattSalvate = <Caratteristica>[];
+
+    for (final caratt in cattura.caratteristiche) {
+      final carattAllineata = await _assicuraCaratteristicaSalvata(
+        txn,
+        caratt,
+        specieAttesa: cattura.specieNome,
+      );
+      await txn.insert('Cattura_Caratteristica', {
+        'cattura_memorabile_id': catturaId,
+        'caratteristica_id': carattAllineata.id!,
+        'specie_nome': cattura.specieNome,
+      });
+      carattSalvate.add(carattAllineata);
+    }
+
+    final fotoSalvate = <Foto>[];
+    for (final f in cattura.foto) {
+      final fotoAllineata = Foto(
+        percorso: f.percorso,
+        percorsoThumbnail: f.percorsoThumbnail,
+        pescataId: null,
+        catturaMemorabileId: catturaId,
+      );
+      final fotoId = await txn.insert('Foto', DbMappers.fotoToMap(fotoAllineata));
+      fotoSalvate.add(fotoAllineata.copyWith(id: fotoId));
+      percorsiFotoDaRimuovere.remove(f.percorso);
+      percorsiFotoDaRimuovere.remove(f.percorsoThumbnail);
+    }
+
+    return cattura.copyWith(
+      caratteristiche: carattSalvate,
+      foto: fotoSalvate,
+    );
+  }
+
+  Future<void> _aggiornaStatoBattutoSpot(
+    DatabaseExecutor db,
+    String? spotNome,
+  ) async {
+    if (spotNome == null) return;
+    await db.rawUpdate('''
+      UPDATE Spot
+      SET battuto = CASE
+        WHEN EXISTS (SELECT 1 FROM Pescata WHERE spot_nome = ?) THEN 1
+        ELSE 0
+      END
+      WHERE nome = ?
+    ''', [spotNome, spotNome]);
+  }
+
+  Future<void> _eliminaFileSuDisco(Iterable<String> percorsi) async {
+    for (final path in percorsi) {
+      try {
+        final file = File(path);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      } on FileSystemException {
+        // Ignora file già assenti o percorsi virtuali nei test
+      }
+    }
+  }
 
   Future<List<CatturaMemorabile>> _queryCattureConDettagli(
     DatabaseExecutor db, {
@@ -397,29 +681,44 @@ class BattuteRepository {
     final argomenti = <Object?>[];
 
     if (pescataId != null) {
-      condizioni.add('pescata_id = ?');
+      condizioni.add('cm.pescata_id = ?');
       argomenti.add(pescataId);
     }
     if (specieNome != null) {
-      condizioni.add('specie_nome = ?');
+      condizioni.add('cm.specie_nome = ?');
       argomenti.add(specieNome);
     }
     if (escaId != null) {
-      condizioni.add('esca_id = ?');
+      condizioni.add('cm.esca_id = ?');
       argomenti.add(escaId);
     }
 
-    final righeCatture = await db.query(
-      'CatturaMemorabile',
-      where: condizioni.isEmpty ? null : condizioni.join(' AND '),
-      whereArgs: argomenti.isEmpty ? null : argomenti,
-      orderBy: 'id DESC',
-      limit: limit,
-    );
+    final whereSql =
+        condizioni.isEmpty ? '' : 'WHERE ${condizioni.join(' AND ')}';
+    final limitSql = limit != null ? 'LIMIT ?' : '';
+    if (limit != null) argomenti.add(limit);
+
+    final righeCatture = await db.rawQuery('''
+      SELECT cm.*,
+             e.id AS e_id, e.nome AS e_nome, e.descrizione AS e_descrizione
+      FROM CatturaMemorabile cm
+      LEFT JOIN Esca e ON e.id = cm.esca_id
+      $whereSql
+      ORDER BY cm.id DESC
+      $limitSql
+    ''', argomenti);
 
     final catture = <CatturaMemorabile>[];
     for (final rc in righeCatture) {
       final catturaId = rc['id'] as int;
+
+      final esca = rc['e_id'] != null
+          ? Esca(
+              id: rc['e_id'] as int,
+              nome: rc['e_nome'] as String,
+              descrizione: rc['e_descrizione'] as String?,
+            )
+          : null;
 
       final righeCaratt = await db.rawQuery('''
         SELECT c.* FROM Caratteristica c
@@ -436,152 +735,15 @@ class BattuteRepository {
       );
 
       catture.add(
-        _catturaFromMap(
+        DbMappers.catturaFromMap(
           rc,
-          caratteristiche: righeCaratt.map(_caratteristicaFromMap).toList(),
-          foto: righeFoto.map(_fotoFromMap).toList(),
+          esca: esca,
+          caratteristiche:
+              righeCaratt.map(DbMappers.caratteristicaFromMap).toList(),
+          foto: righeFoto.map(DbMappers.fotoFromMap).toList(),
         ),
       );
     }
     return catture;
   }
-
-  String _formatData(DateTime d) {
-    final y = d.year.toString().padLeft(4, '0');
-    final m = d.month.toString().padLeft(2, '0');
-    final g = d.day.toString().padLeft(2, '0');
-    return '$y-$m-$g';
-  }
-
-  Esca _escaFromMap(Map<String, Object?> map) => Esca(
-        id: map['id'] as int?,
-        nome: map['nome'] as String,
-        descrizione: map['descrizione'] as String?,
-      );
-
-  Map<String, Object?> _escaToMap(Esca e) => {
-        if (e.id != null) 'id': e.id,
-        'nome': e.nome,
-        'descrizione': e.descrizione,
-      };
-
-  Foto _fotoFromMap(Map<String, Object?> map) => Foto(
-        id: map['id'] as int?,
-        percorso: map['percorso'] as String,
-        percorsoThumbnail: map['percorsoThumbnail'] as String,
-        pescataId: map['pescata_id'] as int?,
-        catturaMemorabileId: map['cattura_memorabile_id'] as int?,
-      );
-
-  Map<String, Object?> _fotoToMap(Foto f) => {
-        if (f.id != null) 'id': f.id,
-        'percorso': f.percorso,
-        'percorsoThumbnail': f.percorsoThumbnail,
-        'pescata_id': f.pescataId,
-        'cattura_memorabile_id': f.catturaMemorabileId,
-      };
-
-  Pianificazione _pianificazioneFromMap(Map<String, Object?> map) =>
-      Pianificazione(
-        id: map['id'] as int?,
-        data: DateTime.parse(map['data'] as String),
-        fasciaOraria:
-            FasciaOraria.values.byName(map['fasciaOraria'] as String),
-        note: map['note'] as String?,
-        spotNome: map['spot_nome'] as String?,
-      );
-
-  Map<String, Object?> _pianificazioneToMap(Pianificazione p) => {
-        if (p.id != null) 'id': p.id,
-        'data': _formatData(p.data),
-        'fasciaOraria': p.fasciaOraria.name,
-        'note': p.note,
-        'spot_nome': p.spotNome,
-      };
-
-  Caratteristica _caratteristicaFromMap(Map<String, Object?> map) =>
-      Caratteristica(
-        id: map['id'] as int?,
-        specieNome: map['specie_nome'] as String,
-        nome: map['nome'] as String,
-        descrizione: map['descrizione'] as String?,
-      );
-
-  RiepilogoCaratteristica _dettaglioFromMap(Map<String, Object?> map) =>
-      RiepilogoCaratteristica(
-        riepilogoSpecieId: map['riepilogo_specie_id'] as int,
-        caratteristicaId: map['caratteristica_id'] as int,
-        specieNome: map['specie_nome'] as String,
-        quantita: map['quantita'] as int,
-      );
-
-  CatturaMemorabile _catturaFromMap(
-    Map<String, Object?> map, {
-    List<Caratteristica> caratteristiche = const [],
-    List<Foto> foto = const [],
-  }) =>
-      CatturaMemorabile(
-        id: map['id'] as int?,
-        descrizione: map['descrizione'] as String?,
-        pescataId: map['pescata_id'] as int,
-        specieNome: map['specie_nome'] as String,
-        escaId: map['esca_id'] as int?,
-        caratteristiche: caratteristiche,
-        foto: foto,
-      );
-
-  Map<String, Object?> _catturaToMap(CatturaMemorabile c) => {
-        if (c.id != null) 'id': c.id,
-        'descrizione': c.descrizione,
-        'pescata_id': c.pescataId,
-        'specie_nome': c.specieNome,
-        'esca_id': c.escaId,
-      };
-
-  Pescata _pescataFromMap(
-    Map<String, Object?> map, {
-    List<Esca> esche = const [],
-    List<Foto> foto = const [],
-    List<CatturaMemorabile> cattureMemorabili = const [],
-    List<RiepilogoSpecie> riepiloghiSpecie = const [],
-  }) {
-    final trasparenzaRaw = map['trasparenza'] as String?;
-    final fondoRaw = map['fondo'] as String?;
-    final livelloRaw = map['livello'] as String?;
-
-    return Pescata(
-      id: map['id'] as int?,
-      data: DateTime.parse(map['data'] as String),
-      fasciaOraria:
-          FasciaOraria.values.byName(map['fasciaOraria'] as String),
-      meteo: Meteo.values.byName(map['meteo'] as String),
-      trasparenza: trasparenzaRaw != null
-          ? Trasparenza.values.byName(trasparenzaRaw)
-          : null,
-      fondo: fondoRaw != null ? Fondo.values.byName(fondoRaw) : null,
-      livello: livelloRaw != null ? Livello.values.byName(livelloRaw) : null,
-      tempAcqua: (map['temp_acqua'] as num?)?.toDouble(),
-      tempAria: (map['temp_aria'] as num?)?.toDouble(),
-      note: map['note'] as String?,
-      spotNome: map['spot_nome'] as String?,
-      esche: esche,
-      foto: foto,
-      cattureMemorabili: cattureMemorabili,
-      riepiloghiSpecie: riepiloghiSpecie,
-    );
-  }
-
-  Map<String, Object?> _pescataToMap(Pescata p) => {
-        if (p.id != null) 'id': p.id,
-        'data': _formatData(p.data),
-        'fasciaOraria': p.fasciaOraria.name,
-        'meteo': p.meteo.name,
-        'trasparenza': p.trasparenza?.name,
-        'fondo': p.fondo?.name,
-        'livello': p.livello?.name,
-        'temp_acqua': p.tempAcqua,
-        'temp_aria': p.tempAria,
-        'note': p.note,
-        'spot_nome': p.spotNome,
-      };
 }
