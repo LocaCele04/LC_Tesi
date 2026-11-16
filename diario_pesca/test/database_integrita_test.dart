@@ -1,8 +1,6 @@
+import 'package:diario_pesca/database/database_helper.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
-import '../lib/database/database_helper.dart';
 
 void main() {
   setUpAll(() {
@@ -10,21 +8,16 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
+  late DatabaseHelper dbHelper;
   late Database db;
 
   setUp(() async {
-    // Crea un database in memoria isolato e pulito prima di ogni singolo test
-    db = await openDatabase(
-      inMemoryDatabasePath,
-      version: 1,
-      onConfigure: DatabaseHelper.onConfigure,
-      onCreate: DatabaseHelper.onCreate,
-      singleInstance: false,
-    );
+    dbHelper = DatabaseHelper.inMemory();
+    db = await dbHelper.database;
   });
 
   tearDown(() async {
-    await db.close();
+    await dbHelper.close();
   });
 
   /// Helper che popola un set completo e valido di dati su tutte le 15 tabelle.
@@ -57,13 +50,15 @@ void main() {
       'noteOstacoli': 'Massi affioranti',
       'note': 'Ottimo dopo pioggia',
       'battuto': 1,
+      'accessibilita': 'accessibile',
       'linkParcheggio': 'https://maps.example.com/parcheggio',
       'categoria_nome': 'Torrente',
     });
     await db.insert('Spot', {
       'nome': 'Scogliera Est',
       'ambiente': 'Mare',
-      'categoria_nome': null,
+      'accessibilita': 'inaccessibile',
+      'categoria_nome': 'Foce',
     });
 
     await db.insert('Coordinata', {
@@ -256,9 +251,9 @@ void main() {
   });
 
   // ===========================================================================
-  // SEZIONE 3: VINCOLI CHECK E UNIQUE
+  // SEZIONE 3: VINCOLI CHECK, NOT NULL E UNIQUE
   // ===========================================================================
-  group('3. Vincoli CHECK e UNIQUE', () {
+  group('3. Vincoli CHECK, NOT NULL e UNIQUE', () {
     test('Categoria: nome con soli spazi rifiutato', () async {
       expect(
         () => db.insert('Categoria', {'nome': '   '}),
@@ -266,21 +261,56 @@ void main() {
       );
     });
 
-    test('Spot: lunghezzaMetri <= 0, voto > 10, difficolta o battuto errati rifiutati', () async {
+    test('Spot: categoria_nome obbligatoria, lunghezzaMetri, voto, difficolta, battuto e accessibilita validati', () async {
+      await db.insert('Categoria', {'nome': 'Lago'});
+
       expect(
-        () => db.insert('Spot', {'nome': 'S1', 'ambiente': 'Lago', 'lunghezzaMetri': 0}),
+        () => db.insert('Spot', {'nome': 'S0', 'ambiente': 'Lago'}),
         throwsA(isA<DatabaseException>()),
       );
       expect(
-        () => db.insert('Spot', {'nome': 'S2', 'ambiente': 'Lago', 'voto': 11}),
+        () => db.insert('Spot', {
+          'nome': 'S1',
+          'ambiente': 'Lago',
+          'lunghezzaMetri': 0,
+          'categoria_nome': 'Lago',
+        }),
         throwsA(isA<DatabaseException>()),
       );
       expect(
-        () => db.insert('Spot', {'nome': 'S3', 'ambiente': 'Lago', 'difficolta': 'estrema'}),
+        () => db.insert('Spot', {
+          'nome': 'S2',
+          'ambiente': 'Lago',
+          'voto': 11,
+          'categoria_nome': 'Lago',
+        }),
         throwsA(isA<DatabaseException>()),
       );
       expect(
-        () => db.insert('Spot', {'nome': 'S4', 'ambiente': 'Lago', 'battuto': 2}),
+        () => db.insert('Spot', {
+          'nome': 'S3',
+          'ambiente': 'Lago',
+          'difficolta': 'estrema',
+          'categoria_nome': 'Lago',
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
+      expect(
+        () => db.insert('Spot', {
+          'nome': 'S4',
+          'ambiente': 'Lago',
+          'battuto': 2,
+          'categoria_nome': 'Lago',
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
+      expect(
+        () => db.insert('Spot', {
+          'nome': 'S5',
+          'ambiente': 'Lago',
+          'accessibilita': 'privata',
+          'categoria_nome': 'Lago',
+        }),
         throwsA(isA<DatabaseException>()),
       );
     });

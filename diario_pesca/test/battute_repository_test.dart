@@ -1,16 +1,16 @@
+import 'package:diario_pesca/database/database_helper.dart';
+import 'package:diario_pesca/models/battute/cattura_memorabile.dart';
+import 'package:diario_pesca/models/battute/esca.dart';
+import 'package:diario_pesca/models/battute/foto.dart';
+import 'package:diario_pesca/models/battute/pescata.dart';
+import 'package:diario_pesca/models/battute/pianificazione.dart';
+import 'package:diario_pesca/models/enums.dart';
+import 'package:diario_pesca/models/statistiche/caratteristica.dart';
+import 'package:diario_pesca/models/statistiche/riepilogo_caratteristica.dart';
+import 'package:diario_pesca/models/statistiche/riepilogo_specie.dart';
+import 'package:diario_pesca/repositories/battute_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
-import '../lib/database/database_helper.dart';
-import '../lib/models/battute/cattura_memorabile.dart';
-import '../lib/models/battute/esca.dart';
-import '../lib/models/battute/foto.dart';
-import '../lib/models/battute/pescata.dart';
-import '../lib/models/battute/pianificazione.dart';
-import '../lib/models/enums.dart';
-import '../lib/models/statistiche/caratteristica.dart';
-import '../lib/repositories/battute_repository.dart';
 
 void main() {
   setUpAll(() {
@@ -18,18 +18,32 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
+  late DatabaseHelper dbHelper;
   late Database db;
   late BattuteRepository battuteRepo;
 
   setUp(() async {
-    await DatabaseHelper.instance.resetPerSviluppo();
-    db = await DatabaseHelper.instance.database;
-    battuteRepo = BattuteRepository();
+    dbHelper = DatabaseHelper.inMemory();
+    db = await dbHelper.database;
+    battuteRepo = BattuteRepository(dbHelper: dbHelper);
   });
 
   tearDown(() async {
-    await DatabaseHelper.instance.close();
+    await dbHelper.close();
   });
+
+  Future<void> inserisciSpotDiProva(String nome, {String ambiente = 'Torrente'}) async {
+    await db.insert(
+      'Categoria',
+      {'nome': 'Generica'},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+    await db.insert('Spot', {
+      'nome': nome,
+      'ambiente': ambiente,
+      'categoria_nome': 'Generica',
+    });
+  }
 
   group('BattuteRepository - Esche', () {
     test('salvaEsca (insert/update), getEsche (ordine e filtro) ed eliminaEsca', () async {
@@ -65,8 +79,8 @@ void main() {
 
   group('BattuteRepository - Pianificazioni', () {
     test('salvaPianificazione, getPianificazioni con filtri ed eliminaPianificazione', () async {
-      await db.insert('Spot', {'nome': 'Ponte Vecchio', 'ambiente': 'Torrente'});
-      await db.insert('Spot', {'nome': 'Foce Nord', 'ambiente': 'Mare'});
+      await inserisciSpotDiProva('Ponte Vecchio', ambiente: 'Torrente');
+      await inserisciSpotDiProva('Foce Nord', ambiente: 'Mare');
 
       final p1 = await battuteRepo.salvaPianificazione(
         Pianificazione(
@@ -108,8 +122,8 @@ void main() {
   });
 
   group('BattuteRepository - Pescate', () {
-    test('salvaPescata (insert/update con esche e foto) e getPescate con filtri combinati', () async {
-      await db.insert('Spot', {'nome': 'Ponte Vecchio', 'ambiente': 'Torrente'});
+    test('salvaPescata (insert/update con esche, foto e stato battuto) e getPescate con filtri combinati', () async {
+      await inserisciSpotDiProva('Ponte Vecchio');
       final esca1 = await battuteRepo.salvaEsca(const Esca(nome: 'Minnow'));
       final esca2 = await battuteRepo.salvaEsca(const Esca(nome: 'Ondulante'));
 
@@ -139,6 +153,14 @@ void main() {
       expect(salvata.id, isNotNull);
       expect(salvata.foto.single.id, isNotNull);
       expect(salvata.foto.single.pescataId, salvata.id);
+
+      // Spot aggiornato automaticamente a battuto = 1
+      final spotDopoPescata = await db.query(
+        'Spot',
+        where: 'nome = ?',
+        whereArgs: ['Ponte Vecchio'],
+      );
+      expect(spotDopoPescata.first['battuto'], 1);
 
       // Seconda pescata con parametri diversi
       await battuteRepo.salvaPescata(
@@ -175,8 +197,8 @@ void main() {
       expect(ultimeUna.first.data, DateTime(2026, 11, 12));
     });
 
-    test('eliminaPescata rimuove i figli collegati ma preserva Spot ed Esche', () async {
-      await db.insert('Spot', {'nome': 'Ponte Vecchio', 'ambiente': 'Torrente'});
+    test('eliminaPescata rimuove i figli collegati, aggiorna battuto e preserva Spot ed Esche', () async {
+      await inserisciSpotDiProva('Ponte Vecchio');
       await db.insert('Specie', {'nome': 'Trota'});
       final esca = await battuteRepo.salvaEsca(const Esca(nome: 'Minnow'));
 
@@ -201,7 +223,7 @@ void main() {
         CatturaMemorabile(
           pescataId: pescata.id!,
           specieNome: 'Trota',
-          escaId: esca.id,
+          esca: esca,
         ),
       );
 
@@ -209,16 +231,16 @@ void main() {
 
       expect(await battuteRepo.getPescataCompleta(pescata.id!), isNull);
       expect(await battuteRepo.getCattureMemorabili(), isEmpty);
-      expect(
-        await db.query('Spot', where: 'nome = ?', whereArgs: ['Ponte Vecchio']),
-        isNotEmpty,
-      );
+
+      final spot = await db.query('Spot', where: 'nome = ?', whereArgs: ['Ponte Vecchio']);
+      expect(spot, isNotEmpty);
+      expect(spot.first['battuto'], 0);
       expect((await battuteRepo.getEsche()).length, 1);
     });
   });
 
   group('BattuteRepository - Catture Memorabili e Dettaglio Completo', () {
-    test('salvaCatturaMemorabile, getCattureMemorabili con filtri ed eliminaCatturaMemorabile', () async {
+    test('salvaCatturaMemorabile (insert/update con cambio specie), getCattureMemorabili ed eliminaCatturaMemorabile', () async {
       await db.insert('Specie', {'nome': 'Trota'});
       await db.insert('Specie', {'nome': 'Spigola'});
       final carattId = await db.insert('Caratteristica', {
@@ -245,7 +267,7 @@ void main() {
           descrizione: 'Bellissima marmorata',
           pescataId: pescata.id!,
           specieNome: 'Trota',
-          escaId: esca.id,
+          esca: esca,
           caratteristiche: [marmorata],
           foto: const [
             Foto(
@@ -272,35 +294,71 @@ void main() {
         escaId: esca.id,
       );
       expect(soloTrote.length, 1);
+      expect(soloTrote.first.esca?.nome, 'Minnow 7cm');
       expect(soloTrote.first.caratteristiche.map((c) => c.nome), ['Livrea marmorata']);
       expect(soloTrote.first.foto.length, 1);
+
+      // Cambio specie in modifica su cattura con caratteristiche precedenti
+      final modificata = await battuteRepo.salvaCatturaMemorabile(
+        catturaTrota.copyWith(
+          specieNome: 'Spigola',
+          caratteristiche: const [],
+        ),
+      );
+      expect(modificata.specieNome, 'Spigola');
+      expect(modificata.caratteristiche, isEmpty);
 
       await battuteRepo.eliminaCatturaMemorabile(catturaSpigola.id!);
       expect((await battuteRepo.getCattureMemorabili()).length, 1);
     });
 
-    test('getPescataCompleta ricostruisce esche, foto, catture e riepiloghi specie', () async {
-      await db.insert('Spot', {'nome': 'Ponte Vecchio', 'ambiente': 'Torrente'});
+    test('salvaPescata salva atomicamente anche nuove esche e caratteristiche create al volo', () async {
+      await inserisciSpotDiProva('Ponte Vecchio');
       await db.insert('Specie', {'nome': 'Trota'});
-      final carattId = await db.insert('Caratteristica', {
-        'specie_nome': 'Trota',
-        'nome': 'Livrea marmorata',
-      });
-      final marmorata = Caratteristica(
-        id: carattId,
-        specieNome: 'Trota',
-        nome: 'Livrea marmorata',
-      );
-      final esca = await battuteRepo.salvaEsca(const Esca(nome: 'Minnow 7cm'));
 
-      // 1. Salva pescata con esca e foto
+      const nuovaEsca = Esca(nome: 'Jerk 9cm', descrizione: 'Creata al volo');
+      const nuovaCaratt = Caratteristica(
+        specieNome: 'Trota',
+        nome: 'Pinna bianca',
+      );
+
       final pescata = await battuteRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 13),
           fasciaOraria: FasciaOraria.alba,
           meteo: Meteo.velato,
           spotNome: 'Ponte Vecchio',
-          esche: [esca],
+          esche: const [nuovaEsca],
+          cattureMemorabili: const [
+            CatturaMemorabile(
+              descrizione: 'Over 45cm',
+              pescataId: 0,
+              specieNome: 'Trota',
+              esca: nuovaEsca,
+              caratteristiche: [nuovaCaratt],
+              foto: [
+                Foto(
+                  percorso: '/img/cattura.jpg',
+                  percorsoThumbnail: '/img/thumb_cattura.jpg',
+                  catturaMemorabileId: 0,
+                ),
+              ],
+            ),
+          ],
+          riepiloghiSpecie: const [
+            RiepilogoSpecie(
+              pescataId: 0,
+              specieNome: 'Trota',
+              quantita: 3,
+              dettagli: [
+                RiepilogoCaratteristica(
+                  riepilogoSpecieId: 0,
+                  caratteristica: nuovaCaratt,
+                  quantita: 1,
+                ),
+              ],
+            ),
+          ],
           foto: const [
             Foto(
               percorso: '/img/pescata.jpg',
@@ -311,47 +369,18 @@ void main() {
         ),
       );
 
-      // 2. Aggiunge cattura memorabile con caratteristica e foto
-      await battuteRepo.salvaCatturaMemorabile(
-        CatturaMemorabile(
-          descrizione: 'Over 45cm',
-          pescataId: pescata.id!,
-          specieNome: 'Trota',
-          escaId: esca.id,
-          caratteristiche: [marmorata],
-          foto: const [
-            Foto(
-              percorso: '/img/cattura.jpg',
-              percorsoThumbnail: '/img/thumb_cattura.jpg',
-              catturaMemorabileId: 0,
-            ),
-          ],
-        ),
-      );
-
-      // 3. Aggiunge riepilogo specie e dettaglio direttamente su DB
-      final riepilogoId = await db.insert('RiepilogoSpecie', {
-        'pescata_id': pescata.id!,
-        'specie_nome': 'Trota',
-        'quantita': 3,
-      });
-      await db.insert('DettaglioRiepilogo', {
-        'riepilogo_specie_id': riepilogoId,
-        'caratteristica_id': carattId,
-        'specie_nome': 'Trota',
-        'quantita': 1,
-      });
-
       final completa = await battuteRepo.getPescataCompleta(pescata.id!);
 
       expect(completa, isNotNull);
       expect(completa!.spotNome, 'Ponte Vecchio');
-      expect(completa.esche.map((e) => e.nome), ['Minnow 7cm']);
+      expect(completa.esche.map((e) => e.nome), ['Jerk 9cm']);
+      expect(completa.esche.single.id, isNotNull);
       expect(completa.foto.map((f) => f.percorso), ['/img/pescata.jpg']);
       expect(completa.cattureMemorabili.length, 1);
+      expect(completa.cattureMemorabili.first.esca?.nome, 'Jerk 9cm');
       expect(
         completa.cattureMemorabili.first.caratteristiche.map((c) => c.nome),
-        ['Livrea marmorata'],
+        ['Pinna bianca'],
       );
       expect(
         completa.cattureMemorabili.first.foto.map((f) => f.percorso),
@@ -360,6 +389,10 @@ void main() {
       expect(completa.riepiloghiSpecie.length, 1);
       expect(completa.riepiloghiSpecie.first.quantita, 3);
       expect(completa.riepiloghiSpecie.first.dettagli.single.quantita, 1);
+      expect(
+        completa.riepiloghiSpecie.first.dettagli.single.caratteristica.nome,
+        'Pinna bianca',
+      );
     });
 
     test('salvaCatturaMemorabile blocca caratteristiche appartenenti a specie diversa', () async {

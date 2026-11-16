@@ -1,13 +1,11 @@
+import 'package:diario_pesca/database/database_helper.dart';
+import 'package:diario_pesca/models/enums.dart';
+import 'package:diario_pesca/models/territorio/categoria.dart';
+import 'package:diario_pesca/models/territorio/coordinata.dart';
+import 'package:diario_pesca/models/territorio/spot.dart';
+import 'package:diario_pesca/repositories/territorio_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
-import '../lib/database/database_helper.dart';
-import '../lib/models/enums.dart';
-import '../lib/models/territorio/categoria.dart';
-import '../lib/models/territorio/coordinata.dart';
-import '../lib/models/territorio/spot.dart';
-import '../lib/repositories/territorio_repository.dart';
 
 void main() {
   setUpAll(() {
@@ -15,15 +13,16 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
+  late DatabaseHelper dbHelper;
   late TerritorioRepository repo;
 
   setUp(() async {
-    await DatabaseHelper.instance.resetPerSviluppo();
-    repo = TerritorioRepository();
+    dbHelper = DatabaseHelper.inMemory();
+    repo = TerritorioRepository(dbHelper: dbHelper);
   });
 
   tearDown(() async {
-    await DatabaseHelper.instance.close();
+    await dbHelper.close();
   });
 
   group('TerritorioRepository - Categorie', () {
@@ -67,8 +66,9 @@ void main() {
       expect(spotAggiornati.first.nome, 'Ponte Vecchio');
     });
 
-    test('eliminaCategoria viene bloccata se usata da uno spot (ON DELETE RESTRICT)', () async {
+    test('eliminaCategoria viene bloccata se usata da uno spot (ON DELETE RESTRICT) e spostaSpot la libera', () async {
       await repo.inserisciCategoria(const Categoria(nome: 'Torrente'));
+      await repo.inserisciCategoria(const Categoria(nome: 'Fiume'));
       await repo.salvaSpotConCoordinate(
         const Spot(
           nome: 'Ponte Vecchio',
@@ -77,15 +77,25 @@ void main() {
         ),
       );
 
-      expect(
+      await expectLater(
         () => repo.eliminaCategoria('Torrente'),
         throwsA(isA<DatabaseException>()),
       );
+
+      final spostati = await repo.spostaSpot(
+        daCategoria: 'Torrente',
+        aCategoria: 'Fiume',
+      );
+      expect(spostati, 1);
+
+      await repo.eliminaCategoria('Torrente');
+      expect((await repo.getSpots(categoriaNome: 'Fiume')).length, 1);
     });
   });
 
   group('TerritorioRepository - Spot e Coordinate', () {
-    test('salvaSpotConCoordinate calcola automaticamente la lunghezza dalle coordinate', () async {
+    test('salvaSpotConCoordinate calcola lunghezza dalle coordinate e sincronizza battuto', () async {
+      await repo.inserisciCategoria(const Categoria(nome: 'Torrente'));
       await repo.salvaSpotConCoordinate(
         const Spot(
           nome: 'Ponte Vecchio',
@@ -113,6 +123,7 @@ void main() {
               longitudine: 9.6045,
             ),
           ],
+          categoriaNome: 'Torrente',
         ),
       );
 
@@ -122,9 +133,11 @@ void main() {
       expect(spot!.coordinate.length, 3);
       expect(spot.lunghezzaMetri, isNotNull);
       expect(spot.lunghezzaMetri!, greaterThan(400));
+      // Nessuna pescata registrata: battuto deve allinearsi a false
+      expect(spot.battuto, isFalse);
     });
 
-    test('getSpots filtra per categoria, ambiente, votoMinimo e lunghezzaMassima', () async {
+    test('getSpots filtra per categoria, ambiente, votoMinimo, lunghezzaMassima e accessibilita', () async {
       await repo.inserisciCategoria(const Categoria(nome: 'Torrente'));
       await repo.inserisciCategoria(const Categoria(nome: 'Lago'));
 
@@ -134,6 +147,7 @@ void main() {
           ambiente: 'Torrente',
           lunghezzaMetri: 300.0,
           voto: 9,
+          accessibilita: Accessibilita.accessibile,
           categoriaNome: 'Torrente',
         ),
       );
@@ -143,6 +157,7 @@ void main() {
           ambiente: 'Torrente',
           lunghezzaMetri: 150.0,
           voto: 5,
+          accessibilita: Accessibilita.inaccessibile,
           categoriaNome: 'Torrente',
         ),
       );
@@ -152,6 +167,7 @@ void main() {
           ambiente: 'Lago',
           lunghezzaMetri: 1200.0,
           voto: 8,
+          accessibilita: Accessibilita.accessibile,
           categoriaNome: 'Lago',
         ),
       );
@@ -162,13 +178,18 @@ void main() {
         votoMinimo: 8,
       );
       final entro500m = await repo.getSpots(lunghezzaMassima: 500.0);
+      final inaccessibili = await repo.getSpots(
+        accessibilita: Accessibilita.inaccessibile,
+      );
 
       expect(perCategoria.length, 2);
       expect(perAmbienteEVoto.map((s) => s.nome), ['Spot A']);
       expect(entro500m.map((s) => s.nome), ['Spot A', 'Spot B']);
+      expect(inaccessibili.map((s) => s.nome), ['Spot B']);
     });
 
-    test('salvaSpotConCoordinate aggiorna uno spot esistente e sincronizza le coordinate', () async {
+    test('salvaSpotConCoordinate aggiorna uno spot esistente, ricalcola lunghezza e getTutteLeCoordinate raggruppa per spot', () async {
+      await repo.inserisciCategoria(const Categoria(nome: 'Torrente'));
       await repo.salvaSpotConCoordinate(
         const Spot(
           nome: 'Risorgiva Sud',
@@ -177,6 +198,7 @@ void main() {
           coordinate: [
             Coordinata(spotNome: 'Risorgiva Sud', ordine: 0, latitudine: 45.6, longitudine: 9.6),
           ],
+          categoriaNome: 'Torrente',
         ),
       );
 
@@ -197,6 +219,11 @@ void main() {
       expect(aggiornato!.voto, 8);
       expect(aggiornato.note, 'Ottimo spot');
       expect(aggiornato.coordinate.length, 2);
+      expect(aggiornato.lunghezzaMetri, isNotNull);
+
+      final mappaCoord = await repo.getTutteLeCoordinate();
+      expect(mappaCoord.keys, ['Risorgiva Sud']);
+      expect(mappaCoord['Risorgiva Sud']!.map((c) => c.ordine), [0, 1]);
     });
 
     test('eliminaSpot rimuove lo spot e libera la categoria', () async {

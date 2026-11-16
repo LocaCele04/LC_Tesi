@@ -1,14 +1,12 @@
+import 'package:diario_pesca/database/database_helper.dart';
+import 'package:diario_pesca/models/statistiche/caratteristica.dart';
+import 'package:diario_pesca/models/statistiche/obiettivo.dart';
+import 'package:diario_pesca/models/statistiche/riepilogo_caratteristica.dart';
+import 'package:diario_pesca/models/statistiche/riepilogo_specie.dart';
+import 'package:diario_pesca/models/statistiche/specie.dart';
+import 'package:diario_pesca/repositories/statistiche_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-
-import '../lib/database/database_helper.dart';
-import '../lib/models/statistiche/caratteristica.dart';
-import '../lib/models/statistiche/obiettivo.dart';
-import '../lib/models/statistiche/riepilogo_caratteristica.dart';
-import '../lib/models/statistiche/riepilogo_specie.dart';
-import '../lib/models/statistiche/specie.dart';
-import '../lib/repositories/statistiche_repository.dart';
 
 void main() {
   setUpAll(() {
@@ -16,17 +14,18 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   });
 
+  late DatabaseHelper dbHelper;
   late Database db;
   late StatisticheRepository statisticheRepo;
 
   setUp(() async {
-    await DatabaseHelper.instance.resetPerSviluppo();
-    db = await DatabaseHelper.instance.database;
-    statisticheRepo = StatisticheRepository();
+    dbHelper = DatabaseHelper.inMemory();
+    db = await dbHelper.database;
+    statisticheRepo = StatisticheRepository(dbHelper: dbHelper);
   });
 
   tearDown(() async {
-    await DatabaseHelper.instance.close();
+    await dbHelper.close();
   });
 
   group('StatisticheRepository - Specie', () {
@@ -109,7 +108,6 @@ void main() {
       expect(await statisticheRepo.getCaratteristiche(), isEmpty);
       expect(await statisticheRepo.getObiettivi(), isEmpty);
     });
-
   });
 
   group('StatisticheRepository - Caratteristiche', () {
@@ -148,10 +146,34 @@ void main() {
       await statisticheRepo.eliminaCaratteristica(trotaOver.id!);
       expect((await statisticheRepo.getCaratteristiche(specieNome: 'Trota')).length, 1);
     });
+
+    test('salvaCaratteristica blocca il cambio specie se già referenziata', () async {
+      await statisticheRepo.inserisciSpecie(const Specie(nome: 'Trota'));
+      await statisticheRepo.inserisciSpecie(const Specie(nome: 'Spigola'));
+
+      final marmorata = await statisticheRepo.salvaCaratteristica(
+        const Caratteristica(specieNome: 'Trota', nome: 'Livrea marmorata'),
+      );
+      await statisticheRepo.salvaObiettivo(
+        Obiettivo(
+          specieNome: 'Trota',
+          anno: 2026,
+          quantita: 5,
+          caratteristica: marmorata,
+        ),
+      );
+
+      await expectLater(
+        () => statisticheRepo.salvaCaratteristica(
+          marmorata.copyWith(specieNome: 'Spigola'),
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
   });
 
   group('StatisticheRepository - Obiettivi', () {
-    test('salvaObiettivo (insert/update), getObiettivi con filtri ed eliminaObiettivo', () async {
+    test('salvaObiettivo (insert/update anche con caratteristica al volo), getObiettivi con filtri ed eliminaObiettivo', () async {
       await statisticheRepo.inserisciSpecie(const Specie(nome: 'Trota'));
       await statisticheRepo.inserisciSpecie(const Specie(nome: 'Spigola'));
       final marmorata = await statisticheRepo.salvaCaratteristica(
@@ -170,7 +192,7 @@ void main() {
           specieNome: 'Trota',
           anno: 2026,
           quantita: 5,
-          caratteristicaId: marmorata.id,
+          caratteristica: marmorata,
         ),
       );
       await statisticheRepo.salvaObiettivo(
@@ -178,6 +200,7 @@ void main() {
           specieNome: 'Spigola',
           anno: 2025,
           quantita: 10,
+          caratteristica: Caratteristica(specieNome: 'Spigola', nome: 'Over 2 kg'),
         ),
       );
 
@@ -206,6 +229,7 @@ void main() {
       );
       expect(soloSpecifici.length, 1);
       expect(soloSpecifici.first.id, obSpecificoTrota.id);
+      expect(soloSpecifici.first.caratteristica?.nome, 'Livrea marmorata');
 
       await statisticheRepo.eliminaObiettivo(obSpecificoTrota.id!);
       expect((await statisticheRepo.getObiettivi(anno: 2026)).length, 1);
@@ -224,7 +248,7 @@ void main() {
             specieNome: 'Trota',
             anno: 2026,
             quantita: 3,
-            caratteristicaId: carattSpigola.id,
+            caratteristica: carattSpigola,
           ),
         ),
         throwsA(isA<DatabaseException>()),
@@ -262,14 +286,12 @@ void main() {
           dettagli: [
             RiepilogoCaratteristica(
               riepilogoSpecieId: 0,
-              caratteristicaId: marmorata.id!,
-              specieNome: 'Trota',
+              caratteristica: marmorata,
               quantita: 2,
             ),
             RiepilogoCaratteristica(
               riepilogoSpecieId: 0,
-              caratteristicaId: ibrido.id!,
-              specieNome: 'Trota',
+              caratteristica: ibrido,
               quantita: 1,
             ),
           ],
@@ -299,8 +321,7 @@ void main() {
           dettagli: [
             RiepilogoCaratteristica(
               riepilogoSpecieId: salvato.id!,
-              caratteristicaId: marmorata.id!,
-              specieNome: 'Trota',
+              caratteristica: marmorata,
               quantita: 3,
             ),
           ],
@@ -312,14 +333,18 @@ void main() {
       expect(perPescata1.first.quantita, 5);
       expect(perPescata1.first.dettagli.length, 1);
       expect(perPescata1.first.dettagli.single.quantita, 3);
+      expect(perPescata1.first.dettagli.single.caratteristica.nome, 'Livrea marmorata');
 
       final perSpecie = await statisticheRepo.getRiepiloghi(specieNome: 'Trota');
       expect(perSpecie.length, 2);
     });
 
-    test('salvaRiepilogoSpecie blocca dettaglio con caratteristica di altra specie ed eliminaRiepilogoSpecie', () async {
+    test('salvaRiepilogoSpecie valida dettaglio <= totale, blocca altra specie ed eliminaRiepilogoSpecie', () async {
       await statisticheRepo.inserisciSpecie(const Specie(nome: 'Trota'));
       await statisticheRepo.inserisciSpecie(const Specie(nome: 'Spigola'));
+      final carattTrota = await statisticheRepo.salvaCaratteristica(
+        const Caratteristica(specieNome: 'Trota', nome: 'Livrea marmorata'),
+      );
       final carattSpigola = await statisticheRepo.salvaCaratteristica(
         const Caratteristica(specieNome: 'Spigola', nome: 'Over 2 kg'),
       );
@@ -330,6 +355,7 @@ void main() {
         'meteo': 'sereno',
       });
 
+      // Dettaglio superiore al totale -> ArgumentError
       expect(
         () => statisticheRepo.salvaRiepilogoSpecie(
           RiepilogoSpecie(
@@ -339,8 +365,26 @@ void main() {
             dettagli: [
               RiepilogoCaratteristica(
                 riepilogoSpecieId: 0,
-                caratteristicaId: carattSpigola.id!,
-                specieNome: 'Trota',
+                caratteristica: carattTrota,
+                quantita: 3,
+              ),
+            ],
+          ),
+        ),
+        throwsA(isA<ArgumentError>()),
+      );
+
+      // Caratteristica di altra specie -> DatabaseException
+      expect(
+        () => statisticheRepo.salvaRiepilogoSpecie(
+          RiepilogoSpecie(
+            pescataId: pescataId,
+            specieNome: 'Trota',
+            quantita: 2,
+            dettagli: [
+              RiepilogoCaratteristica(
+                riepilogoSpecieId: 0,
+                caratteristica: carattSpigola,
                 quantita: 1,
               ),
             ],

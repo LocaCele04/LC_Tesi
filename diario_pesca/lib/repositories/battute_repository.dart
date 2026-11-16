@@ -556,6 +556,18 @@ class BattuteRepository {
 
   Future<Esca> _assicuraEscaSalvata(Transaction txn, Esca esca) async {
     if (esca.id != null) return esca;
+
+    final esistente = await txn.query(
+      'Esca',
+      columns: ['id'],
+      where: 'LOWER(TRIM(nome)) = LOWER(TRIM(?))',
+      whereArgs: [esca.nome],
+      limit: 1,
+    );
+    if (esistente.isNotEmpty) {
+      return esca.copyWith(id: esistente.first['id'] as int);
+    }
+
     final id = await txn.insert('Esca', DbMappers.escaToMap(esca));
     return esca.copyWith(id: id);
   }
@@ -571,13 +583,24 @@ class BattuteRepository {
         'La nuova caratteristica "${c.nome}" appartiene a ${c.specieNome}, non a $specieAttesa',
       );
     }
+
+    final esistente = await txn.query(
+      'Caratteristica',
+      columns: ['id'],
+      where: 'specie_nome = ? AND LOWER(TRIM(nome)) = LOWER(TRIM(?))',
+      whereArgs: [c.specieNome, c.nome],
+      limit: 1,
+    );
+    if (esistente.isNotEmpty) {
+      return c.copyWith(id: esistente.first['id'] as int);
+    }
+
     final id = await txn.insert(
       'Caratteristica',
       DbMappers.caratteristicaToMap(c),
     );
     return c.copyWith(id: id);
   }
-
   Future<CatturaMemorabile> _inserisciCatturaInTransazione(
     Transaction txn,
     CatturaMemorabile cattura,
