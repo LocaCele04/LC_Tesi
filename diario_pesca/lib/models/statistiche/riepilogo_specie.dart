@@ -2,14 +2,14 @@ import 'riepilogo_caratteristica.dart';
 
 class RiepilogoSpecie {
   final int? id;
-  final int pescataId;
+  final int? pescataId;
   final String specieNome;
   final int quantita;
   final List<RiepilogoCaratteristica> dettagli;
 
   const RiepilogoSpecie({
     this.id,
-    required this.pescataId,
+    this.pescataId,
     required this.specieNome,
     required this.quantita,
     this.dettagli = const [],
@@ -32,35 +32,15 @@ class RiepilogoSpecie {
   }
 
   @override
-  String toString() =>
-      'RiepilogoSpecie(id: $id, pescataId: $pescataId, specieNome: $specieNome, quantita: $quantita)';
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RiepilogoSpecie &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          pescataId == other.pescataId &&
+          specieNome == other.specieNome &&
+          quantita == other.quantita;
 
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is RiepilogoSpecie &&
-        other.id == id &&
-        other.pescataId == pescataId &&
-        other.specieNome == specieNome &&
-        other.quantita == quantita &&
-        _listEquals(other.dettagli, dettagli);
-  }
-
-  @override
-  int get hashCode => Object.hash(
-        id,
-        pescataId,
-        specieNome,
-        quantita,
-        Object.hashAll(dettagli),
-      );
-}
-
-bool _listEquals<T>(List<T> a, List<T> b) {
-  if (identical(a, b)) return true;
-  if (a.length != b.length) return false;
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) return false;
-  }
-  return true;
+  int get hashCode => Object.hash(id, pescataId, specieNome, quantita);
 }

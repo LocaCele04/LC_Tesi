@@ -1,49 +1,38 @@
+import 'caratteristica.dart';
+
 class RiepilogoCaratteristica {
-  final int riepilogoSpecieId;
-  final int caratteristicaId;
-  final String specieNome;
+  final int? riepilogoSpecieId;
+  final Caratteristica caratteristica;
   final int quantita;
 
   const RiepilogoCaratteristica({
-    required this.riepilogoSpecieId,
-    required this.caratteristicaId,
-    required this.specieNome,
+    this.riepilogoSpecieId,
+    required this.caratteristica,
     required this.quantita,
   });
 
   RiepilogoCaratteristica copyWith({
     int? riepilogoSpecieId,
-    int? caratteristicaId,
-    String? specieNome,
+    Caratteristica? caratteristica,
     int? quantita,
   }) {
     return RiepilogoCaratteristica(
       riepilogoSpecieId: riepilogoSpecieId ?? this.riepilogoSpecieId,
-      caratteristicaId: caratteristicaId ?? this.caratteristicaId,
-      specieNome: specieNome ?? this.specieNome,
+      caratteristica: caratteristica ?? this.caratteristica,
       quantita: quantita ?? this.quantita,
     );
   }
 
   @override
-  String toString() =>
-      'RiepilogoCaratteristica(riepilogoSpecieId: $riepilogoSpecieId, caratteristicaId: $caratteristicaId, specieNome: $specieNome, quantita: $quantita)';
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RiepilogoCaratteristica &&
+          runtimeType == other.runtimeType &&
+          riepilogoSpecieId == other.riepilogoSpecieId &&
+          caratteristica == other.caratteristica &&
+          quantita == other.quantita;
 
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is RiepilogoCaratteristica &&
-        other.riepilogoSpecieId == riepilogoSpecieId &&
-        other.caratteristicaId == caratteristicaId &&
-        other.specieNome == specieNome &&
-        other.quantita == quantita;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-        riepilogoSpecieId,
-        caratteristicaId,
-        specieNome,
-        quantita,
-      );
+  int get hashCode =>
+      Object.hash(riepilogoSpecieId, caratteristica, quantita);
 }

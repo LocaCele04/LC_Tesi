@@ -12,9 +12,8 @@ class Foto {
     this.pescataId,
     this.catturaMemorabileId,
   }) : assert(
-          (pescataId != null && catturaMemorabileId == null) ||
-              (pescataId == null && catturaMemorabileId != null),
-          'Una Foto deve essere collegata esclusivamente a una Pescata o a una CatturaMemorabile.',
+          !(pescataId != null && catturaMemorabileId != null),
+          'Una foto non può essere associata contemporaneamente a una pescata e a una cattura memorabile',
         );
 
   Foto copyWith({
@@ -34,26 +33,17 @@ class Foto {
   }
 
   @override
-  String toString() =>
-      'Foto(id: $id, percorso: $percorso, pescataId: $pescataId, catturaMemorabileId: $catturaMemorabileId)';
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Foto &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          percorso == other.percorso &&
+          percorsoThumbnail == other.percorsoThumbnail &&
+          pescataId == other.pescataId &&
+          catturaMemorabileId == other.catturaMemorabileId;
 
   @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is Foto &&
-        other.id == id &&
-        other.percorso == percorso &&
-        other.percorsoThumbnail == percorsoThumbnail &&
-        other.pescataId == pescataId &&
-        other.catturaMemorabileId == catturaMemorabileId;
-  }
-
-  @override
-  int get hashCode => Object.hash(
-        id,
-        percorso,
-        percorsoThumbnail,
-        pescataId,
-        catturaMemorabileId,
-      );
+  int get hashCode =>
+      Object.hash(id, percorso, percorsoThumbnail, pescataId, catturaMemorabileId);
 }
