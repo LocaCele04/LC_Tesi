@@ -33,6 +33,11 @@ enum Trasparenza {
   chiara,
 }
 
+enum Accessibilita {
+  accessibile,
+  inaccessibile,
+}
+
 /// Vincolo CHECK su Pescata.fondo
 enum Fondo {
   scuro,

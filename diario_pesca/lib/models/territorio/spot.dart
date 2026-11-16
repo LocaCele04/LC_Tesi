@@ -11,8 +11,9 @@ class Spot {
   final String? noteOstacoli;
   final String? note;
   final bool battuto;
+  final Accessibilita accessibilita;
   final String? linkParcheggio;
-  final String? categoriaNome;
+  final String categoriaNome;
   final List<Coordinata> coordinate;
 
   const Spot({
@@ -25,8 +26,9 @@ class Spot {
     this.noteOstacoli,
     this.note,
     this.battuto = false,
+    this.accessibilita = Accessibilita.accessibile,
     this.linkParcheggio,
-    this.categoriaNome,
+    required this.categoriaNome,
     this.coordinate = const [],
   });
 
@@ -40,6 +42,7 @@ class Spot {
     String? noteOstacoli,
     String? note,
     bool? battuto,
+    Accessibilita? accessibilita,
     String? linkParcheggio,
     String? categoriaNome,
     List<Coordinata>? coordinate,
@@ -54,6 +57,7 @@ class Spot {
       noteOstacoli: noteOstacoli ?? this.noteOstacoli,
       note: note ?? this.note,
       battuto: battuto ?? this.battuto,
+      accessibilita: accessibilita ?? this.accessibilita,
       linkParcheggio: linkParcheggio ?? this.linkParcheggio,
       categoriaNome: categoriaNome ?? this.categoriaNome,
       coordinate: coordinate ?? this.coordinate,
@@ -61,26 +65,22 @@ class Spot {
   }
 
   @override
-  String toString() =>
-      'Spot(nome: $nome, ambiente: $ambiente, voto: $voto, difficolta: $difficolta, battuto: $battuto, categoriaNome: $categoriaNome)';
-
-  @override
-  bool operator ==(Object other) {
-    if (identical(this, other)) return true;
-    return other is Spot &&
-        other.nome == nome &&
-        other.ambiente == ambiente &&
-        other.lunghezzaMetri == lunghezzaMetri &&
-        other.voto == voto &&
-        other.difficolta == difficolta &&
-        other.esposizioneSole == esposizioneSole &&
-        other.noteOstacoli == noteOstacoli &&
-        other.note == note &&
-        other.battuto == battuto &&
-        other.linkParcheggio == linkParcheggio &&
-        other.categoriaNome == categoriaNome &&
-        _listEquals(other.coordinate, coordinate);
-  }
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is Spot &&
+          runtimeType == other.runtimeType &&
+          nome == other.nome &&
+          ambiente == other.ambiente &&
+          lunghezzaMetri == other.lunghezzaMetri &&
+          voto == other.voto &&
+          difficolta == other.difficolta &&
+          esposizioneSole == other.esposizioneSole &&
+          noteOstacoli == other.noteOstacoli &&
+          note == other.note &&
+          battuto == other.battuto &&
+          accessibilita == other.accessibilita &&
+          linkParcheggio == other.linkParcheggio &&
+          categoriaNome == other.categoriaNome;
 
   @override
   int get hashCode => Object.hash(
@@ -93,17 +93,8 @@ class Spot {
         noteOstacoli,
         note,
         battuto,
+        accessibilita,
         linkParcheggio,
         categoriaNome,
-        Object.hashAll(coordinate),
       );
-}
-
-bool _listEquals<T>(List<T> a, List<T> b) {
-  if (identical(a, b)) return true;
-  if (a.length != b.length) return false;
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) return false;
-  }
-  return true;
 }
