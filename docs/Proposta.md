@@ -9,7 +9,7 @@
 ## 1. Visione Generale e Obiettivi
 
 ### 1.1 Contesto e Problema
-Il progetto si colloca nell'ambito della pesca sportiva e ricreativa effettuarla con canna da pesca, comprendendo diverse tecniche e specie ittiche. L'idea nasce da una necessità personale, ampiamente riscontrata anche tra altri appassionati: disporre di uno strumento centralizzato per tracciare i luoghi di pesca frequentati e le catture effettuate. 
+Il progetto si colloca nell'ambito della pesca sportiva e ricreativa effettuata con la sola canna da pesca, comprendendo diverse tecniche e specie ittiche. L'idea nasce da una necessità personale, ampiamente riscontrata anche tra altri appassionati: disporre di uno strumento centralizzato per tracciare i luoghi di pesca frequentati e le catture effettuate. 
 
 Negli ultimi due anni ho utilizzato un foglio di calcolo personalizzato, ma questa soluzione ha evidenziato notevoli limiti operativi:
 - Necessità di correggere e adattare frequentemente le formule.
@@ -22,7 +22,7 @@ Attualmente, per gestire appieno l'attività, è necessario combinare l'uso del 
 
 ### 1.2 Obiettivi Primari
 - Fornire uno strumento semplice e intuitivo per registrare i dettagli delle sessioni di pesca.
-- Garantire un'architettura **100% local-first** con totale riservatezza dei dati dell'utente.
+- Garantire un'architettura con totale riservatezza dei dati dell'utente.
 - Offrire un'interfaccia chiara per la consultazione di statistiche e trend personali.
 - Integrare strumenti a supporto della pianificazione delle battute (previsioni meteo, mappe, storico passato).
 - Fornire strumenti per definire e monitorare obiettivi personali di pesca.
@@ -94,7 +94,7 @@ Le caratteristiche aggiunte alla cattura memorabile non vengono aggiunte per il 
 - **Pianificazione Multipiattaforma:** Struttura predisposta per un'eventuale fruizione su dispositivi desktop.
 
 
-## 5. Sviluppi futuri
+## 5. Sviluppi futuri (fuori dall'MVP)
 
-- **Obiettivi più sofisticati:** per esempio se si vuole sapere quante battute sono state terminate con un numero di pesci catturati maggiore di num.
 - **Mappa 3D**
+- **Ricerche AI**: data la struttura fissa della base di dati, fornire un assistente ai in grado di interpretare una qualsiasi richiesta di ricerca da parte dell'utente, l'assistente che conosce la struttura della base di dati formula la query corrispondente allegando anche un breve testo dove spiega come ha interpretato la domanda e l'app esegue la query producendo la tabella dei risultati.

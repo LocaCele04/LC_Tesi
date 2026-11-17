@@ -27,7 +27,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **MoSCoW**: tecnica di prioritizzazione dei requisiti (Must have, Should have, Could have, Won't have) utilizzata in questo documento per classificare ogni requisito.
 
 ### 1.4 Riferimenti
-* Foglio di calcolo Google attualmente in uso dall'utente per il tracciamento di battute, catture, spese e pianificazione.
+* Foglio di calcolo Google attualmente in uso dall'utente per il tracciamento di battute, catture, spese e pianificazione. (non disponibile pubblicamente, dati personali)
 
 ### 1.5 Panoramica del Documento
 * Il documento è strutturato in tre parti principali: la sezione 2 fornisce una descrizione generale del prodotto, del contesto d'uso e dei vincoli generali; la sezione 3 elenca in dettaglio i requisiti di sistema, funzionali, di progettazione e gli attributi di qualità, ciascuno classificato secondo il metodo MoSCoW per orientare le priorità di sviluppo nelle fasi successive del progetto.
@@ -37,7 +37,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 ## 2. Descrizione Generale
 
 ### 2.1 Prospettiva del Prodotto
-* Il sistema è un'applicazione mobile autonoma (standalone), priva di un back-end proprio: tutti i dati dell'utente (spot, battute, catture, foto, pianificazione) sono persistiti localmente sul dispositivo tramite un database embedded. Le uniche interazioni con servizi esterni di terze parti avvengono in sola lettura verso un servizio meteo pubblico tramite API REST e, su richiesta dell'utente, verso le API di Google Drive per l'esportazione e l'importazione manuale dei file di backup in formato JSON.
+* Il sistema è un'applicazione mobile autonoma (standalone), priva di un back-end proprio: tutti i dati dell'utente (spot, battute, catture, foto, pianificazione) sono persistiti localmente sul dispositivo tramite un database embedded. Le uniche interazioni con servizi esterni di terze parti avvengono in sola lettura verso un servizio meteo pubblico tramite API REST e, su richiesta dell'utente, verso le API di Google Drive per l'esportazione e l'importazione manuale dei file di backup in formato JSON. Si potrebbe aggiungere in futuro assistente AI per effettuare ricerche sui dati.
 
 ### 2.2 Funzionalità Principali del Prodotto
 * Gestione degli spot di pesca, con relativo tracciato geografico (tratto), disegnabile manualmente sulla mappa dell'app.
@@ -49,11 +49,11 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * Consultazione delle condizioni meteo per uno spot, tramite chiamata diretta a un servizio meteo esterno.
 
 ### 2.3 Caratteristiche degli Utenti
-* **Utente singolo (proprietario dei dati)**: pescatore amatoriale con competenze tecniche informatiche di livello medio-basso; utilizza l'app prevalentemente sul campo, spesso in condizioni di connettività assente o limitata, oppure da casa per pianificazione e consultazione statistiche. Non sono previsti ruoli multipli né gestione di permessi differenziati, trattandosi di un'applicazione a singolo utente e a dati esclusivamente personali.
+* **Utente singolo (proprietario dei dati)**: pescatore amatoriale con competenze tecniche informatiche di livello medio-basso; l'utilizzo dell'app avviene esclusivamente al termine della pescata. Non sono previsti ruoli multipli né gestione di permessi differenziati, trattandosi di un'applicazione a singolo utente e a dati esclusivamente personali.
 
 ### 2.4 Vincoli Generali
-* L'applicazione deve funzionare in modalità completamente offline per tutte le funzionalità che non richiedono esplicitamente un dato esterno (consultazione meteo, download di nuove tile mappa); inserimento di battute, catture, foto e consultazione dei dati storici devono essere disponibili anche in assenza di connettività.
-* Nessun costo ricorrente per servizi esterni: le API e i servizi di terze parti impiegati (meteo, tile mappa) devono rientrare nei piani gratuiti disponibili, essendo un progetto personale/di tesi senza budget dedicato.
+* L'applicazione deve funzionare in modalità completamente offline per tutte le funzionalità che non richiedono esplicitamente un dato esterno (consultazione meteo, ricerche ai); inserimento di battute, catture, foto e consultazione dei dati storici devono essere disponibili anche in assenza di connettività.
+* Nessun costo ricorrente per servizi esterni: le API e i servizi di terze parti impiegati devono rientrare nei piani gratuiti disponibili, essendo un progetto personale/di tesi senza budget dedicato.
 * Compatibilità cross-platform Android/iOS tramite un'unica base di codice.
 * Occupazione di spazio su disco contenuta nel tempo, anche con uno storico pluriennale di foto e dati (vedi requisito REQ-DES relativo alla compressione immagini).
 
@@ -69,7 +69,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 > **Nota di compilazione:** Ciascun requisito deve essere unequivoco, verificabile e classificato tramite il metodo **MoSCoW** (Must have, Should have, Could have, Won't have).
 
-### 3.1 Requisiti di sistema
+### 3.1 Requisiti di sistema (in aggiornamento)
 
 #### 3.1.1 Interfaccia Utente
 * **[INT-UI-01]** - *Must have*: L'app deve fornire una schermata mappa interattiva che mostri gli spot come tratti colorati sovrapposti a una cartografia di base, con possibilità di zoom, ricerca per nome spot e apertura di una scheda di dettaglio al tocco di un tratto.
@@ -80,10 +80,9 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 #### 3.1.2 Interfaccia Hardware
 * **[INT-HW-01]** - *Must have*: L'app deve poter accedere alla fotocamera e/o alla galleria del dispositivo per l'acquisizione e l'allegazione di fotografie alle catture registrate.
-* **[INT-HW-02]** - *Should have*: L'app dovrebbe poter accedere al modulo GPS del dispositivo per la geolocalizzazione automatica durante il disegno di un nuovo tratto o la registrazione di una cattura.
 
 #### 3.1.3 Interfaccia Software
-* **[INT-SW-01]** - *Must have*: L'app deve integrare una libreria di database locale embedded (es. SQLite tramite un ORM come drift) per la persistenza strutturata di spot, battute, catture, spese e pianificazione, senza dipendenza da un database server remoto.
+* **[INT-SW-01]** - *Must have*: L'app deve integrare una libreria di database locale embedded (es. SQLite) per la persistenza strutturata di spot, battute, catture, spese e pianificazione, senza dipendenza da un database server remoto.
 * **[INT-SW-02]** - *Must have*: L'app deve integrare una libreria di mappa client-side (es. flutter_map) in grado di visualizzare tile di provider cartografici gratuiti e di renderizzare tracciati geografici (polilinee) e marker.
 * **[INT-SW-03]** - *Should have*: L'app dovrebbe integrare una libreria di compressione/ridimensionamento immagini lato client, applicata automaticamente al salvataggio di ogni fotografia.
 
@@ -108,15 +107,20 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Descrizione**: Il sistema deve permettere la creazione di un nuovo spot disegnando manualmente il relativo tratto sulla mappa.
   * **Input**: Sequenza di punti selezionati dall'utente sulla mappa (punto di partenza, punti intermedi, punto di arrivo); nome assegnato allo spot al termine del disegno.
   * **Elaborazione**: Validazione che il tratto contenga almeno due punti e che sia stato assegnato un nome non vuoto prima del salvataggio.
-  * **Output / Risposta**: Nuovo spot salvato e visualizzato sulla mappa con un colore distintivo; messaggio di conferma del salvataggio.
+  * **Output / Risposta**: Nuovo spot salvato e visualizzato sulla mappa; messaggio di conferma del salvataggio.
 
 * **[REQ-FUN-02]** - *Should have*
   * **Descrizione**: Il sistema dovrebbe permettere la modifica dei dati descrittivi di uno spot esistente (valle/zona, categoria, difficoltà, note, voto).
   * **Input**: Selezione di uno spot esistente e nuovi valori per i campi modificabili.
   * **Output**: Scheda dello spot aggiornata con i nuovi valori.
 
+* **[REQ-FUN-02]** - *Could have*
+  * **Descrizione**: Possibilità di visualizzare la mappa con diverse viste (es: colori tratto rispetto al tipo di ambiente oppure rispetto al voto assegnato, ecc...)
+  * **Input**: Selezione tipo di vista
+  * **Output**: Modifica colori mappa.
+
 * **[REQ-FUN-02]** - *Should have*
-  * **Descrizione**: Il sistema dovrebbe permettere all'utente di aggiungere nuovi territori (cartelle per spot), che può prendere nome ad esempio dalla valle che ospita
+  * **Descrizione**: Il sistema dovrebbe permettere all'utente di aggiungere nuovi territori (categoria), costituiscono delle cartelle per gli spot (es: nel mio exel le categorie possono essere le valli minori (val stabina) oppure per altidudine (basso Brembo))
   * **Output**: Possibilità di assegnare uno o più spot ad un territorio
 
 * **[REQ-FUN-03]** - *Should have*
@@ -142,12 +146,6 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Input**: data, spot di cattura, una o più foto, specie, esca usata e si possono spuntare le caratteristiche (se le soddisfa) legate a quella specie.
   * **Elaborazione**: Ridimensionamento e compressione della fotografia prima del salvataggio su file system; generazione di un'anteprima (thumbnail) per la visualizzazione in elenco; salvataggio del percorso del file immagine come riferimento nel record della cattura, senza memorizzare il file binario nel database.
   * **Output / Risposta**:  salvata e associata alla battuta, visibile in apposita sezione nelle statistiche per consultazioni future insieme alle altre catture da ricordare con vista a carosello
-
-* **[REQ-FUN-06]** - *Should have*
-  * **Descrizione**: Il sistema dovrebbe permettere all'utente di definire categorie, ovvero cartelle di spot, uno spot può appartenere ad una sola categoria: Es, in val serina (categoria) sono stati salvati 5 spot
-  * **Input**: Nome categoria.
-  * **Elaborazione**: L'eliminazione di una categoria può comportare una serie di eliminazioni a cascata di spot e battute, necessario chiedere prima conferma e se si vuole spostare gli spot (se presenti) su altre categorie
-  * **Output / Risposta**: Nuova cartella dove posso aggiungere spot legati a quella regione
 
 * **[REQ-FUN-06]** - *Could have*
   * **Descrizione**: Nell'app è possibile salvare anche le esche utilizzate in pesca, può essere utile per fare ricerche filtrate delle battute o per qualche statistica (es: in quante battute questa stagione ho usato la gomma), (senza specificare la quantità di cattute per ciascuna in ogni battuta, lo ritengo troppo dettagliato e poco rilevante, inoltre rallenterebbe molto il processo per la creazione delle battute)
@@ -201,7 +199,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **[REQ-DES-01]**: L'app deve essere sviluppata in Flutter (Dart), per garantire una base di codice unica cross-platform Android/iOS.
 * **[REQ-DES-02]**: La persistenza dei dati deve avvenire esclusivamente tramite database locale embedded (SQLite, tramite ORM drift o equivalente); non è prevista, nella versione base, alcuna componente server-side (es. backend PHP) né database relazionale remoto.
 * **[REQ-DES-03]**: I file immagine (foto delle catture) devono essere salvati sul file system del dispositivo, referenziati nel database tramite il relativo percorso; il database non deve contenere file binari.
-* **[REQ-DES-04]**: Per obiettivi "complessi", ad esempio: per esempio trota "marmorata (car1) +"over 70" (car2) non si allegano più caratteristiche allo stesso obiettivo ma sarà il pescatore a scrivere una nuova caratteristica con quel nome associata alla specie trota.
+* **[REQ-DES-04]**: Per obiettivi "complessi", ad esempio: per esempio trota "marmorata (car1) +"over 70" (car2) non si allegano più caratteristiche allo stesso obiettivo ma sarà il pescatore a scrivere una nuova caratteristica con quel nome associata alla specie trota (assieme: "marmorata over 70").
 * **[REQ-DES-05]**: L'architettura del codice deve essere organizzata a livelli (presentazione, logica applicativa, accesso ai dati), per favorire manutenibilità e testabilità delle singole componenti.
 * **[REQ-DES-06]**:Le caratteristiche aggiunte alla cattura memorabile non vengono aggiunte per il conteggio degli obiettivi, quindi il pescatore nella registrazione di una battuta considera la cattura memorabile come una cattura qualsiasi e inserisce già da subito i valori totali per caratteristiche e obiettivi, serve a semplificare l'inserimento dei dati, la cattura memorabile viene aggiunta a parte ma rimane comunque associata alla pescata.
 

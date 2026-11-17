@@ -21,6 +21,7 @@ package "Enumerazioni" {
     BASSA
     MEDIA
     ALTA
+    ESTREMA
   }
 
   enum StatoAccessibilita {
@@ -34,7 +35,41 @@ package "Enumerazioni" {
     POMERIGGIO
     SERA
     NOTTE
+    TRAMONTO
   }
+
+  enum Meteo{
+    SERENO
+    COPERTO
+    PLUMBEO
+    VELATO
+    VARIABILE
+    PIOGGIA
+    VENTOSO
+  }
+
+ enum Trasparenza{
+    CRISTALLINA
+    CHIARA
+    VELATA
+    SPORCA  
+ }
+
+ enum Livello{
+    PIENA
+    MORBIDA
+    NORMALE
+    MAGRA
+    SECCA
+  }
+
+ enum Fondo{
+    SCURO
+    PULITO
+    NORMALE
+  }
+
+
 }
 
 ' =====================================================
@@ -43,6 +78,7 @@ package "Enumerazioni" {
 package "Territorio e Spot" {
   class Categoria {
     - nome : String
+    - note : String
     + spostaSpot(destinazione : Categoria)
   }
 
@@ -69,6 +105,7 @@ package "Territorio e Spot" {
   }
 
   class Coordinata {
+    - ordine: int
     - latitudine : double
     - longitudine : double
   }
@@ -84,10 +121,12 @@ package "Territorio e Spot" {
 package "Specie e Obiettivi" {
   class Specie {
     - nome : String
+    - info : String
   }
 
   class Caratteristica {
     - nome : String
+    - descrizione : String
   }
 
   class Obiettivo {
@@ -117,16 +156,17 @@ package "Battute e Catture" {
     - data : Date
     - fasciaOraria : FasciaOraria
     - note : String [0..1]
+    - livello : Livello
+    - fondo : Fondo
+    - trasparenza : Trasparenza
+    - meteo : Meteo
+    - tempAcqua : real
+    - tempAria: real
     /totaleCatture : int
   }
 
-  class CondizioniMeteo {
-    - temperatura : double
-    - precipitazioni : double
-    - descrizione : String
-  }
-
   class CatturaMemorabile {
+    - descrizione : String
   }
 
   class Esca {
@@ -141,9 +181,9 @@ package "Battute e Catture" {
 
   ' Struttura interna Battuta
   Pianificazione .right.> Pescata : <<create>>
-  Pescata *-right- "0..1" CondizioniMeteo
   Pescata "0..1" -left- "0..*" Foto
   Pescata "0..*" -down- "0..*" Esca
+  Foto "0..*" -left- "0..1" Esca
 
   ' Connessioni ordinate a stella per CatturaMemorabile
   Pescata "1" -down- "0..*" CatturaMemorabile
@@ -206,7 +246,7 @@ end note
 
 note bottom of Foto
   {xor}: appartiene a una Battuta
-  oppure a una CatturaMemorabile.
+  oppure a una CatturaMemorabile oppure ad un'esca.
 end note
 
 note bottom of Obiettivo
