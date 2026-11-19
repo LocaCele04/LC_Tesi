@@ -10,13 +10,6 @@ hide empty members
 '  ENUMERAZIONI
 ' =====================================================
 package "Enumerazioni" {
-  enum Ambiente {
-    TORRENTE
-    FIUME
-    LAGO
-    MARE
-  }
-
   enum Difficolta {
     BASSA
     MEDIA
@@ -34,22 +27,60 @@ package "Enumerazioni" {
     POMERIGGIO
     SERA
     NOTTE
+    TRAMONTO
   }
+
+  enum Meteo{
+    SERENO
+    COPERTO
+    PLUMBEO
+    VELATO
+    VARIABILE
+    PIOGGIA
+    VENTOSO
+  }
+
+ enum Trasparenza{
+    CRISTALLINA
+    CHIARA
+    VELATA
+    SPORCA  
+ }
+
+ enum Livello{
+    PIENA
+    MORBIDA
+    NORMALE
+    MAGRA
+    SECCA
+  }
+
+ enum Fondo{
+    SCURO
+    PULITO
+    NORMALE
+  }
+
+
 }
 
 ' =====================================================
 '  AREA TERRITORIO E SPOT (Sinistra)
 ' =====================================================
 package "Territorio e Spot" {
+  class Ambiente {
+    - nome : String
+  }
+
   class Categoria {
     - nome : String
+    - note : String
     + spostaSpot(destinazione : Categoria)
   }
 
   class Spot {
     - nome : String
-    - ambiente : Ambiente
-    - lunghezzaMetri : int [0..1]
+    - lunghezzaMetri : double [0..1]
     - difficolta : Difficolta [0..1]
     - voto : double [0..1]
     - esposizioneSole : String [0..1]
@@ -58,7 +89,7 @@ package "Territorio e Spot" {
     - linkParcheggio : String [0..1]
     - accessibilita : StatoAccessibilita
     - battuto : boolean
-    /numeroBattute : int
+    /numeroPescate : int
     /mediaCatture : double
     + segnalaOstacolo()
     + terminaOstacoli()
@@ -69,64 +100,29 @@ package "Territorio e Spot" {
   }
 
   class Coordinata {
+    - ordine: int
     - latitudine : double
     - longitudine : double
   }
 
   Categoria "1" -down-> "0..*" Spot : raggruppa
+  Ambiente "1" -down-> "0..*" Spot : classifica
   Spot "1" *-down- "1" Tratto
   Tratto "1" *-down- "2..*" Coordinata : {ordered}
 }
 
 ' =====================================================
-'  AREA SPECIE E OBIETTIVI (Destra)
+'  CATALOGO (anagrafiche personali)
 ' =====================================================
-package "Specie e Obiettivi" {
+package "Catalogo" {
   class Specie {
     - nome : String
+    - info : String
   }
 
   class Caratteristica {
     - nome : String
-  }
-
-  class Obiettivo {
-    - anno : int
-    - quantita : int
-    + progresso() : int
-    + isRaggiunto() : boolean
-  }
-
-  Specie "1" -down- "0..*" Caratteristica : definisce >
-  Obiettivo "0..*" -right- "1" Specie : riguarda >
-  Obiettivo "0..*" -down- "0..*" Caratteristica : conta >
-}
-
-' =====================================================
-'  AREA BATTUTE ED EVENTI (Centro)
-' =====================================================
-package "Battute e Catture" {
-  class Pianificazione {
-    - data : Date
-    - fasciaOraria : FasciaOraria
-    - note : String [0..1]
-    + convertiInBattuta() : Battuta
-  }
-
-  class Pescata {
-    - data : Date
-    - fasciaOraria : FasciaOraria
-    - note : String [0..1]
-    /totaleCatture : int
-  }
-
-  class CondizioniMeteo {
-    - temperatura : double
-    - precipitazioni : double
     - descrizione : String
-  }
-
-  class CatturaMemorabile {
   }
 
   class Esca {
@@ -134,21 +130,60 @@ package "Battute e Catture" {
     - descrizione: String
   }
 
-  class Foto {
-    - percorso : String
-    - percorsoThumbnail : String
+  Specie "1" -down- "0..*" Caratteristica : definisce >
+}
+
+' =====================================================
+'  OBIETTIVI
+' =====================================================
+package "Obiettivi" {
+  class Obiettivo {
+    - anno : int
+    - quantita : int
+    + progresso() : int
+    + isRaggiunto() : boolean
+  }
+}
+
+' =====================================================
+'  FOTO (condivisa da pescate, catture ed esche)
+' =====================================================
+class Foto {
+  - percorso : String
+  - percorsoThumbnail : String
+}
+
+' =====================================================
+'  PESCATE (Centro)
+' =====================================================
+package "Pescate" {
+  class Pianificazione {
+    - data : Date
+    - fasciaOraria : FasciaOraria
+    - note : String [0..1]
+    + convertiInPescata() : Pescata
   }
 
-  ' Struttura interna Battuta
-  Pianificazione .right.> Pescata : <<create>>
-  Pescata *-right- "0..1" CondizioniMeteo
-  Pescata "0..1" -left- "0..*" Foto
-  Pescata "0..*" -down- "0..*" Esca
+  class Pescata {
+    - data : Date
+    - fasciaOraria : FasciaOraria
+    - note : String [0..1]
+    - livello : Livello
+    - fondo : Fondo
+    - trasparenza : Trasparenza
+    - meteo : Meteo
+    - tempAcqua : real
+    - tempAria: real
+    /totaleCatture : int
+  }
 
-  ' Connessioni ordinate a stella per CatturaMemorabile
+  class CatturaMemorabile {
+    - descrizione : String
+  }
+
+  ' Struttura interna Pescata
+  Pianificazione .right.> Pescata : <<create>>
   Pescata "1" -down- "0..*" CatturaMemorabile
-  CatturaMemorabile "0..1" -left- "0..1" Esca
-  CatturaMemorabile "0..1" -right- "1..*" Foto
 }
 
 ' =====================================================
@@ -165,8 +200,19 @@ class RiepilogoCaratteristica {
 ' =====================================================
 '  RELAZIONI INTER-PACCHETTO E ALINEAMENTO
 ' =====================================================
-Pianificazione "0..*" -left- "1" Spot : prevede >
-Pescata "0..*" -left- "1" Spot : si svolge in >
+Pianificazione "0..*" -left- "0..1" Spot : prevede >
+Pescata "0..*" -left- "0..1" Spot : si svolge in >
+
+' Foto ed esche
+Pescata "0..1" -left- "0..*" Foto
+CatturaMemorabile "0..1" -right- "1..*" Foto
+Foto "0..*" -left- "0..1" Esca
+Pescata "0..*" -down- "0..*" Esca
+CatturaMemorabile "0..*" -left- "0..1" Esca
+
+' Obiettivi
+Obiettivo "0..*" -right- "1" Specie : riguarda >
+Obiettivo "0..1" -down- "0..*" Caratteristica : conta >
 
 ' Collegamenti CatturaMemorabile -> Specie / Caratteristica (dal basso)
 CatturaMemorabile "0..*" -down- "1" Specie : è di >
@@ -184,13 +230,23 @@ RiepilogoSpecie "0..*" -down- "0..*" Caratteristica
 '  NOTE FORMATTATE
 ' =====================================================
 note top of Categoria
-  Eliminare una Categoria chiede conferma e
-  permette di spostare gli Spot altrove;
-  altrimenti elimina a cascata Spot e Battute.
+  Una Categoria si elimina solo se vuota:
+  prima si spostano gli Spot in un'altra
+  Categoria (spostaSpot). Rinominarla
+  aggiorna gli Spot collegati.
+end note
+
+note top of Ambiente
+  Di base: Torrente, Fiume, Lago, Mare;
+  l'utente può aggiungerne altri.
+  Nome unico senza distinzione di maiuscole.
+  Si elimina solo se nessuno Spot lo usa.
 end note
 
 note bottom of Tratto
   Eliminare lo Spot elimina il Tratto e viceversa.
+  Eliminare lo Spot elimina le sue Pianificazioni;
+  le Pescate restano nello storico senza Spot.
   Il colore dipende dalla valutazione dello spot.
 end note
 
@@ -200,20 +256,20 @@ note right of RiepilogoCaratteristica
 end note
 
 note bottom of CatturaMemorabile
-  Data e spot derivano dalla Battuta.
+  Data e spot derivano dalla Pescata.
   {caratteristiche.specie = specie}
 end note
 
 note bottom of Foto
-  {xor}: appartiene a una Battuta
-  oppure a una CatturaMemorabile.
+  {xor}: appartiene a una Pescata
+  oppure a una CatturaMemorabile oppure ad un'esca.
 end note
 
 note bottom of Obiettivo
   Valido nell'anno solare indicato.
   Progresso calcolato al volo: somma delle quantita
   delle caratteristiche collegate (o della specie se
-  nessuna) nelle battute di quell'anno.
+  nessuna) nelle pescate di quell'anno.
 end note
 
 @enduml

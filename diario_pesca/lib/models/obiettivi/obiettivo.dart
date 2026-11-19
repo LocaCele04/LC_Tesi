@@ -1,4 +1,4 @@
-import 'caratteristica.dart';
+import '../catalogo/caratteristica.dart';
 
 class Obiettivo {
   final int? id;

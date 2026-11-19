@@ -1,6 +1,7 @@
-import '../statistiche/caratteristica.dart';
-import 'esca.dart';
-import 'foto.dart';
+import '../catalogo/caratteristica.dart';
+import '../catalogo/esca.dart';
+import '../foto.dart';
+import '../uguaglianza.dart';
 
 class CatturaMemorabile {
   final int? id;
@@ -50,9 +51,18 @@ class CatturaMemorabile {
           descrizione == other.descrizione &&
           pescataId == other.pescataId &&
           specieNome == other.specieNome &&
-          esca == other.esca;
+          esca == other.esca &&
+          listeUguali(caratteristiche, other.caratteristiche) &&
+          listeUguali(foto, other.foto);
 
   @override
-  int get hashCode =>
-      Object.hash(id, descrizione, pescataId, specieNome, esca);
+  int get hashCode => Object.hash(
+        id,
+        descrizione,
+        pescataId,
+        specieNome,
+        esca,
+        Object.hashAll(caratteristiche),
+        Object.hashAll(foto),
+      );
 }

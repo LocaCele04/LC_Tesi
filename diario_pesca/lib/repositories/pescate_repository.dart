@@ -1,53 +1,45 @@
-import 'dart:io';
-
 import 'package:sqflite/sqflite.dart';
 
-import '../database/database_helper.dart';
-import '../database/db_mappers.dart';
-import '../models/battute/cattura_memorabile.dart';
-import '../models/battute/esca.dart';
-import '../models/battute/foto.dart';
-import '../models/battute/pescata.dart';
-import '../models/battute/pianificazione.dart';
+import '../data/archivio_foto.dart';
+import '../data/database_helper.dart';
+import '../data/db_mappers.dart';
+import '../data/query_condivise.dart';
+import '../models/catalogo/caratteristica.dart';
+import '../models/catalogo/esca.dart';
 import '../models/enums.dart';
-import '../models/statistiche/caratteristica.dart';
-import '../models/statistiche/riepilogo_caratteristica.dart';
-import '../models/statistiche/riepilogo_specie.dart';
+import '../models/foto.dart';
+import '../models/pescate/cattura_memorabile.dart';
+import '../models/pescate/pescata.dart';
+import '../models/pescate/pianificazione.dart';
+import '../models/pescate/riepilogo_caratteristica.dart';
+import '../models/pescate/riepilogo_specie.dart';
+import 'catalogo_repository.dart';
 
-class BattuteRepository {
+/// Pescate con tutto ciò che contengono (riepiloghi specie con dettagli,
+/// catture memorabili, foto, legami con le esche) e pianificazioni.
+///
+/// È l'unico componente che scrive le tabelle `Pescata`, `Pescata_Esca`,
+/// `RiepilogoSpecie`, `DettaglioRiepilogo`, `CatturaMemorabile`,
+/// `Cattura_Caratteristica`, `Pianificazione` e le foto di pescate e catture.
+/// Esche e caratteristiche nuove vengono create tramite il
+/// [CatalogoRepository] dentro la stessa transazione.
+class PescateRepository {
   final DatabaseHelper _dbHelper;
+  final CatalogoRepository _catalogo;
+  final ArchivioFoto _archivioFoto;
 
-  BattuteRepository({DatabaseHelper? dbHelper})
-      : _dbHelper = dbHelper ?? DatabaseHelper.instance;
+  PescateRepository({
+    DatabaseHelper? dbHelper,
+    CatalogoRepository? catalogo,
+    ArchivioFoto archivioFoto = const ArchivioFoto(),
+  })  : _dbHelper = dbHelper ?? DatabaseHelper.instance,
+        _catalogo = catalogo ??
+            CatalogoRepository(dbHelper: dbHelper, archivioFoto: archivioFoto),
+        _archivioFoto = archivioFoto;
 
   // ===========================================================================
   // LETTURA
   // ===========================================================================
-
-  /// Elenco esche in ordine alfabetico con relative foto e filtro opzionale sul nome.
-  Future<List<Esca>> getEsche({String? filtroNome}) async {
-    final db = await _dbHelper.database;
-    final hasFiltro = filtroNome != null && filtroNome.trim().isNotEmpty;
-
-    final righe = await db.query(
-      'Esca',
-      where: hasFiltro ? 'LOWER(nome) LIKE LOWER(?)' : null,
-      whereArgs: hasFiltro ? ['%${filtroNome.trim()}%'] : null,
-      orderBy: 'nome ASC',
-    );
-    if (righe.isEmpty) return [];
-
-    final escaIds = righe.map((r) => r['id'] as int).toList();
-    final fotoPerEsca = await _caricaFotoPerEsche(db, escaIds);
-
-    return righe.map((r) {
-      final id = r['id'] as int;
-      return DbMappers.escaFromMap(
-        r,
-        foto: fotoPerEsca[id] ?? const [],
-      );
-    }).toList();
-  }
 
   /// Elenco uscite pianificate con filtri opzionali (es. prossime uscite con `daData`).
   Future<List<Pianificazione>> getPianificazioni({
@@ -180,7 +172,7 @@ class BattuteRepository {
       ORDER BY e.nome ASC
     ''', [id]);
     final escaIds = righeEsche.map((r) => r['id'] as int).toList();
-    final fotoPerEsca = await _caricaFotoPerEsche(db, escaIds);
+    final fotoPerEsca = await _catalogo.caricaFotoPerEsche(db, escaIds);
     final esche = righeEsche.map((r) {
       final escaId = r['id'] as int;
       return DbMappers.escaFromMap(
@@ -202,7 +194,7 @@ class BattuteRepository {
     final catture = await _queryCattureConDettagli(db, pescataId: id);
 
     // 4. Riepiloghi specie con dettagli per caratteristica (query condivisa)
-    final riepiloghi = await DbMappers.queryRiepiloghiConDettagli(
+    final riepiloghi = await QueryCondivise.riepiloghiConDettagli(
       db,
       pescataId: id,
     );
@@ -219,89 +211,6 @@ class BattuteRepository {
   // ===========================================================================
   // SCRITTURA ED ELIMINAZIONE
   // ===========================================================================
-
-  /// Inserisce o aggiorna atomicamente un'Esca insieme alle sue foto,
-  /// rimuovendo dal disco eventuali file immagine scollegati.
-  Future<Esca> salvaEsca(Esca esca) async {
-    final db = await _dbHelper.database;
-    final percorsiFotoDaRimuovere = <String>{};
-
-    final risultato = await db.transaction((txn) async {
-      final int escaId;
-      if (esca.id == null) {
-        escaId = await txn.insert('Esca', DbMappers.escaToMap(esca));
-      } else {
-        escaId = esca.id!;
-
-        final vecchieFoto = await txn.query(
-          'Foto',
-          columns: ['percorso', 'percorsoThumbnail'],
-          where: 'esca_id = ?',
-          whereArgs: [escaId],
-        );
-        for (final f in vecchieFoto) {
-          percorsiFotoDaRimuovere.add(f['percorso'] as String);
-          percorsiFotoDaRimuovere.add(f['percorsoThumbnail'] as String);
-        }
-
-        await txn.delete(
-          'Foto',
-          where: 'esca_id = ?',
-          whereArgs: [escaId],
-        );
-
-        await txn.update(
-          'Esca',
-          DbMappers.escaToMap(esca),
-          where: 'id = ?',
-          whereArgs: [escaId],
-        );
-      }
-
-      final fotoSalvate = <Foto>[];
-      for (final f in esca.foto) {
-        final fotoAllineata = Foto(
-          percorso: f.percorso,
-          percorsoThumbnail: f.percorsoThumbnail,
-          pescataId: null,
-          catturaMemorabileId: null,
-          escaId: escaId,
-        );
-        final fotoId =
-            await txn.insert('Foto', DbMappers.fotoToMap(fotoAllineata));
-        fotoSalvate.add(fotoAllineata.copyWith(id: fotoId));
-        percorsiFotoDaRimuovere.remove(f.percorso);
-        percorsiFotoDaRimuovere.remove(f.percorsoThumbnail);
-      }
-
-      return esca.copyWith(id: escaId, foto: fotoSalvate);
-    });
-
-    await _eliminaFileSuDisco(percorsiFotoDaRimuovere);
-    return risultato;
-  }
-
-  Future<void> eliminaEsca(int id) async {
-    final db = await _dbHelper.database;
-    final percorsiFotoDaRimuovere = <String>[];
-
-    await db.transaction((txn) async {
-      final fotoRows = await txn.query(
-        'Foto',
-        columns: ['percorso', 'percorsoThumbnail'],
-        where: 'esca_id = ?',
-        whereArgs: [id],
-      );
-      for (final f in fotoRows) {
-        percorsiFotoDaRimuovere.add(f['percorso'] as String);
-        percorsiFotoDaRimuovere.add(f['percorsoThumbnail'] as String);
-      }
-
-      await txn.delete('Esca', where: 'id = ?', whereArgs: [id]);
-    });
-
-    await _eliminaFileSuDisco(percorsiFotoDaRimuovere);
-  }
 
   Future<Pianificazione> salvaPianificazione(Pianificazione p) async {
     final db = await _dbHelper.database;
@@ -327,7 +236,17 @@ class BattuteRepository {
   /// Inserisce o aggiorna atomicamente una Pescata insieme a esche, foto,
   /// riepiloghi specie con dettagli e catture memorabili, aggiornando
   /// anche lo stato `battuto` dello spot.
+  ///
+  /// Lo spot è obbligatorio. Nel database `spot_nome` resta nullable solo per
+  /// permettere `ON DELETE SET NULL`: quando uno spot viene eliminato le sue
+  /// pescate restano nello storico senza spot. Per questo l'unico caso
+  /// ammesso senza spot è l'aggiornamento di una pescata che lo ha già perso.
   Future<Pescata> salvaPescata(Pescata pescata) async {
+    final spotIndicato =
+        pescata.spotNome != null && pescata.spotNome!.trim().isNotEmpty;
+    if (pescata.id == null && !spotIndicato) {
+      throw ArgumentError('Lo spot è obbligatorio per registrare una pescata');
+    }
     for (final r in pescata.riepiloghiSpecie) {
       _validaRiepilogoSpecie(r);
     }
@@ -353,6 +272,11 @@ class BattuteRepository {
         );
         if (prevPescata.isNotEmpty) {
           vecchioSpotNome = prevPescata.first['spot_nome'] as String?;
+        }
+        if (!spotIndicato && vecchioSpotNome != null) {
+          throw ArgumentError(
+            'Non è possibile rimuovere lo spot da una pescata che ne ha uno',
+          );
         }
 
         final vecchieFoto = await txn.rawQuery('''
@@ -399,7 +323,7 @@ class BattuteRepository {
       // 1. Esche (salva al volo se id == null)
       final escheSalvate = <Esca>[];
       for (final esca in pescata.esche) {
-        final escaAllineata = await _assicuraEscaSalvata(txn, esca);
+        final escaAllineata = await _catalogo.assicuraEscaSalvata(txn, esca);
         await txn.insert('Pescata_Esca', {
           'pescata_id': pescataId,
           'esca_id': escaAllineata.id!,
@@ -435,7 +359,7 @@ class BattuteRepository {
 
         final dettagliSalvati = <RiepilogoCaratteristica>[];
         for (final d in r.dettagli) {
-          final carattAllineata = await _assicuraCaratteristicaSalvata(
+          final carattAllineata = await _catalogo.assicuraCaratteristicaSalvata(
             txn,
             d.caratteristica,
             specieAttesa: r.specieNome,
@@ -472,9 +396,9 @@ class BattuteRepository {
 
       // 5. Sincronizza stato battuto dello spot (vecchio e nuovo)
       if (vecchioSpotNome != null && vecchioSpotNome != pescata.spotNome) {
-        await _aggiornaStatoBattutoSpot(txn, vecchioSpotNome);
+        await QueryCondivise.aggiornaStatoBattutoSpot(txn, vecchioSpotNome);
       }
-      await _aggiornaStatoBattutoSpot(txn, pescata.spotNome);
+      await QueryCondivise.aggiornaStatoBattutoSpot(txn, pescata.spotNome);
 
       return pescata.copyWith(
         id: pescataId,
@@ -485,7 +409,7 @@ class BattuteRepository {
       );
     });
 
-    await _eliminaFileSuDisco(percorsiFotoDaRimuovere);
+    await _archivioFoto.eliminaFile(percorsiFotoDaRimuovere);
     return risultato;
   }
 
@@ -518,10 +442,10 @@ class BattuteRepository {
       }
 
       await txn.delete('Pescata', where: 'id = ?', whereArgs: [id]);
-      await _aggiornaStatoBattutoSpot(txn, spotNome);
+      await QueryCondivise.aggiornaStatoBattutoSpot(txn, spotNome);
     });
 
-    await _eliminaFileSuDisco(percorsiFotoDaRimuovere);
+    await _archivioFoto.eliminaFile(percorsiFotoDaRimuovere);
   }
 
   /// Inserisce o aggiorna una CatturaMemorabile con caratteristiche e foto.
@@ -572,7 +496,7 @@ class BattuteRepository {
       );
 
       final escaRisolta = cattura.esca != null
-          ? await _assicuraEscaSalvata(txn, cattura.esca!)
+          ? await _catalogo.assicuraEscaSalvata(txn, cattura.esca!)
           : null;
       final catturaAllineata = cattura.copyWith(esca: escaRisolta);
 
@@ -590,7 +514,7 @@ class BattuteRepository {
       );
     });
 
-    await _eliminaFileSuDisco(percorsiFotoDaRimuovere);
+    await _archivioFoto.eliminaFile(percorsiFotoDaRimuovere);
     return risultato;
   }
 
@@ -613,7 +537,7 @@ class BattuteRepository {
       await txn.delete('CatturaMemorabile', where: 'id = ?', whereArgs: [id]);
     });
 
-    await _eliminaFileSuDisco(percorsiFotoDaRimuovere);
+    await _archivioFoto.eliminaFile(percorsiFotoDaRimuovere);
   }
 
   // ===========================================================================
@@ -638,102 +562,13 @@ class BattuteRepository {
     }
   }
 
-  Future< Map<int, List<Foto>> > _caricaFotoPerEsche(
-    DatabaseExecutor db,
-    List<int> escaIds,
-  ) async {
-    if (escaIds.isEmpty) return {};
-
-    final placeholders = List.filled(escaIds.length, '?').join(', ');
-    final rows = await db.query(
-      'Foto',
-      where: 'esca_id IN ($placeholders)',
-      whereArgs: escaIds,
-      orderBy: 'id ASC',
-    );
-
-    final mappa = <int, List<Foto>>{};
-    for (final r in rows) {
-      final foto = DbMappers.fotoFromMap(r);
-      final escaId = foto.escaId!;
-      mappa.putIfAbsent(escaId, () => []).add(foto);
-    }
-    return mappa;
-  }
-
-  Future<Esca> _assicuraEscaSalvata(Transaction txn, Esca esca) async {
-    if (esca.id != null) return esca;
-
-    final esistente = await txn.query(
-      'Esca',
-      columns: ['id'],
-      where: 'LOWER(TRIM(nome)) = LOWER(TRIM(?))',
-      whereArgs: [esca.nome],
-      limit: 1,
-    );
-    if (esistente.isNotEmpty) {
-      final existingId = esistente.first['id'] as int;
-      final fotoMap = await _caricaFotoPerEsche(txn, [existingId]);
-      return esca.copyWith(
-        id: existingId,
-        foto: fotoMap[existingId] ?? const [],
-      );
-    }
-
-    final id = await txn.insert('Esca', DbMappers.escaToMap(esca));
-    final fotoSalvate = <Foto>[];
-    for (final f in esca.foto) {
-      final fotoAllineata = Foto(
-        percorso: f.percorso,
-        percorsoThumbnail: f.percorsoThumbnail,
-        pescataId: null,
-        catturaMemorabileId: null,
-        escaId: id,
-      );
-      final fotoId =
-          await txn.insert('Foto', DbMappers.fotoToMap(fotoAllineata));
-      fotoSalvate.add(fotoAllineata.copyWith(id: fotoId));
-    }
-    return esca.copyWith(id: id, foto: fotoSalvate);
-  }
-
-  Future<Caratteristica> _assicuraCaratteristicaSalvata(
-    Transaction txn,
-    Caratteristica c, {
-    required String specieAttesa,
-  }) async {
-    if (c.id != null) return c;
-    if (c.specieNome != specieAttesa) {
-      throw ArgumentError(
-        'La nuova caratteristica "${c.nome}" appartiene a ${c.specieNome}, non a $specieAttesa',
-      );
-    }
-
-    final esistente = await txn.query(
-      'Caratteristica',
-      columns: ['id'],
-      where: 'specie_nome = ? AND LOWER(TRIM(nome)) = LOWER(TRIM(?))',
-      whereArgs: [c.specieNome, c.nome],
-      limit: 1,
-    );
-    if (esistente.isNotEmpty) {
-      return c.copyWith(id: esistente.first['id'] as int);
-    }
-
-    final id = await txn.insert(
-      'Caratteristica',
-      DbMappers.caratteristicaToMap(c),
-    );
-    return c.copyWith(id: id);
-  }
-
   Future<CatturaMemorabile> _inserisciCatturaInTransazione(
     Transaction txn,
     CatturaMemorabile cattura,
     Set<String> percorsiFotoDaRimuovere,
   ) async {
     final escaRisolta = cattura.esca != null
-        ? await _assicuraEscaSalvata(txn, cattura.esca!)
+        ? await _catalogo.assicuraEscaSalvata(txn, cattura.esca!)
         : null;
 
     final catturaDaInserire = cattura.copyWith(esca: escaRisolta);
@@ -758,7 +593,7 @@ class BattuteRepository {
     final carattSalvate = <Caratteristica>[];
 
     for (final caratt in cattura.caratteristiche) {
-      final carattAllineata = await _assicuraCaratteristicaSalvata(
+      final carattAllineata = await _catalogo.assicuraCaratteristicaSalvata(
         txn,
         caratt,
         specieAttesa: cattura.specieNome,
@@ -791,34 +626,6 @@ class BattuteRepository {
       caratteristiche: carattSalvate,
       foto: fotoSalvate,
     );
-  }
-
-  Future<void> _aggiornaStatoBattutoSpot(
-    DatabaseExecutor db,
-    String? spotNome,
-  ) async {
-    if (spotNome == null) return;
-    await db.rawUpdate('''
-      UPDATE Spot
-      SET battuto = CASE
-        WHEN EXISTS (SELECT 1 FROM Pescata WHERE spot_nome = ?) THEN 1
-        ELSE 0
-      END
-      WHERE nome = ?
-    ''', [spotNome, spotNome]);
-  }
-
-  Future<void> _eliminaFileSuDisco(Iterable<String> percorsi) async {
-    for (final path in percorsi) {
-      try {
-        final file = File(path);
-        if (await file.exists()) {
-          await file.delete();
-        }
-      } on FileSystemException {
-        // Ignora file già assenti o percorsi virtuali nei test
-      }
-    }
   }
 
   Future<List<CatturaMemorabile>> _queryCattureConDettagli(
@@ -864,7 +671,7 @@ class BattuteRepository {
         .whereType<int>()
         .toSet()
         .toList();
-    final fotoPerEsca = await _caricaFotoPerEsche(db, escaIds);
+    final fotoPerEsca = await _catalogo.caricaFotoPerEsche(db, escaIds);
 
     final catture = <CatturaMemorabile>[];
     for (final rc in righeCatture) {

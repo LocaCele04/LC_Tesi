@@ -50,7 +50,7 @@ Trattandosi di un progetto individuale, la responsabilità operativa della confi
 # 3. Attività SCM e Workflow Git
 
 ## 3.1 Struttura del Repository
-- `/src` (o cartella del framework mobile): Codice sorgente del progetto.
+- `/diario_pesca`: progetto Flutter dell'applicazione (codice in `lib/`, test in `test/`; organizzazione descritta in `docs/struttura_del_progetto_diario_di_pesca.md`).
 - `/docs`: Documentazione di progetto, output diagrammi UML e piani SCM.
 - `/diagrams`: sorgenti diagrammi UML
 

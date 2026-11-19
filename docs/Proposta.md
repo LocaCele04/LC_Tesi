@@ -9,7 +9,7 @@
 ## 1. Visione Generale e Obiettivi
 
 ### 1.1 Contesto e Problema
-Il progetto si colloca nell'ambito della pesca sportiva e ricreativa effettuarla con canna da pesca, comprendendo diverse tecniche e specie ittiche. L'idea nasce da una necessità personale, ampiamente riscontrata anche tra altri appassionati: disporre di uno strumento centralizzato per tracciare i luoghi di pesca frequentati e le catture effettuate. 
+Il progetto si colloca nell'ambito della pesca sportiva e ricreativa effettuata con la sola canna da pesca, comprendendo diverse tecniche e specie ittiche. L'idea nasce da una necessità personale, ampiamente riscontrata anche tra altri appassionati: disporre di uno strumento centralizzato per tracciare i luoghi di pesca frequentati e le catture effettuate. 
 
 Negli ultimi due anni ho utilizzato un foglio di calcolo personalizzato, ma questa soluzione ha evidenziato notevoli limiti operativi:
 - Necessità di correggere e adattare frequentemente le formule.
@@ -22,9 +22,9 @@ Attualmente, per gestire appieno l'attività, è necessario combinare l'uso del 
 
 ### 1.2 Obiettivi Primari
 - Fornire uno strumento semplice e intuitivo per registrare i dettagli delle sessioni di pesca.
-- Garantire un'architettura **100% local-first** con totale riservatezza dei dati dell'utente.
+- Garantire un'architettura con totale riservatezza dei dati dell'utente.
 - Offrire un'interfaccia chiara per la consultazione di statistiche e trend personali.
-- Integrare strumenti a supporto della pianificazione delle battute (previsioni meteo, mappe, storico passato).
+- Integrare strumenti a supporto della pianificazione delle pescate (previsioni meteo, mappe, storico passato).
 - Fornire strumenti per definire e monitorare obiettivi personali di pesca.
 
 ---
@@ -37,10 +37,10 @@ I destinatari dell'applicazione sono esclusivamente pescatori ricreativi e amato
 ### 2.2 Scenario Operativo (Storytelling)
 L'utilizzo tipico dell'applicazione può seguire la seguente scaletta:
 
-1. **Pianificazione (Giorno precedente la battuta):** Il pescatore consulta l'app per selezionare lo spot da battere, scegliendone uno già censito o aggiungendone uno nuovo. Consulta la sezione previsioni/meteo e analizza i dati storici e le statistiche personali per valutare la fattibilità della sessione.
-2. **Programmazione:** Una volta definita la meta, l'utente pianifica la battuta inserendo lo spot nel calendario integrato.
+1. **Pianificazione (Giorno precedente la pescata):** Il pescatore consulta l'app per selezionare lo spot da battere, scegliendone uno già censito o aggiungendone uno nuovo. Consulta la sezione previsioni/meteo e analizza i dati storici e le statistiche personali per valutare la fattibilità della sessione.
+2. **Programmazione:** Una volta definita la meta, l'utente pianifica la pescata inserendo lo spot nel calendario integrato.
 3. **Durante la Sessione:** Non dovrebbe servire, piena concentrazione sull'attività di pesca.
-4. **Post-Pescata (Registrazione dati):** L'utente registra una o più battute (a seconda dei tratti/spot visitati). Per ciascuna battuta inserisce i dati obbligatori (es. data, numero di catture) ed eventuali dati facoltativi (es. note personali, foto dalla galleria).
+4. **Post-Pescata (Registrazione dati):** L'utente registra una o più pescate (a seconda dei tratti/spot visitati). Per ciascuna pescata inserisce i dati obbligatori (es. data, numero di catture) ed eventuali dati facoltativi (es. note personali, foto dalla galleria).
 5. **Manutenzione Dati:** L'utente può aggiornare le informazioni relative a uno spot (es. esposizione al sole, presenza di ostacoli o variazioni di accessibilità), utili per le scelte future.
 
 ---
@@ -50,7 +50,7 @@ L'utilizzo tipico dell'applicazione può seguire la seguente scaletta:
 ### 3.1 Modulo Gestione Spot
 #### 3.1.1 Creazione Spot
 - Creazione e posizionamento di un tratto o segnaposto sulla mappa grafica.
-- Inserimento informazioni obbligatorie: nome dello spot, valle/zona di appartenenza, tipologia di ambiente (torrente, fiume, lago, mare).
+- Inserimento informazioni obbligatorie: nome dello spot, categoria di appartenenza (es. la valle), tipologia di ambiente (torrente, fiume, lago, mare).
 - Inserimento informazioni facoltative: lunghezza del tratto, valutazione personale, note su punti inaccessibili, parcheggi nelle vicinanze.
 - Salvataggio dello spot nel database locale.
 - Inserimento categorie: sono macrogruppi che includono gli spot, ad esempio all'interno della val taleggio sono stati salvati 4 spot.
@@ -61,28 +61,28 @@ L'utilizzo tipico dell'applicazione può seguire la seguente scaletta:
 - Personalizzazione dell'interfaccia (possibilità di nascondere i campi facoltativi non utilizzati).
 - Modifica ed eliminazione delle schede spot.
 
-### 3.2 Modulo Registro Catture e Battute
-- Creazione di una nuova battuta al termine della sessione.
+### 3.2 Modulo Registro Catture e Pescate
+- Creazione di una nuova pescata al termine della sessione.
 - Selezione dello spot (con possibilità di crearne uno contestualmente).
 - Registrazione del numero di catture e inserimento di materiale fotografico dalla galleria.
 - Salvataggio foto preferite per riepiloghi
-- Nella creazione delle battute possibilità di selezionare le esche utilizzate
+- Nella creazione delle pescate possibilità di selezionare le esche utilizzate
 
 ### 3.3 Modulo Sessioni e Statistiche
-- **Statistiche Personali:** Numero di battute totali/settimanali, media pesci per sessione, stato di avanzamento degli obiettivi personali, confronti interannuali.
+- **Statistiche Personali:** Numero di pescate totali/settimanali, media pesci per sessione, stato di avanzamento degli obiettivi personali, confronti interannuali.
 - **Caratteristiche:** un pescatore può inserire una o più caratteristiche ad una singola specie andando a ad aggiungerla nelle impostazioni. Una caratteristica può essere qualsiasi aspetto che un pescatore vuole evidenziare di una cattura come il colore, una misura (es: trota over 35cm), un peso, ecc..
-Le caratteristiche si associano generalmente alla battuta per la specie scelta oppure per la cattura singola (cattura memorabile).
+Le caratteristiche si associano generalmente alla pescata per la specie scelta oppure per la cattura singola (cattura memorabile).
 - **Obiettivi:** scheda inizialmente vuota, sta al pescatore se vuole popolarla. gli obiettivi che può aggiungere riguarda le quantità sulle specie oppure legate alle caratteristiche aggiunte dal pescatore per quella specie. Gli obiettivi hanno termine di validità al termine dell'anno solare.
-- **Cattura memorabile:** nella registrazione di una battuta (oppure a parte) si può aggiungere una o più catture speciali, sono catture che si vuole ricordare e che finiscono in una apposita sezione di statistiche per consultazioni future, la cattura memorabile è costituita da alcune info come data, spot di cattura, una o più foto, specie, esca usata e si possono spuntare le caratteristiche (se le soddisfa) legate a quella specie.
-Le caratteristiche aggiunte alla cattura memorabile non vengono aggiunte per il conteggio degli obiettivi, quindi il pescatore nella registrazione di una battuta considera la cattura memorabile come una cattura qualsiasi e quindi inserisce già i valori totali per caratteristiche e obiettivi, così il pescatore può inserire già da subito i dettagli della pescata e a parte la cattura memorabile, la cattura memorabile rimane comunque associata alla pescata.
+- **Cattura memorabile:** nella registrazione di una pescata (oppure a parte) si può aggiungere una o più catture speciali, sono catture che si vuole ricordare e che finiscono in una apposita sezione di statistiche per consultazioni future, la cattura memorabile è costituita da alcune info come data, spot di cattura, una o più foto, specie, esca usata e si possono spuntare le caratteristiche (se le soddisfa) legate a quella specie.
+Le caratteristiche aggiunte alla cattura memorabile non vengono aggiunte per il conteggio degli obiettivi, quindi il pescatore nella registrazione di una pescata considera la cattura memorabile come una cattura qualsiasi e quindi inserisce già i valori totali per caratteristiche e obiettivi, così il pescatore può inserire già da subito i dettagli della pescata e a parte la cattura memorabile, la cattura memorabile rimane comunque associata alla pescata.
 - **Statistiche Spot:** Frequenza di visite, categoria/ambiente, distanza, livello di difficoltà, frequentazione, valutazione sintetica.
-- **Esche:** Possibilità di ricerche nelle battute con filtri (es: mostra battute dove è stata usata l'esca cucchiaino)
+- **Esche:** Possibilità di ricerche nelle pescate con filtri (es: mostra pescate dove è stata usata l'esca cucchiaino)
 
 ### 3.4 Gestione Dati e Persistenza
 - Funzionamento completamente offline
 - Non prevede registrazione account.
 - Database locale residente sul dispositivo.
-- Funzionalità di export/import locale dei dati per migrazione o backup manuale su cloud personale.
+- Backup e ripristino manuale dei dati su Google Drive: un unico archivio ZIP contenente i dati in formato JSON e tutte le foto, ripristinabile anche su un nuovo dispositivo.
 
 ---
 
@@ -94,7 +94,7 @@ Le caratteristiche aggiunte alla cattura memorabile non vengono aggiunte per il 
 - **Pianificazione Multipiattaforma:** Struttura predisposta per un'eventuale fruizione su dispositivi desktop.
 
 
-## 5. Sviluppi futuri
+## 5. Sviluppi futuri (fuori dall'MVP)
 
-- **Obiettivi più sofisticati:** per esempio se si vuole sapere quante battute sono state terminate con un numero di pesci catturati maggiore di num.
 - **Mappa 3D**
+- **Ricerche AI**: data la struttura fissa della base di dati, fornire un assistente ai in grado di interpretare una qualsiasi richiesta di ricerca da parte dell'utente, l'assistente che conosce la struttura della base di dati formula la query corrispondente allegando anche un breve testo dove spiega come ha interpretato la domanda e l'app esegue la query producendo la tabella dei risultati.

@@ -10,7 +10,7 @@ actor "Servizio Storage" as Storage <<non-umano>> <<secondario>> <<passivo>>
 rectangle "Diario di Pesca" {
   ' --- nuovi casi uso ---
 	usecase "Disegno tratto" as UC_DisegnoTratto
-	usecase "Elimina battuta" as UC_EliminaBattuta
+	usecase "Elimina pescata" as UC_EliminaPescata
 	usecase "Inserisci caratteristica" as UC_NuovaCaratteristica
 	usecase "Nuova esca" as UC_InserisciEsca
 	usecase "Allega esca" as UC_AllegaEsca
@@ -22,24 +22,23 @@ rectangle "Diario di Pesca" {
 	usecase "Osserva statistiche" as UC_Statistiche
 	usecase "Elimina spot" as UC_EliminaSpot
 	usecase "Salvataggio dati" as UC_Backup
-	usecase "Nuova battuta" as UC_NuovaBattuta
-	usecase "Pianificazione battuta" as UC_Pianificazione
+	usecase "Nuova pescata" as UC_NuovaPescata
+	usecase "Pianificazione pescata" as UC_Pianificazione
 	usecase "Nuova cattura ricordo" as UC_CatturaMemorabile
-	usecase "Aggiungi categoria spot" as UC_NuovaClassificazione
-	usecase "Nuovo territorio" as UC_NuovaValle
+	usecase "Nuovo ambiente" as UC_NuovaClassificazione
+	usecase "Nuova categoria" as UC_NuovaValle
 	
   
 
   ' --- nuove associazioni ---
 	UC_NuovoSpot ..> UC_DisegnoTratto : <<include>>
 	UC_DisegnoTratto ..> UC_ModificaSpot : <<extend>>
-	UC_NuovaBattuta ..> UC_SceltaSpot : <<include>>
-	UC_Pianificazione ..> UC_Previsioni : <<include>>
+	UC_NuovaPescata ..> UC_SceltaSpot : <<include>>
+	UC_Previsioni ..> UC_Pianificazione : <<extend>>
 	UC_Pianificazione ..> UC_SceltaSpot : <<include>>
 	UC_NuovaCaratteristica ..> UC_NuovoObiettivo : <<extend>>  
-	UC_EliminaBattuta ..> UC_EliminaSpot : <<extend>> 
 	UC_InserisciEsca ..> UC_AllegaEsca : <<extend>>
-	UC_AllegaEsca ..> UC_NuovaBattuta : <<extend>>
+	UC_AllegaEsca ..> UC_NuovaPescata : <<extend>>
   
 
 
@@ -56,11 +55,11 @@ rectangle "Diario di Pesca" {
 	Pescatore --> UC_EliminaSpot
 	Pescatore --> UC_Statistiche
 	Pescatore --> UC_Backup
-	Pescatore --> UC_EliminaBattuta 
+	Pescatore --> UC_EliminaPescata 
 	Pescatore --> UC_DisegnoTratto
 	Pescatore --> UC_CatturaMemorabile
 	Pescatore --> UC_NuovaCaratteristica
-	Pescatore --> UC_NuovaBattuta
+	Pescatore --> UC_NuovaPescata
 	Pescatore --> UC_Pianificazione
 	Pescatore --> UC_NuovoObiettivo
 	Pescatore --> UC_Previsioni

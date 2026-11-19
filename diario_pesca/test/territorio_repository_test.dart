@@ -1,5 +1,6 @@
-import 'package:diario_pesca/database/database_helper.dart';
+import 'package:diario_pesca/data/database_helper.dart';
 import 'package:diario_pesca/models/enums.dart';
+import 'package:diario_pesca/models/territorio/ambiente.dart';
 import 'package:diario_pesca/models/territorio/categoria.dart';
 import 'package:diario_pesca/models/territorio/coordinata.dart';
 import 'package:diario_pesca/models/territorio/spot.dart';
@@ -23,6 +24,50 @@ void main() {
 
   tearDown(() async {
     await dbHelper.close();
+  });
+
+  group('TerritorioRepository - Ambienti', () {
+    test('getAmbienti restituisce gli ambienti di base e quelli aggiunti, in ordine alfabetico', () async {
+      final base = await repo.getAmbienti();
+      expect(base.map((a) => a.nome), ['Fiume', 'Lago', 'Mare', 'Torrente']);
+
+      await repo.inserisciAmbiente(const Ambiente(nome: '  Canale  '));
+      final dopo = await repo.getAmbienti();
+      expect(dopo.map((a) => a.nome), ['Canale', 'Fiume', 'Lago', 'Mare', 'Torrente']);
+
+      // Duplicato con maiuscole diverse rifiutato
+      expect(
+        () => repo.inserisciAmbiente(const Ambiente(nome: 'LAGO')),
+        throwsA(isA<DatabaseException>()),
+      );
+    });
+
+    test('aggiornaAmbiente propaga la rinomina agli spot ed eliminaAmbiente è bloccata se in uso', () async {
+      await repo.inserisciCategoria(const Categoria(nome: 'Pianura'));
+      await repo.inserisciAmbiente(const Ambiente(nome: 'Canale'));
+      await repo.salvaSpotConCoordinate(
+        const Spot(nome: 'Canale Vecchio', ambiente: 'Canale', categoriaNome: 'Pianura'),
+      );
+
+      await repo.aggiornaAmbiente(
+        nomeOriginale: 'Canale',
+        ambienteAggiornato: const Ambiente(nome: 'Roggia'),
+      );
+      final spot = await repo.getSpotConCoordinate('Canale Vecchio');
+      expect(spot!.ambiente, 'Roggia');
+
+      await expectLater(
+        () => repo.eliminaAmbiente('Roggia'),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      await repo.eliminaSpot('Canale Vecchio');
+      await repo.eliminaAmbiente('Roggia');
+      expect(
+        (await repo.getAmbienti()).map((a) => a.nome),
+        isNot(contains('Roggia')),
+      );
+    });
   });
 
   group('TerritorioRepository - Categorie', () {

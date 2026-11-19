@@ -1,16 +1,15 @@
-import 'package:sqflite/sqflite.dart';
-
-import '../models/battute/cattura_memorabile.dart';
-import '../models/battute/esca.dart';
-import '../models/battute/foto.dart';
-import '../models/battute/pescata.dart';
-import '../models/battute/pianificazione.dart';
+import '../models/catalogo/caratteristica.dart';
+import '../models/catalogo/esca.dart';
+import '../models/catalogo/specie.dart';
 import '../models/enums.dart';
-import '../models/statistiche/caratteristica.dart';
-import '../models/statistiche/obiettivo.dart';
-import '../models/statistiche/riepilogo_caratteristica.dart';
-import '../models/statistiche/riepilogo_specie.dart';
-import '../models/statistiche/specie.dart';
+import '../models/foto.dart';
+import '../models/obiettivi/obiettivo.dart';
+import '../models/pescate/cattura_memorabile.dart';
+import '../models/pescate/pescata.dart';
+import '../models/pescate/pianificazione.dart';
+import '../models/pescate/riepilogo_caratteristica.dart';
+import '../models/pescate/riepilogo_specie.dart';
+import '../models/territorio/ambiente.dart';
 import '../models/territorio/categoria.dart';
 import '../models/territorio/coordinata.dart';
 import '../models/territorio/spot.dart';
@@ -33,6 +32,14 @@ class DbMappers {
   static Map<String, Object?> categoriaToMap(Categoria c) => {
         'nome': c.nome,
         'note': c.note,
+      };
+
+  static Ambiente ambienteFromMap(Map<String, Object?> map) => Ambiente(
+        nome: map['nome'] as String,
+      );
+
+  static Map<String, Object?> ambienteToMap(Ambiente a) => {
+        'nome': a.nome,
       };
 
   static Coordinata coordinataFromMap(Map<String, Object?> map) => Coordinata(
@@ -58,7 +65,7 @@ class DbMappers {
       nome: map['nome'] as String,
       ambiente: map['ambiente'] as String,
       lunghezzaMetri: (map['lunghezzaMetri'] as num?)?.toDouble(),
-      voto: map['voto'] as int?,
+      voto: (map['voto'] as num?)?.toDouble(),
       difficolta: difficoltaRaw != null
           ? Difficolta.values.byName(difficoltaRaw)
           : null,
@@ -309,60 +316,4 @@ class DbMappers {
         'specie_nome': r.specieNome,
         'quantita': r.quantita,
       };
-
-  /// Query condivisa per caricare i riepiloghi specie completi dei dettagli
-  /// (usata sia da StatisticheRepository sia da BattuteRepository).
-  static Future<List<RiepilogoSpecie>> queryRiepiloghiConDettagli(
-    DatabaseExecutor db, {
-    int? pescataId,
-    String? specieNome,
-  }) async {
-    final condizioni = <String>[];
-    final argomenti = <Object?>[];
-
-    if (pescataId != null) {
-      condizioni.add('pescata_id = ?');
-      argomenti.add(pescataId);
-    }
-    if (specieNome != null) {
-      condizioni.add('specie_nome = ?');
-      argomenti.add(specieNome);
-    }
-
-    final righeRiepilogo = await db.query(
-      'RiepilogoSpecie',
-      where: condizioni.isEmpty ? null : condizioni.join(' AND '),
-      whereArgs: argomenti.isEmpty ? null : argomenti,
-      orderBy: 'specie_nome ASC',
-    );
-
-    final risultati = <RiepilogoSpecie>[];
-    for (final riga in righeRiepilogo) {
-      final riepilogoId = riga['id'] as int;
-      final righeDettagli = await db.rawQuery('''
-        SELECT dr.riepilogo_specie_id, dr.quantita,
-               c.id AS c_id, c.specie_nome AS c_specie_nome,
-               c.nome AS c_nome, c.descrizione AS c_descrizione
-        FROM DettaglioRiepilogo dr
-        INNER JOIN Caratteristica c ON c.id = dr.caratteristica_id
-        WHERE dr.riepilogo_specie_id = ?
-        ORDER BY c.nome ASC
-      ''', [riepilogoId]);
-
-      final dettagli = righeDettagli.map((rd) {
-        final caratt = Caratteristica(
-          id: rd['c_id'] as int,
-          specieNome: rd['c_specie_nome'] as String,
-          nome: rd['c_nome'] as String,
-          descrizione: rd['c_descrizione'] as String?,
-        );
-        return riepilogoCaratteristicaFromMap(rd, caratteristica: caratt);
-      }).toList();
-
-      risultati.add(
-        riepilogoSpecieFromMap(riga, dettagli: dettagli),
-      );
-    }
-    return risultati;
-  }
 }

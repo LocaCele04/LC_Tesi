@@ -1,12 +1,9 @@
-import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import 'package:sqflite/sqflite.dart';
 
-/** guida per copiare nuova istanza db e aprirla poi su dbeaver da pc:
-    1. per vedere i file: %LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe shell "run-as com.example.diario_pesca ls -la databases"
-    2. per estrarlo: %LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe shell "run-as com.example.diario_pesca cat databases/diario_pesca.db > /data/local/tmp/diario_pesca.db"
-    3. per copiarlo su pc: %LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe pull /data/local/tmp/diario_pesca.db C:\Users\Celeste\Documents\GitHub\LC_Tesi\diario_pesca
- */
-
+/// Per copiare il database dal telefono al PC e aprirlo con DBeaver usare
+/// `scriptCopiaDB.bat` nella cartella `diario_pesca`: chiude l'app, estrae il
+/// file con adb e lo copia accanto allo script.
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static const String _nomeFile = 'diario_pesca.db';
@@ -60,6 +57,9 @@ class DatabaseHelper {
 
   /// Crea lo schema. Nei CHECK un valore NULL passa sempre: i campi
   /// facoltativi restano facoltativi.
+  /// Ambienti presenti alla prima apertura; l'utente può aggiungerne altri.
+  static const List<String> ambientiDiBase = ['Torrente', 'Fiume', 'Lago', 'Mare'];
+
   static Future<void> onCreate(Database db, int version) async {
     // 1. Categoria
     await db.execute('''
@@ -70,13 +70,26 @@ class DatabaseHelper {
       );
     ''');
 
+    // 1-bis. Ambiente (tabella di dominio estendibile dall'utente)
+    // COLLATE NOCASE: 'Torrente' e 'torrente' sono lo stesso ambiente, così
+    // non si creano duplicati che differiscono solo per maiuscole/minuscole.
+    await db.execute('''
+      CREATE TABLE Ambiente (
+        nome TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,
+        CHECK (length(trim(nome)) > 0)
+      );
+    ''');
+    for (final nome in ambientiDiBase) {
+      await db.insert('Ambiente', {'nome': nome});
+    }
+
     // 2. Spot
     await db.execute('''
       CREATE TABLE Spot (
         nome TEXT NOT NULL PRIMARY KEY,
-        ambiente TEXT NOT NULL,
+        ambiente TEXT NOT NULL COLLATE NOCASE,
         lunghezzaMetri REAL,
-        voto INTEGER,
+        voto REAL,
         difficolta TEXT,
         esposizioneSole TEXT,
         noteOstacoli TEXT,
@@ -86,6 +99,7 @@ class DatabaseHelper {
         linkParcheggio TEXT,
         categoria_nome TEXT NOT NULL,
         FOREIGN KEY (categoria_nome) REFERENCES Categoria (nome) ON DELETE RESTRICT ON UPDATE CASCADE,
+        FOREIGN KEY (ambiente) REFERENCES Ambiente (nome) ON DELETE RESTRICT ON UPDATE CASCADE,
         CHECK (length(trim(nome)) > 0),
         CHECK (length(trim(ambiente)) > 0),
         CHECK (lunghezzaMetri > 0),
@@ -196,7 +210,7 @@ class DatabaseHelper {
       );
     ''');
 
-    // 10. Foto (con vincolo CHECK XOR per esclusività tra Pescata e CatturaMemorabile)
+    // 10. Foto (con vincolo CHECK XOR: appartiene a una sola tra Pescata, CatturaMemorabile ed Esca)
     await db.execute('''
       CREATE TABLE Foto (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -295,6 +309,7 @@ class DatabaseHelper {
 
     // Indici sulle colonne usate nei filtri e nelle eliminazioni a cascata
     await db.execute('CREATE INDEX idx_spot_categoria ON Spot (categoria_nome);');
+    await db.execute('CREATE INDEX idx_spot_ambiente ON Spot (ambiente);');
     await db.execute('CREATE INDEX idx_pescata_data ON Pescata (data);');
     await db.execute('CREATE INDEX idx_pescata_spot ON Pescata (spot_nome);');
     await db.execute('CREATE INDEX idx_pianificazione_spot ON Pianificazione (spot_nome);');
