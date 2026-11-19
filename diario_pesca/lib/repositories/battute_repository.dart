@@ -327,7 +327,17 @@ class BattuteRepository {
   /// Inserisce o aggiorna atomicamente una Pescata insieme a esche, foto,
   /// riepiloghi specie con dettagli e catture memorabili, aggiornando
   /// anche lo stato `battuto` dello spot.
+  ///
+  /// Lo spot è obbligatorio. Nel database `spot_nome` resta nullable solo per
+  /// permettere `ON DELETE SET NULL`: quando uno spot viene eliminato le sue
+  /// pescate restano nello storico senza spot. Per questo l'unico caso
+  /// ammesso senza spot è l'aggiornamento di una pescata che lo ha già perso.
   Future<Pescata> salvaPescata(Pescata pescata) async {
+    final spotIndicato =
+        pescata.spotNome != null && pescata.spotNome!.trim().isNotEmpty;
+    if (pescata.id == null && !spotIndicato) {
+      throw ArgumentError('Lo spot è obbligatorio per registrare una pescata');
+    }
     for (final r in pescata.riepiloghiSpecie) {
       _validaRiepilogoSpecie(r);
     }
@@ -353,6 +363,11 @@ class BattuteRepository {
         );
         if (prevPescata.isNotEmpty) {
           vecchioSpotNome = prevPescata.first['spot_nome'] as String?;
+        }
+        if (!spotIndicato && vecchioSpotNome != null) {
+          throw ArgumentError(
+            'Non è possibile rimuovere lo spot da una pescata che ne ha uno',
+          );
         }
 
         final vecchieFoto = await txn.rawQuery('''

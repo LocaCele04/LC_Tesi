@@ -3,6 +3,7 @@ import 'dart:math';
 import '../database/database_helper.dart';
 import '../database/db_mappers.dart';
 import '../models/enums.dart';
+import '../models/territorio/ambiente.dart';
 import '../models/territorio/categoria.dart';
 import '../models/territorio/coordinata.dart';
 import '../models/territorio/spot.dart';
@@ -23,11 +24,19 @@ class TerritorioRepository {
     return righe.map(DbMappers.categoriaFromMap).toList();
   }
 
+  /// Elenco degli ambienti (di base e aggiunti dall'utente), in ordine
+  /// alfabetico senza distinzione tra maiuscole e minuscole.
+  Future<List<Ambiente>> getAmbienti() async {
+    final db = await _dbHelper.database;
+    final righe = await db.query('Ambiente', orderBy: 'nome ASC');
+    return righe.map(DbMappers.ambienteFromMap).toList();
+  }
+
   /// Elenco spot con filtri opzionali combinabili (senza caricare le coordinate).
   Future<List<Spot>> getSpots({
     String? categoriaNome,
     String? ambiente,
-    int? votoMinimo,
+    double? votoMinimo,
     double? lunghezzaMassima,
     Difficolta? difficolta,
     bool? battuto,
@@ -145,6 +154,38 @@ class TerritorioRepository {
   Future<void> eliminaCategoria(String nome) async {
     final db = await _dbHelper.database;
     await db.delete('Categoria', where: 'nome = ?', whereArgs: [nome]);
+  }
+
+  /// Aggiunge un nuovo ambiente. Un nome già presente, anche con maiuscole
+  /// diverse, viene rifiutato dal database (PRIMARY KEY COLLATE NOCASE).
+  Future<void> inserisciAmbiente(Ambiente ambiente) async {
+    final db = await _dbHelper.database;
+    await db.insert(
+      'Ambiente',
+      DbMappers.ambienteToMap(ambiente.copyWith(nome: ambiente.nome.trim())),
+    );
+  }
+
+  /// Rinomina un ambiente; il nuovo nome si propaga agli spot (ON UPDATE CASCADE).
+  Future<void> aggiornaAmbiente({
+    required String nomeOriginale,
+    required Ambiente ambienteAggiornato,
+  }) async {
+    final db = await _dbHelper.database;
+    await db.update(
+      'Ambiente',
+      DbMappers.ambienteToMap(
+        ambienteAggiornato.copyWith(nome: ambienteAggiornato.nome.trim()),
+      ),
+      where: 'nome = ?',
+      whereArgs: [nomeOriginale],
+    );
+  }
+
+  /// Elimina un ambiente. Bloccata (ON DELETE RESTRICT) se è usato da almeno uno spot.
+  Future<void> eliminaAmbiente(String nome) async {
+    final db = await _dbHelper.database;
+    await db.delete('Ambiente', where: 'nome = ?', whereArgs: [nome]);
   }
 
   /// Sposta tutti gli spot (oppure solo `spotNome` se specificato) da una

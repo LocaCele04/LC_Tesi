@@ -5,7 +5,7 @@ class Spot {
   final String nome;
   final String ambiente;
   final double? lunghezzaMetri;
-  final int? voto;
+  final double? voto;
   final Difficolta? difficolta;
   final String? esposizioneSole;
   final String? noteOstacoli;
@@ -36,7 +36,7 @@ class Spot {
     String? nome,
     String? ambiente,
     double? lunghezzaMetri,
-    int? voto,
+    double? voto,
     Difficolta? difficolta,
     String? esposizioneSole,
     String? noteOstacoli,

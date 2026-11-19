@@ -20,7 +20,7 @@ void main() {
     await dbHelper.close();
   });
 
-  /// Helper che popola un set completo e valido di dati su tutte le 15 tabelle.
+  /// Helper che popola un set completo e valido di dati su tutte le 16 tabelle.
   Future<
       ({
         int pescataId,
@@ -39,6 +39,8 @@ void main() {
       'nome': 'Foce',
       'note': null,
     });
+
+    await db.insert('Ambiente', {'nome': 'Torrente di fondovalle'});
 
     await db.insert('Spot', {
       'nome': 'Ponte Vecchio',
@@ -213,9 +215,10 @@ void main() {
       expect(res.first['foreign_keys'], 1);
     });
 
-    test('Esistono tutte le 15 tabelle', () async {
+    test('Esistono tutte le 16 tabelle', () async {
       const tabelleAttese = {
         'Categoria',
+        'Ambiente',
         'Spot',
         'Coordinata',
         'Pianificazione',
@@ -239,11 +242,11 @@ void main() {
       expect(presenti.length, tabelleAttese.length);
     });
 
-    test('Esistono tutti i 15 indici idx_*', () async {
+    test('Esistono tutti i 16 indici idx_*', () async {
       final rows = await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%';",
       );
-      expect(rows.length, 15);
+      expect(rows.length, 16);
     });
   });
 
@@ -251,7 +254,7 @@ void main() {
   // SEZIONE 2: INSERIMENTI VALIDI
   // ===========================================================================
   group('2. Inserimenti Validi', () {
-    test('Inserimento completo su tutte le 15 tabelle senza errori', () async {
+    test('Inserimento completo su tutte le 16 tabelle senza errori', () async {
       final ids = await popolaDatiBase();
       expect(ids.pescataId, greaterThan(0));
       expect(ids.catturaId, greaterThan(0));
@@ -270,6 +273,38 @@ void main() {
       );
     });
 
+    test('Ambiente: valori di base presenti, nome vuoto e duplicati senza distinzione di maiuscole rifiutati', () async {
+      final base = await db.query('Ambiente', orderBy: 'nome ASC');
+      expect(base.map((r) => r['nome']), ['Fiume', 'Lago', 'Mare', 'Torrente']);
+
+      expect(
+        () => db.insert('Ambiente', {'nome': '   '}),
+        throwsA(isA<DatabaseException>()),
+      );
+      expect(
+        () => db.insert('Ambiente', {'nome': 'torrente'}),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      // Spot con ambiente inesistente rifiutato dalla FK
+      await db.insert('Categoria', {'nome': 'Varie'});
+      expect(
+        () => db.insert('Spot', {
+          'nome': 'Spot Strano',
+          'ambiente': 'Palude',
+          'categoria_nome': 'Varie',
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      // Un ambiente esistente è accettato anche con maiuscole diverse
+      await db.insert('Spot', {
+        'nome': 'Spot Minuscolo',
+        'ambiente': 'lago',
+        'categoria_nome': 'Varie',
+      });
+    });
+
     test('Spot: categoria_nome obbligatoria, lunghezzaMetri, voto, difficolta, battuto e accessibilita validati', () async {
       await db.insert('Categoria', {'nome': 'Lago'});
 
@@ -286,6 +321,18 @@ void main() {
         }),
         throwsA(isA<DatabaseException>()),
       );
+      // Il voto ammette valori decimali (es. 4.5) entro 0..10
+      await db.insert('Spot', {
+        'nome': 'SVotoDecimale',
+        'ambiente': 'Lago',
+        'voto': 4.5,
+        'categoria_nome': 'Lago',
+      });
+      final votoLetto = await db.query('Spot',
+          columns: ['voto'], where: 'nome = ?', whereArgs: ['SVotoDecimale']);
+      expect(votoLetto.first['voto'], 4.5);
+      await db.delete('Spot', where: 'nome = ?', whereArgs: ['SVotoDecimale']);
+
       expect(
         () => db.insert('Spot', {
           'nome': 'S2',
@@ -532,6 +579,35 @@ void main() {
       expect(cc.first['specie_nome'], 'Trota Fario');
       expect(dr.first['specie_nome'], 'Trota Fario');
       expect(ob.first['specie_nome'], 'Trota Fario');
+    });
+
+    test('Ambiente: ON DELETE RESTRICT se usato da uno spot, ON UPDATE CASCADE sulla rinomina', () async {
+      await db.insert('Categoria', {'nome': 'Varie'});
+      await db.insert('Ambiente', {'nome': 'Canale'});
+      await db.insert('Spot', {
+        'nome': 'Canale Vecchio',
+        'ambiente': 'Canale',
+        'categoria_nome': 'Varie',
+      });
+
+      expect(
+        () => db.delete('Ambiente', where: 'nome = ?', whereArgs: ['Canale']),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      await db.update(
+        'Ambiente',
+        {'nome': 'Roggia'},
+        where: 'nome = ?',
+        whereArgs: ['Canale'],
+      );
+      final spot = await db.query('Spot', where: 'nome = ?', whereArgs: ['Canale Vecchio']);
+      expect(spot.first['ambiente'], 'Roggia');
+
+      // Ambiente non usato: eliminabile
+      await db.delete('Ambiente', where: 'nome = ?', whereArgs: ['Mare']);
+      final mare = await db.query('Ambiente', where: 'nome = ?', whereArgs: ['Mare']);
+      expect(mare, isEmpty);
     });
 
     test('ON DELETE SET NULL + CASCADE su Esca, Spot e Pescata', () async {

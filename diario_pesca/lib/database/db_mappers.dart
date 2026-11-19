@@ -11,6 +11,7 @@ import '../models/statistiche/obiettivo.dart';
 import '../models/statistiche/riepilogo_caratteristica.dart';
 import '../models/statistiche/riepilogo_specie.dart';
 import '../models/statistiche/specie.dart';
+import '../models/territorio/ambiente.dart';
 import '../models/territorio/categoria.dart';
 import '../models/territorio/coordinata.dart';
 import '../models/territorio/spot.dart';
@@ -33,6 +34,14 @@ class DbMappers {
   static Map<String, Object?> categoriaToMap(Categoria c) => {
         'nome': c.nome,
         'note': c.note,
+      };
+
+  static Ambiente ambienteFromMap(Map<String, Object?> map) => Ambiente(
+        nome: map['nome'] as String,
+      );
+
+  static Map<String, Object?> ambienteToMap(Ambiente a) => {
+        'nome': a.nome,
       };
 
   static Coordinata coordinataFromMap(Map<String, Object?> map) => Coordinata(
@@ -58,7 +67,7 @@ class DbMappers {
       nome: map['nome'] as String,
       ambiente: map['ambiente'] as String,
       lunghezzaMetri: (map['lunghezzaMetri'] as num?)?.toDouble(),
-      voto: map['voto'] as int?,
+      voto: (map['voto'] as num?)?.toDouble(),
       difficolta: difficoltaRaw != null
           ? Difficolta.values.byName(difficoltaRaw)
           : null,

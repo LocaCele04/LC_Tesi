@@ -37,7 +37,7 @@ Per mantenere il codice ordinato, leggibile e facilmente estendibile, il progett
                                     +-------------------------------+
 ```
 
-* **Persistenza (`database`)**: gestisce la connessione a SQLite e lo schema relazionale a 15 tabelle.
+* **Persistenza (`database`)**: gestisce la connessione a SQLite e lo schema relazionale a 16 tabelle.
 * **Dominio (`models`)**: definisce le entità dell'applicazione tramite classi Dart immutabili, indipendenti dal database.
 * **Mapping (`db_mappers.dart`)**: converte i dati tra le tabelle SQLite e gli oggetti Dart.
 * **Accesso ai dati (`repositories`)**: espone alle schermate i metodi di lettura, salvataggio ed eliminazione, gestendo le transazioni.
@@ -69,7 +69,7 @@ La radice del progetto separa il codice sorgente dell'applicazione (`lib/`) dall
 diario_pesca/
 ├── lib/
 │   ├── database/
-│   │   ├── database_helper.dart       # Connessione SQLite e definizione delle 15 tabelle
+│   │   ├── database_helper.dart       # Connessione SQLite e definizione delle 16 tabelle
 │   │   └── db_mappers.dart            # Conversione bidirezionale tra Map SQL e classi Dart
 │   ├── models/
 │   │   ├── battute/
@@ -85,6 +85,7 @@ diario_pesca/
 │   │   │   ├── riepilogo_specie.dart
 │   │   │   └── specie.dart
 │   │   ├── territorio/
+│   │   │   ├── ambiente.dart
 │   │   │   ├── categoria.dart
 │   │   │   ├── coordinata.dart
 │   │   │   └── spot.dart
@@ -110,7 +111,7 @@ diario_pesca/
 ## 4. Descrizione dei Pacchetti e delle Classi
 
 ### 4.1 `lib/database/` — Persistenza e Mapping
-* **`DatabaseHelper` (`database_helper.dart`)**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **15 tabelle** e **15 indici**, con vincoli di integrità referenziale attivi.
+* **`DatabaseHelper` (`database_helper.dart`)**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **16 tabelle** e **16 indici**, con vincoli di integrità referenziale attivi.
 * **`DbMappers` (`db_mappers.dart`)**: classe di utilità che traduce le righe restituite da SQLite (`Map<String, Object?>`) nelle corrispondenti classi del modello di dominio e viceversa, mantenendo le classi modello completamente indipendenti dal database.
 
 ### 4.2 `lib/models/` — Modello di Dominio
@@ -118,6 +119,7 @@ Tutte le classi modello sono progettate come **oggetti immutabili** (campi `fina
 
 * **`enums.dart`**: definisce i domini chiusi dell'applicazione (`Accessibilita`, `Difficolta`, `FasciaOraria`, `Meteo`, `Trasparenza`, `Fondo`, `Livello`).
 * **Pacchetto `territorio/`**:
+  * `Ambiente`: tipologia di corso o specchio d'acqua dello spot (di base *Torrente*, *Fiume*, *Lago*, *Mare*), estendibile dall'utente.
   * `Categoria`: classifica macroscopica delle regioni di pesca (es. *Basso Brembo*, *Val serina*, *Valle Imagna*).
   * `Spot`: rappresenta il luogo di pesca con le sue caratteristiche fisiche, logistiche e la lista delle coordinate.
   * `Coordinata`: singolo punto GPS (`latitudine`, `longitudine`, `ordine`) che compone il tracciato di uno spot.
@@ -136,8 +138,8 @@ Tutte le classi modello sono progettate come **oggetti immutabili** (campi `fina
 ### 4.3 `lib/repositories/` — Logica di Accesso ai Dati
 I repository fungono da unico punto di contatto tra la logica applicativa e il database:
 
-* **`TerritorioRepository`**: gestisce categorie, spot e relative coordinate GPS (includendo il calcolo automatico della lunghezza dello spot e lo stato di frequentazione).
-* **`BattuteRepository`**: gestisce esche, pianificazioni, pescate complete e catture memorabili, assicurando il salvataggio atomico delle battute e la pulizia dei file immagine non più utilizzati.
+* **`TerritorioRepository`**: gestisce categorie, ambienti, spot e relative coordinate GPS (includendo il calcolo automatico della lunghezza dello spot e lo stato di frequentazione).
+* **`BattuteRepository`**: gestisce esche, pianificazioni, pescate complete e catture memorabili, assicurando il salvataggio atomico delle pescate e la pulizia dei file immagine non più utilizzati.
 * **`StatisticheRepository`**: gestisce l'anagrafica delle specie, le caratteristiche, gli obiettivi annuali e le interrogazioni per i riepiloghi statistici.
 
 ### 4.4 Livelli Applicativo, UI e Test

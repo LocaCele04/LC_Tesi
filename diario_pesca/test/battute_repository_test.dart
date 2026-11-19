@@ -275,6 +275,67 @@ void main() {
       expect(spot.first['battuto'], 0);
       expect((await battuteRepo.getEsche()).length, 1);
     });
+
+    test('salvaPescata richiede lo spot, ma conserva nello storico le pescate di uno spot eliminato', () async {
+      // Nuova pescata senza spot: rifiutata
+      await expectLater(
+        () => battuteRepo.salvaPescata(
+          Pescata(
+            data: DateTime(2026, 11, 14),
+            fasciaOraria: FasciaOraria.alba,
+            meteo: Meteo.sereno,
+          ),
+        ),
+        throwsArgumentError,
+      );
+      await expectLater(
+        () => battuteRepo.salvaPescata(
+          Pescata(
+            data: DateTime(2026, 11, 14),
+            fasciaOraria: FasciaOraria.alba,
+            meteo: Meteo.sereno,
+            spotNome: '   ',
+          ),
+        ),
+        throwsArgumentError,
+      );
+      expect(await battuteRepo.getPescate(), isEmpty);
+
+      await inserisciSpotDiProva('Ponte Vecchio');
+      final pescata = await battuteRepo.salvaPescata(
+        Pescata(
+          data: DateTime(2026, 11, 14),
+          fasciaOraria: FasciaOraria.alba,
+          meteo: Meteo.sereno,
+          spotNome: 'Ponte Vecchio',
+        ),
+      );
+
+      // Rimuovere lo spot da una pescata che lo ha: rifiutato
+      await expectLater(
+        () => battuteRepo.salvaPescata(
+          Pescata(
+            id: pescata.id,
+            data: pescata.data,
+            fasciaOraria: pescata.fasciaOraria,
+            meteo: pescata.meteo,
+          ),
+        ),
+        throwsArgumentError,
+      );
+
+      // Eliminando lo spot la pescata resta nello storico senza spot (SET NULL)
+      await db.delete('Spot', where: 'nome = ?', whereArgs: ['Ponte Vecchio']);
+      final orfana = await battuteRepo.getPescataCompleta(pescata.id!);
+      expect(orfana, isNotNull);
+      expect(orfana!.spotNome, isNull);
+
+      // ...e si può ancora modificare senza dover indicare uno spot
+      await battuteRepo.salvaPescata(orfana.copyWith(note: 'spot eliminato'));
+      final aggiornata = await battuteRepo.getPescataCompleta(pescata.id!);
+      expect(aggiornata!.note, 'spot eliminato');
+      expect(aggiornata.spotNome, isNull);
+    });
   });
 
   group('BattuteRepository - Catture Memorabili e Dettaglio Completo', () {
@@ -291,12 +352,14 @@ void main() {
         nome: 'Livrea marmorata',
       );
       final esca = await battuteRepo.salvaEsca(const Esca(nome: 'Minnow 7cm'));
+      await inserisciSpotDiProva('Ponte Vecchio');
 
       final pescata = await battuteRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 11),
           fasciaOraria: FasciaOraria.tramonto,
           meteo: Meteo.variabile,
+          spotNome: 'Ponte Vecchio',
         ),
       );
 
@@ -464,11 +527,13 @@ void main() {
         nome: 'Over 2 kg',
       );
 
+      await inserisciSpotDiProva('Ponte Vecchio');
       final pescata = await battuteRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 13),
           fasciaOraria: FasciaOraria.notte,
           meteo: Meteo.sereno,
+          spotNome: 'Ponte Vecchio',
         ),
       );
 
