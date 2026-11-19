@@ -30,6 +30,17 @@ package "Enumerazioni" {
     TRAMONTO
   }
 
+  enum FonteMeteo {
+    ARCHIVIO
+    PREVISIONE
+  }
+
+  enum StatoMeteo {
+    DA_SCARICARE
+    SCARICATO
+    NON_DISPONIBILE
+  }
+
 
 }
 
@@ -139,6 +150,59 @@ class Foto {
 ' =====================================================
 '  PESCATE (Centro)
 ' =====================================================
+' =====================================================
+'  METEO (dati storici da Open-Meteo)
+' =====================================================
+package "Meteo" {
+  class CellaMeteo {
+    - latitudine : double
+    - longitudine : double
+    - elevazione : double [0..1]
+  }
+
+  class MeteoGiorno {
+    - data : Date
+    - pioggiaMm : double [0..1]
+    - tempMin : double [0..1]
+    - tempMax : double [0..1]
+    - pressioneMedia : double [0..1]
+    - ventoMax : double [0..1]
+    - rafficaMax : double [0..1]
+    - direzioneVento : int [0..1]
+    - fonte : FonteMeteo
+  }
+
+  class MeteoOra {
+    - dataOraUtc : DateTime
+    - pioggiaMm : double [0..1]
+    - temperatura : double [0..1]
+    - pressione : double [0..1]
+    - vento : double [0..1]
+    - raffica : double [0..1]
+    - direzioneVento : int [0..1]
+    - fonte : FonteMeteo
+  }
+
+  class RichiestaMeteo {
+    - data : Date
+    - latitudine : double
+    - longitudine : double
+  }
+
+  CellaMeteo "1" *-down- "0..*" MeteoGiorno
+  CellaMeteo "1" *-down- "0..*" MeteoOra
+}
+
+note bottom of RichiestaMeteo
+  Data della pescata e primo punto dello spot
+  usati per scaricare il meteo. Se non coincidono
+  più con quelli attuali, la pescata torna
+  da scaricare (statoMeteo è calcolato).
+  Servono 30 giorni + il giorno della pescata
+  (MeteoGiorno) e il giorno prima + il giorno
+  stesso (MeteoOra).
+end note
+
 package "Pescate" {
   class Pianificazione {
     - data : Date
@@ -154,6 +218,7 @@ package "Pescate" {
     - tempAcqua : real
     - tempAria: real
     /totaleCatture : int
+    /statoMeteo : StatoMeteo
   }
 
   class CatturaMemorabile {
@@ -188,6 +253,10 @@ CatturaMemorabile "0..1" -right- "1..*" Foto
 Foto "0..*" -left- "0..1" Esca
 Pescata "0..*" -down- "0..*" Esca
 CatturaMemorabile "0..*" -left- "0..1" Esca
+
+' Meteo
+Pescata "0..*" -- "0..1" CellaMeteo : meteo >
+(Pescata, CellaMeteo) .. RichiestaMeteo
 
 ' Condizioni
 Ambiente "0..*" -- "0..*" Condizione : prevede >

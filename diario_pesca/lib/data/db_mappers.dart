@@ -5,6 +5,9 @@ import '../models/catalogo/specie.dart';
 import '../models/catalogo/valore_condizione.dart';
 import '../models/enums.dart';
 import '../models/foto.dart';
+import '../models/meteo/cella_meteo.dart';
+import '../models/meteo/meteo_giorno.dart';
+import '../models/meteo/meteo_ora.dart';
 import '../models/obiettivi/obiettivo.dart';
 import '../models/pescate/cattura_memorabile.dart';
 import '../models/pescate/pescata.dart';
@@ -23,6 +26,17 @@ class DbMappers {
     final g = d.day.toString().padLeft(2, '0');
     return '$y-$m-$g';
   }
+
+  /// Ora in UTC nel formato di `MeteoOrario.data_ora` (es. `2026-11-10T05:00`).
+  /// Si salva in UTC perché in ora locale il cambio dell'ora legale
+  /// produrrebbe ore mancanti o ripetute.
+  static String formatDataOra(DateTime d) {
+    final u = d.toUtc();
+    final h = u.hour.toString().padLeft(2, '0');
+    return '${formatData(u)}T$h:00';
+  }
+
+  static double? _reale(Object? v) => (v as num?)?.toDouble();
 
   // --- TERRITORIO ---
 
@@ -341,5 +355,71 @@ class DbMappers {
         'pescata_id': r.pescataId,
         'specie_nome': r.specieNome,
         'quantita': r.quantita,
+      };
+
+  // --- METEO ---
+
+  static CellaMeteo cellaMeteoFromMap(Map<String, Object?> map) => CellaMeteo(
+        id: map['id'] as int?,
+        latitudine: _reale(map['latitudine'])!,
+        longitudine: _reale(map['longitudine'])!,
+        elevazione: _reale(map['elevazione']),
+      );
+
+  static Map<String, Object?> cellaMeteoToMap(CellaMeteo c) => {
+        if (c.id != null) 'id': c.id,
+        'latitudine': c.latitudine,
+        'longitudine': c.longitudine,
+        'elevazione': c.elevazione,
+      };
+
+  static MeteoGiorno meteoGiornoFromMap(Map<String, Object?> map) => MeteoGiorno(
+        cellaId: map['cella_id'] as int?,
+        data: DateTime.parse(map['data'] as String),
+        pioggiaMm: _reale(map['pioggia_mm']),
+        tempMin: _reale(map['temp_min']),
+        tempMax: _reale(map['temp_max']),
+        pressioneMedia: _reale(map['pressione_media']),
+        ventoMax: _reale(map['vento_max']),
+        rafficaMax: _reale(map['raffica_max']),
+        direzioneVento: map['direzione_vento'] as int?,
+        fonte: FonteMeteo.values.byName(map['fonte'] as String),
+      );
+
+  static Map<String, Object?> meteoGiornoToMap(MeteoGiorno g, int cellaId) => {
+        'cella_id': cellaId,
+        'data': formatData(g.data),
+        'pioggia_mm': g.pioggiaMm,
+        'temp_min': g.tempMin,
+        'temp_max': g.tempMax,
+        'pressione_media': g.pressioneMedia,
+        'vento_max': g.ventoMax,
+        'raffica_max': g.rafficaMax,
+        'direzione_vento': g.direzioneVento,
+        'fonte': g.fonte.name,
+      };
+
+  static MeteoOra meteoOraFromMap(Map<String, Object?> map) => MeteoOra(
+        cellaId: map['cella_id'] as int?,
+        dataOra: DateTime.parse('${map['data_ora'] as String}Z'),
+        pioggiaMm: _reale(map['pioggia_mm']),
+        temperatura: _reale(map['temperatura']),
+        pressione: _reale(map['pressione']),
+        vento: _reale(map['vento']),
+        raffica: _reale(map['raffica']),
+        direzioneVento: map['direzione_vento'] as int?,
+        fonte: FonteMeteo.values.byName(map['fonte'] as String),
+      );
+
+  static Map<String, Object?> meteoOraToMap(MeteoOra o, int cellaId) => {
+        'cella_id': cellaId,
+        'data_ora': formatDataOra(o.dataOra),
+        'pioggia_mm': o.pioggiaMm,
+        'temperatura': o.temperatura,
+        'pressione': o.pressione,
+        'vento': o.vento,
+        'raffica': o.raffica,
+        'direzione_vento': o.direzioneVento,
+        'fonte': o.fonte.name,
       };
 }

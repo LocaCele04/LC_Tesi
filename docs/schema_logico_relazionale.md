@@ -1,6 +1,6 @@
 # Schema Logico Relazionale
 
-Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/data/database_helper.dart`): 20 tabelle e 18 indici su SQLite.
+Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/data/database_helper.dart`): 24 tabelle e 19 indici su SQLite.
 
 ---
 
@@ -88,6 +88,39 @@ Lo schema descritto in questo documento corrisponde a quello effettivamente crea
 * `valore_id`: INTEGER **(NOT NULL)**
 * **FK** (`valore_id`, `condizione_id`) $\rightarrow$ `ValoreCondizione(id, condizione_id)` — `ON DELETE RESTRICT`
 * La chiave primaria (`pescata_id`, `condizione_id`) ammette al massimo un valore per condizione in ogni pescata; la FK composta garantisce che il valore appartenga alla condizione indicata.
+
+### **CellaMeteo**
+* **`id`**: INTEGER **(PK, autoincrement)**
+* `latitudine`: REAL **(NOT NULL)** — tra -90 e 90; coordinate della cella della griglia restituite da Open-Meteo
+* `longitudine`: REAL **(NOT NULL)** — tra -180 e 180
+* `elevazione`: REAL *(NULL)* — quota media della cella (m)
+* **UQ** (`latitudine`, `longitudine`)
+
+### **MeteoGiornaliero**
+* *`cella_id`*: INTEGER **(PK, FK)** $\rightarrow$ `CellaMeteo(id)` — `ON DELETE CASCADE`
+* **`data`**: TEXT **(PK)** — data ISO valida (giorno locale)
+* `pioggia_mm`: REAL *(NULL)* — ≥ 0
+* `temp_min`, `temp_max`: REAL *(NULL)* — °C
+* `pressione_media`: REAL *(NULL)* — hPa, ridotta al livello del mare
+* `vento_max`, `raffica_max`: REAL *(NULL)* — km/h
+* `direzione_vento`: INTEGER *(NULL)* — gradi tra 0 e 360 (direzione dominante)
+* `fonte`: TEXT **(NOT NULL)** — `archivio | previsione`
+
+### **MeteoOrario**
+* *`cella_id`*: INTEGER **(PK, FK)** $\rightarrow$ `CellaMeteo(id)` — `ON DELETE CASCADE`
+* **`data_ora`**: TEXT **(PK)** — formato `AAAA-MM-GGTHH:00`, **in UTC** (in ora locale il cambio dell'ora legale produrrebbe ore ripetute o mancanti)
+* `pioggia_mm`: REAL *(NULL)* — ≥ 0
+* `temperatura`: REAL *(NULL)* — °C
+* `pressione`: REAL *(NULL)* — hPa, ridotta al livello del mare
+* `vento`, `raffica`: REAL *(NULL)* — km/h
+* `direzione_vento`: INTEGER *(NULL)* — gradi tra 0 e 360
+* `fonte`: TEXT **(NOT NULL)** — `archivio | previsione`
+
+### **PescataMeteo** *(dati della richiesta meteo di una pescata)*
+* *`pescata_id`*: INTEGER **(PK, FK)** $\rightarrow$ `Pescata(id)` — `ON DELETE CASCADE`
+* *`cella_id`*: INTEGER **(FK, NOT NULL)** $\rightarrow$ `CellaMeteo(id)` — `ON DELETE CASCADE`
+* `data`: TEXT **(NOT NULL)** — data della pescata al momento della richiesta
+* `latitudine`, `longitudine`: REAL **(NOT NULL)** — punto dello spot usato per la richiesta (prima coordinata del tratto)
 
 ### **Esca**
 * **`id`**: INTEGER **(PK, autoincrement)**
@@ -190,6 +223,18 @@ Stringhe non vuote per i nomi, intervalli numerici (voto, temperature, coordinat
 
 Alla creazione del database: `Livello` (Secca, Magra, Normale, Morbida, Piena), `Trasparenza` (Sporca, Velata, Chiara) e `Fondo` (Scuro, Normale, Pulito) sono collegate a Torrente e Fiume; `Meteo` (Sereno, Velato, Variabile, Coperto, Plumbeo, Pioggia, Ventoso) a tutti e quattro gli ambienti di base.
 
+### 3.8 Archivio meteo e stato calcolato — *scelta progettuale*
+I dati meteo non sono copiati in ogni pescata ma archiviati per **cella della griglia del modello meteo** (circa 10 km) e per giorno (`MeteoGiornaliero`) o ora (`MeteoOrario`): pescate vicine nello spazio e nel tempo condividono le stesse righe, e un giorno già in archivio non viene riscaricato. Per ogni pescata servono i 30 giorni precedenti più il giorno della pescata (giornalieri) e il giorno prima più il giorno della pescata (orari); le finestre statistiche (es. pioggia degli ultimi 14 giorni) si calcolano con query su questi dati.
+
+Lo **stato del meteo** di una pescata (*da scaricare*, *scaricato*, *non disponibile*) non è una colonna ma viene **calcolato** confrontando la pescata con `PescataMeteo`, che conserva la data e il punto usati per la richiesta:
+* *scaricato* se esiste la riga e data e punto coincidono con quelli attuali (o lo spot non esiste più);
+* *da scaricare* se lo spot ha almeno una coordinata ma la riga manca o non coincide più;
+* *non disponibile* se lo spot non ha coordinate.
+
+In questo modo nessun altro componente deve ricordarsi di "invalidare" il meteo: spostare la data di una pescata o il primo punto di uno spot la rende automaticamente da scaricare, mentre rinominare o eliminare lo spot non tocca i dati.
+
+La colonna `fonte` distingue i dati d'**archivio** (rianalisi storica, definitiva, disponibile con alcuni giorni di ritardo) da quelli di **previsione** (usati per gli ultimi giorni): un dato d'archivio non viene mai sovrascritto da uno di previsione, il contrario sì.
+
 ---
 
 ## 4. Politiche di Eliminazione e Aggiornamento
@@ -202,7 +247,8 @@ Alla creazione del database: `Livello` (Secca, Magra, Normale, Morbida, Piena), 
 | Eliminare una **Condizione** | Elimina valori e collegamenti agli ambienti (`CASCADE`), ma è bloccata se uno dei suoi valori è usato in una pescata (il `RESTRICT` sul valore blocca la cascata): va disattivata. |
 | Rinominare una **Categoria** / **Ambiente** / **Spot** / **Specie** | Il nuovo nome si propaga a tutte le tabelle figlie (`ON UPDATE CASCADE`). |
 | Eliminare uno **Spot** | Elimina coordinate (tratto) e pianificazioni (`CASCADE`); le pescate restano nello storico con `spot_nome = NULL` (`SET NULL`). |
-| Eliminare una **Pescata** | Elimina valori delle condizioni, legami con le esche, riepiloghi, dettagli, catture memorabili e foto (`CASCADE`); il repository cancella anche i file immagine dal disco e ricalcola `Spot.battuto`. |
+| Eliminare una **Pescata** | Elimina il collegamento al meteo (`PescataMeteo`; l'archivio meteo resta), valori delle condizioni, legami con le esche, riepiloghi, dettagli, catture memorabili e foto (`CASCADE`); il repository cancella anche i file immagine dal disco e ricalcola `Spot.battuto`. |
+| Eliminare una **CellaMeteo** | Elimina il suo archivio giornaliero e orario e i collegamenti delle pescate, che tornano da scaricare (`CASCADE`). L'app non elimina mai le celle: la regola garantisce solo la coerenza. |
 | Eliminare un'**Esca** | Elimina i legami con le pescate e le sue foto (`CASCADE`); nelle catture memorabili il riferimento diventa NULL (`SET NULL`). |
 | Eliminare una **Specie** | Bloccata (`RESTRICT`) se usata in riepiloghi o catture memorabili; altrimenti elimina caratteristiche e obiettivi (`CASCADE`). |
 | Eliminare una **Caratteristica** | Elimina obiettivi, dettagli e associazioni con le catture che la usano (`CASCADE`). |
@@ -231,3 +277,4 @@ Alla creazione del database: `Livello` (Secca, Magra, Normale, Morbida, Piena), 
 | `idx_obiettivo_anno` | Obiettivo (anno) |
 | `idx_ambcond_condizione` | Ambiente_Condizione (condizione_id) |
 | `idx_pescond_valore` | Pescata_Condizione (valore_id, condizione_id) |
+| `idx_pescatameteo_cella` | PescataMeteo (cella_id) |

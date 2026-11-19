@@ -50,6 +50,7 @@ Ogni tabella è scritta da **un solo repository**. Così ogni regola di validazi
 | `PescateRepository` | `Pescata`, `Pescata_Condizione`, `Pescata_Esca`, `RiepilogoSpecie`, `DettaglioRiepilogo`, `CatturaMemorabile`, `Cattura_Caratteristica`, `Pianificazione`, `Foto` di pescate e catture |
 | `CatalogoRepository` | `Specie`, `Caratteristica`, `Esca`, `Foto` delle esche, `Condizione`, `ValoreCondizione`, `Ambiente_Condizione` |
 | `ObiettiviRepository` | `Obiettivo` |
+| `MeteoRepository` | `CellaMeteo`, `MeteoGiornaliero`, `MeteoOrario`, `PescataMeteo` |
 
 Quando una pescata, una cattura memorabile o un obiettivo devono creare **al volo** un'esca o una caratteristica (es. l'utente scrive un'esca nuova mentre registra la pescata), il repository chiamante non scrive la tabella `Esca` o `Caratteristica`: chiama i metodi `assicuraEscaSalvata` / `assicuraCaratteristicaSalvata` del `CatalogoRepository`, passando la propria transazione. La creazione resta atomica con il resto del salvataggio e la logica sta in un solo punto.
 
@@ -63,6 +64,7 @@ Le dipendenze tra repository sono quindi:
 ```
 PescateRepository  ──usa──>  CatalogoRepository  <──usa──  ObiettiviRepository
 TerritorioRepository        (indipendente)
+MeteoRepository             (indipendente; usato da StatisticheService e dal futuro MeteoService)
 ```
 
 Lo `StatisticheService` è di **sola lettura**: interroga direttamente il livello dati con query di aggregazione e non scrive mai.
@@ -93,7 +95,7 @@ La radice del progetto separa il codice sorgente dell'applicazione (`lib/`) dall
 diario_pesca/
 ├── lib/
 │   ├── data/
-│   │   ├── database_helper.dart       # Connessione SQLite, schema (20 tabelle, 18 indici)
+│   │   ├── database_helper.dart       # Connessione SQLite, schema (24 tabelle, 19 indici)
 │   │   ├── db_mappers.dart            # Conversione tra righe SQL e classi Dart
 │   │   ├── query_condivise.dart       # Query usate da più componenti (stato battuto, riepiloghi)
 │   │   └── archivio_foto.dart         # Accesso ai file immagine sul dispositivo
@@ -115,6 +117,12 @@ diario_pesca/
 │   │   │   ├── esca.dart
 │   │   │   ├── specie.dart
 │   │   │   └── valore_condizione.dart
+│   │   ├── meteo/
+│   │   │   ├── cella_meteo.dart
+│   │   │   ├── meteo_giorno.dart
+│   │   │   ├── meteo_ora.dart
+│   │   │   ├── meteo_pescata.dart     # Vista di sola lettura
+│   │   │   └── richiesta_meteo.dart   # Vista di sola lettura
 │   │   ├── obiettivi/
 │   │   │   └── obiettivo.dart
 │   │   ├── enums.dart                 # Domini chiusi
@@ -123,6 +131,7 @@ diario_pesca/
 │   ├── repositories/
 │   │   ├── catalogo_repository.dart
 │   │   ├── eccezioni.dart             # NomeDuplicatoException
+│   │   ├── meteo_repository.dart
 │   │   ├── obiettivi_repository.dart
 │   │   ├── pescate_repository.dart
 │   │   └── territorio_repository.dart
@@ -136,6 +145,7 @@ diario_pesca/
 ├── test/
 │   ├── catalogo_repository_test.dart
 │   ├── database_integrita_test.dart
+│   ├── meteo_repository_test.dart
 │   ├── obiettivi_repository_test.dart
 │   ├── pescate_repository_test.dart
 │   ├── statistiche_service_test.dart
@@ -149,7 +159,7 @@ diario_pesca/
 ## 4. Descrizione dei Pacchetti e delle Classi
 
 ### 4.1 `lib/data/` — Livello dati
-* **`DatabaseHelper`**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **20 tabelle** e **18 indici**, con vincoli di integrità referenziale attivi, e inserisce alla creazione gli ambienti e le condizioni di base.
+* **`DatabaseHelper`**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **24 tabelle** e **19 indici**, con vincoli di integrità referenziale attivi, e inserisce alla creazione gli ambienti e le condizioni di base.
 * **`DbMappers`**: traduce le righe restituite da SQLite (`Map<String, Object?>`) nelle classi del modello di dominio e viceversa. Contiene solo conversioni, nessuna query.
 * **`QueryCondivise`**: query usate da più componenti, scritte in un solo punto: l'aggiornamento di `Spot.battuto` (usato da `TerritorioRepository` e `PescateRepository`) e la lettura dei riepiloghi con i dettagli per caratteristica (usata da `PescateRepository` e `StatisticheService`).
 * **`ArchivioFoto`**: accesso ai file immagine sul dispositivo. I repository lo usano per cancellare i file rimasti senza riferimento, sempre dopo il commit della transazione.
@@ -157,7 +167,7 @@ diario_pesca/
 ### 4.2 `lib/models/` — Modello di Dominio
 Tutte le classi modello sono **oggetti immutabili** (campi `final`, metodo `copyWith` e uguaglianza strutturale, vedi `scelta_architetturale_immutabilit_dei_modelli.md`). Sono suddivise in quattro sotto-pacchetti, uno per area del dominio, più tre file comuni:
 
-* **`enums.dart`**: domini chiusi (`FasciaOraria`, `Difficolta`, `Accessibilita`). Meteo, livello, trasparenza e fondo non sono enum ma condizioni personalizzabili (`catalogo/condizione.dart`). Sono salvati nel database con il nome del valore (`.name`): **i nomi dei valori non vanno rinominati**, altrimenti i dati già salvati non vengono più letti.
+* **`enums.dart`**: domini chiusi (`FasciaOraria`, `Difficolta`, `Accessibilita`, `FonteMeteo`) e `StatoMeteo`, che non è salvato ma calcolato. Meteo, livello, trasparenza e fondo non sono enum ma condizioni personalizzabili (`catalogo/condizione.dart`). Sono salvati nel database con il nome del valore (`.name`): **i nomi dei valori non vanno rinominati**, altrimenti i dati già salvati non vengono più letti.
 * **`foto.dart`**: `Foto`, riferimento a un'immagine salvata sul dispositivo (`percorso` e `percorsoThumbnail`), associabile in modo esclusivo a una pescata, a una cattura memorabile o a un'esca. Sta fuori dai sotto-pacchetti perché è usata da più aree.
 * **`uguaglianza.dart`**: funzione `listeUguali`, usata dagli `operator ==` dei modelli che contengono liste.
 * **Pacchetto `territorio/`**:
@@ -177,11 +187,15 @@ Tutte le classi modello sono **oggetti immutabili** (campi `final`, metodo `copy
   * `Condizione` e `ValoreCondizione`: condizioni che il pescatore registra nelle pescate (es. Livello, Meteo, Stato del mare) con i loro valori ordinati in una scala. Sono definite dall'utente e collegate agli ambienti per cui hanno senso; la `Pescata` contiene i valori scelti (`valoriCondizioni`, al massimo uno per condizione).
 * **Pacchetto `obiettivi/`**:
   * `Obiettivo`: traguardo numerico annuale per una specie, generico o legato a una caratteristica.
+* **Pacchetto `meteo/`** (dati meteo storici scaricati da Open-Meteo):
+  * `CellaMeteo`: cella della griglia del modello meteo (circa 10 km) a cui appartiene il punto di uno spot, con la sua quota media.
+  * `MeteoGiorno` e `MeteoOra`: dati giornalieri e orari di una cella (pioggia, temperature, pressione, vento), con la fonte (archivio o previsione). Le ore sono in UTC.
+  * `RichiestaMeteo` e `MeteoPescata`: viste di sola lettura, cioè una pescata da scaricare con il punto a cui chiedere i dati, e il meteo completo di una pescata (stato, cella, 31 giorni, ore del giorno prima e del giorno stesso).
 
 #### Identità degli oggetti: id nullable e chiavi naturali
 I modelli identificano le righe del database in due modi.
 
-* **Id numerico generato da SQLite** (`Pescata`, `CatturaMemorabile`, `RiepilogoSpecie`, `Pianificazione`, `Foto`, `Esca`, `Caratteristica`, `Condizione`, `ValoreCondizione`, `Obiettivo`): il campo è `int? id`.
+* **Id numerico generato da SQLite** (`Pescata`, `CatturaMemorabile`, `RiepilogoSpecie`, `Pianificazione`, `Foto`, `Esca`, `Caratteristica`, `Condizione`, `ValoreCondizione`, `Obiettivo`, `CellaMeteo`): il campo è `int? id`.
   * `id == null` significa **oggetto non ancora salvato**: l'id lo assegna SQLite all'inserimento, quindi prima non esiste. Il getter `isNuovo` rende esplicito il controllo.
   * Grazie a questa convenzione una sola classe rappresenta sia l'oggetto nuovo sia quello salvato, e i repository decidono se inserire o aggiornare in base a `isNuovo`. È anche ciò che permette la **creazione al volo** (§1.2): un'esca con `isNuovo == true` dentro una cattura viene creata nella stessa transazione.
   * I repository **restituiscono sempre oggetti con l'id valorizzato**. L'interfaccia deve continuare a lavorare sull'oggetto restituito dal salvataggio, non su quello che ha passato.
@@ -203,14 +217,17 @@ Un repository per area del dominio; la tabella in §1.2 indica quali tabelle scr
 * **`PescateRepository`**: pescate complete (salvate in modo atomico con valori delle condizioni, esche, foto, riepiloghi, dettagli e catture memorabili), catture memorabili e pianificazioni, con il filtro delle pescate per valori di condizione. Garantisce lo spot obbligatorio, un solo valore per condizione, il vincolo dettaglio ≤ totale e la pulizia dei file immagine non più usati.
 * **`CatalogoRepository`**: specie, caratteristiche, esche e condizioni (con valori, attivazione, collegamenti agli ambienti, copia dei collegamenti da un altro ambiente e le condizioni da mostrare nel form di una pescata, `getCondizioniPerForm`); offre agli altri repository la creazione al volo di esche e caratteristiche dentro una transazione esistente, con il controllo dei nomi già usati (`NomeDuplicatoException`), e all'interfaccia la ricerca per nome (`getEscaPerNome`, `getCaratteristicaPerNome`).
 * **`ObiettiviRepository`**: obiettivi annuali.
+* **`MeteoRepository`**: archivio dei dati meteo storici. Indica quali pescate sono da scaricare e con quale punto, quale cella è già nota per un punto e quali giorni e ore mancano in archivio; salva i dati scaricati senza mai sostituire un dato d'archivio con uno di previsione; calcola lo stato del meteo di una pescata e ne restituisce i dati. Non accede alla rete.
 
 Tutti i repository ricevono il `DatabaseHelper` (e, dove serve, gli altri repository e l'`ArchivioFoto`) dal costruttore: in produzione si usano le istanze predefinite, nei test un database in memoria.
 
 ### 4.4 `lib/services/` — Servizi
-* **`StatisticheService`** *(implementato)*: statistiche di sola lettura sullo storico. Oggi espone la lettura dei riepiloghi per pescata o per specie; accoglierà medie, conteggi, confronti tra anni e progresso degli obiettivi.
+* **`StatisticheService`** *(implementato)*: statistiche di sola lettura sullo storico. Oggi espone la lettura dei riepiloghi per pescata o per specie e la pioggia cumulata nei giorni precedenti una pescata (`getPioggiaCumulata`, con finestra da 1 a 30 giorni); accoglierà medie, conteggi, confronti tra anni e progresso degli obiettivi.
 * **`FotoService`** *(previsto)*: acquisizione da fotocamera o galleria, compressione, generazione delle anteprime e salvataggio con percorso relativo alla cartella documenti dell'app (REQ-DES-03), tramite `ArchivioFoto`.
 * **`BackupService`** *(previsto)*: creazione e ripristino dell'archivio ZIP (dati in JSON + foto) su Google Drive (REQ-FUN-14, REQ-FUN-15).
-* **`MeteoService`** *(previsto)*: interrogazione dell'API meteo con le coordinate dello spot (REQ-FUN-13).
+* **`MeteoService`** *(previsto)*: comunicazione con Open-Meteo (pacchetto `http`, da aggiungere), in due ruoli:
+  * **previsioni** per uno spot nei giorni e nelle ore successive (REQ-FUN-13), solo da mostrare, senza salvarle;
+  * **scaricamento dei dati storici** delle pescate (REQ-FUN-17): chiede al `MeteoRepository` le pescate da scaricare, le raggruppa per punto e, per ognuno, se la cella è già nota e l'archivio contiene tutto, la assegna senza rete (`assegnaCella`); altrimenti scarica i giorni e le ore mancanti, dall'archivio storico per le date più vecchie e dall'API delle previsioni con `past_days` per gli ultimi giorni, e salva tutto con `salvaDati`. Viene avviato quando c'è rete (all'apertura dell'app o dello storico) e non blocca mai la registrazione di una pescata. Deve citare Open-Meteo come fonte (licenza CC BY 4.0).
 
 ### 4.5 `lib/ui/` — Presentazione *(previsto)*
 * **`screens/`** e **`widgets/`**: schermate principali e componenti grafici riutilizzabili.
@@ -218,7 +235,7 @@ Tutti i repository ricevono il `DatabaseHelper` (e, dove serve, gli altri reposi
 
 ### 4.6 `test/` — Test automatici
 Una suite per componente, descritte nel `registro_dei_test_automatici.md`:
-`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `statistiche_service_test.dart`.
+`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `statistiche_service_test.dart`.
 
 ---
 

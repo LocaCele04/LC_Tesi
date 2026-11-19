@@ -45,7 +45,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 ## 2. Descrizione Generale
 
 ### 2.1 Prospettiva del Prodotto
-* Il sistema è un'applicazione mobile autonoma (standalone), priva di un back-end proprio: tutti i dati dell'utente (spot, pescate, catture memorabili, foto, pianificazione) sono persistiti localmente sul dispositivo tramite un database embedded. Le uniche interazioni con servizi esterni di terze parti sono: la lettura delle previsioni da un servizio meteo pubblico tramite API REST e, solo su richiesta esplicita dell'utente, il caricamento e lo scaricamento di un archivio di backup (file ZIP contenente i dati in JSON e le foto) sul Google Drive dell'utente. In futuro si potrebbe aggiungere un assistente AI per effettuare ricerche sui dati.
+* Il sistema è un'applicazione mobile autonoma (standalone), priva di un back-end proprio: tutti i dati dell'utente (spot, pescate, catture memorabili, foto, pianificazione) sono persistiti localmente sul dispositivo tramite un database embedded. Le uniche interazioni con servizi esterni di terze parti sono: la lettura di previsioni e dati meteo storici da un servizio meteo pubblico tramite API REST (Open-Meteo) e, solo su richiesta esplicita dell'utente, il caricamento e lo scaricamento di un archivio di backup (file ZIP contenente i dati in JSON e le foto) sul Google Drive dell'utente. In futuro si potrebbe aggiungere un assistente AI per effettuare ricerche sui dati.
 
 ### 2.2 Funzionalità Principali del Prodotto
 * Gestione degli spot di pesca, organizzati in categorie, con relativo tracciato geografico (tratto) disegnabile manualmente sulla mappa dell'app.
@@ -56,7 +56,8 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * Definizione di condizioni personalizzate e dei loro valori, collegate agli ambienti, per adattare l'app a qualsiasi tipo di pesca.
 * Visualizzazione di statistiche e riepiloghi (per spot, per periodo, per specie) a partire dallo storico registrato.
 * Pianificazione delle uscite future e degli obiettivi annuali.
-* Consultazione delle condizioni meteo per uno spot, tramite chiamata diretta a un servizio meteo esterno.
+* Consultazione delle previsioni meteo per uno spot, tramite chiamata diretta a un servizio meteo esterno.
+* Archiviazione automatica dei dati meteo storici di ogni pescata (pioggia dei giorni precedenti, temperature, pressione, vento), per le statistiche.
 * Backup e ripristino manuale dei dati su Google Drive.
 
 ### 2.3 Caratteristiche degli Utenti
@@ -69,7 +70,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * Occupazione di spazio su disco contenuta nel tempo, anche con uno storico pluriennale di foto e dati (vedi [INT-SW-03] relativo alla compressione immagini).
 
 ### 2.5 Assunzioni e Dipendenze
-* Si assume la disponibilità continuativa di un servizio meteo pubblico gratuito, consultabile via API REST senza necessità di chiave o con piano gratuito sufficiente all'uso previsto.
+* Si assume la disponibilità di un servizio meteo pubblico gratuito, consultabile via API REST senza chiave, che fornisca sia previsioni sia dati storici. Il servizio scelto è **Open-Meteo** (piano gratuito per uso non commerciale, 10.000 richieste al giorno, dati con licenza CC BY 4.0 che richiede di citare la fonte nell'app). Il piano gratuito non garantisce la disponibilità: l'app deve tollerare che il servizio non risponda.
 * Si assume la disponibilità di provider di tile mappa gratuiti (es. OpenStreetMap) per la visualizzazione cartografica.
 * Si assume l'uso su dispositivo singolo per utente: non è previsto, nella versione base, un meccanismo di sincronizzazione multi-dispositivo o backup automatico su cloud.
 * Si assume che l'utente disponga di un account Google valido con spazio di archiviazione sufficiente su Google Drive per poter utilizzare la funzionalità facoltativa di backup e ripristino.
@@ -97,7 +98,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **[INT-SW-03]** - *Should have*: L'app dovrebbe integrare una libreria di compressione/ridimensionamento immagini lato client, applicata automaticamente al salvataggio di ogni fotografia.
 
 #### 3.1.4 Interfaccia di Comunicazione
-* **[INT-COM-01]** - *Must have*: L'app deve poter effettuare richieste HTTPS in sola lettura verso un'API meteo pubblica, inviando le coordinate dello spot selezionato e ricevendo le condizioni meteo correnti o previste, senza che tale comunicazione richieda un server applicativo proprio.
+* **[INT-COM-01]** - *Must have*: L'app deve poter effettuare richieste HTTPS in sola lettura verso un'API meteo pubblica, inviando le coordinate dello spot selezionato e ricevendo le condizioni meteo previste o i dati meteo storici, senza che tale comunicazione richieda un server applicativo proprio.
 * **[INT-COM-02]** - *Won't have*: L'app non prevede, nella versione base, comunicazioni verso un server applicativo proprio né sincronizzazione automatica o continua dei dati verso servizi cloud. L'unico trasferimento di dati personali verso il cloud è il backup manuale descritto in [INT-COM-03].
 * **[INT-COM-03]** - *Should have*: L'app dovrebbe poter comunicare tramite HTTPS con le API REST di Google Drive (previo flusso di autenticazione OAuth 2.0) per il caricamento dell'archivio ZIP di backup e il suo download in fase di ripristino.
 
@@ -180,13 +181,27 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **[REQ-FUN-12]** - *Won't have*
   * **Descrizione**: Il sistema non prevede obiettivi diversi da quelli sulle quantità di specie e caratteristiche, ad esempio obiettivi sul numero di pescate (es. "30 pescate all'alba"), sulle pescate con almeno N catture o sulla scoperta di nuovi spot.
 
-#### 3.2.4 Consultazione Meteo
+#### 3.2.4 Meteo
 
 * **[REQ-FUN-13]** - *Should have*
-  * **Descrizione**: Il sistema dovrebbe permettere la consultazione delle condizioni meteo correnti o previste per le coordinate di uno spot selezionato, anche durante la pianificazione di una pescata.
+  * **Descrizione**: Il sistema dovrebbe permettere la consultazione delle condizioni meteo previste nei giorni e nelle ore successive per le coordinate di uno spot selezionato, anche durante la pianificazione di una pescata.
   * **Input**: Spot selezionato dall'utente.
   * **Elaborazione**: Invocazione dell'API meteo esterna con le coordinate dello spot. In assenza di connessione l'app lo segnala senza bloccare le altre funzionalità.
   * **Output / Risposta**: Visualizzazione delle condizioni meteo restituite (temperatura, precipitazioni, ecc.) all'interno della scheda dello spot o della pianificazione.
+
+* **[REQ-FUN-17]** - *Should have*
+  * **Descrizione**: Il sistema dovrebbe scaricare e archiviare automaticamente i dati meteo storici di ogni pescata, per poter fare statistiche sulle condizioni in cui si pesca (es. "come pesco dopo X mm di pioggia nelle ultime 2 settimane").
+  * **Input**: Data della pescata e punto dello spot (la prima coordinata del tratto). Nessun input dell'utente: la condizione manuale *Meteo* ([REQ-FUN-16]) resta disponibile per registrare l'impressione sul posto.
+  * **Elaborazione**:
+    * per ogni pescata servono i **dati giornalieri dei 30 giorni precedenti e del giorno della pescata** (pioggia, temperatura minima e massima, pressione media, vento massimo, raffica massima, direzione dominante) e i **dati orari del giorno prima e del giorno della pescata** (pioggia, temperatura, pressione, vento, raffica, direzione);
+    * i dati si salvano giorno per giorno e ora per ora, non come totali: le finestre (es. pioggia degli ultimi 3, 14 o 30 giorni) si calcolano al momento della statistica e si possono cambiare senza riscaricare nulla;
+    * i dati sono archiviati per cella della griglia del modello meteo e per giorno/ora, così pescate vicine nello spazio e nel tempo li condividono;
+    * la registrazione di una pescata non attende mai il meteo: senza rete o con il servizio non disponibile, la pescata resta *da scaricare* e i dati vengono recuperati appena possibile; lo stesso vale per le pescate importate dallo storico;
+    * per le date più vecchie si usa l'archivio storico (definitivo), per gli ultimi giorni non ancora in archivio il modello di previsione; un dato d'archivio non viene mai sostituito da uno di previsione;
+    * se cambia la data della pescata o il primo punto dello spot, la pescata torna *da scaricare*; rinominare o eliminare lo spot non tocca i dati già scaricati;
+    * una pescata il cui spot non ha coordinate non ha dati meteo.
+  * **Output / Risposta**: Dati meteo consultabili nella scheda della pescata e utilizzabili nelle statistiche.
+  * **Limiti noti**: i dati sono riferiti a una cella di circa 10 km: la pioggia cumulata è rappresentativa, mentre temperatura e vento in fondo a una valle stretta possono scostarsi dal valore della cella.
 
 #### 3.2.5 Backup e Ripristino Dati
 
@@ -242,6 +257,6 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 ### 3.4 Attributi di Qualità del Sistema (Requisiti Non Funzionali)
 
-* **Sicurezza (Security)**: I dati dell'utente risiedono in locale sul dispositivo e non sono trasmessi a server dello sviluppatore o di terze parti. L'interrogazione dell'API meteo trasmette esclusivamente coordinate geografiche, senza dati identificativi dell'utente. Gli unici dati personali che lasciano il dispositivo sono quelli contenuti nell'archivio di backup, caricato solo su comando esplicito dell'utente sul suo Google Drive personale, tramite connessione HTTPS e autenticazione OAuth 2.0.
+* **Sicurezza (Security)**: I dati dell'utente risiedono in locale sul dispositivo e non sono trasmessi a server dello sviluppatore o di terze parti. Le richieste meteo (previsioni e dati storici) trasmettono solo coordinate e date, senza dati identificativi. Gli unici dati personali che lasciano il dispositivo sono quelli contenuti nell'archivio di backup, caricato solo su comando esplicito dell'utente sul suo Google Drive personale, tramite connessione HTTPS e autenticazione OAuth 2.0.
 * **Affidabilità e Disponibilità**: Non essendo prevista alcuna componente server-side, non si applicano requisiti di uptime; l'affidabilità è demandata all'integrità del database locale, garantita da vincoli e transazioni, e al backup manuale su Google Drive (dati e foto), a discrezione dell'utente.
 * **Manutenibilità e Portabilità**: Il codice deve essere organizzato in moduli disaccoppiati (territorio e spot, pescate, catalogo di specie ed esche, obiettivi, statistiche, foto, meteo, backup; vedi `struttura_del_progetto_diario_di_pesca.md`), per permettere l'estensione futura del sistema (es. eventuale sincronizzazione multi-dispositivo) senza richiedere una riscrittura delle componenti esistenti. L'uso di Flutter garantisce la portabilità del client su Android e iOS a partire da un'unica base di codice.

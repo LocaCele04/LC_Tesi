@@ -36,7 +36,7 @@ void main() {
     );
   }
 
-  /// Helper che popola un set completo e valido di dati su tutte le 20 tabelle.
+  /// Helper che popola un set completo e valido di dati su tutte le 24 tabelle.
   Future<
       ({
         int pescataId,
@@ -112,6 +112,42 @@ void main() {
       'pescata_id': pescataId,
       'condizione_id': morbida.condizioneId,
       'valore_id': morbida.valoreId,
+    });
+
+    final cellaId = await db.insert('CellaMeteo', {
+      'latitudine': 45.75,
+      'longitudine': 9.625,
+      'elevazione': 820.0,
+    });
+    await db.insert('MeteoGiornaliero', {
+      'cella_id': cellaId,
+      'data': '2026-11-10',
+      'pioggia_mm': 2.4,
+      'temp_min': 3.0,
+      'temp_max': 11.0,
+      'pressione_media': 1016.0,
+      'vento_max': 14.0,
+      'raffica_max': 30.0,
+      'direzione_vento': 200,
+      'fonte': 'archivio',
+    });
+    await db.insert('MeteoOrario', {
+      'cella_id': cellaId,
+      'data_ora': '2026-11-10T05:00',
+      'pioggia_mm': 0.0,
+      'temperatura': 4.0,
+      'pressione': 1015.0,
+      'vento': 6.0,
+      'raffica': 12.0,
+      'direzione_vento': 190,
+      'fonte': 'previsione',
+    });
+    await db.insert('PescataMeteo', {
+      'pescata_id': pescataId,
+      'cella_id': cellaId,
+      'data': '2026-11-10',
+      'latitudine': 45.6495,
+      'longitudine': 9.6012,
     });
 
     final esca1Id = await db.insert('Esca', {
@@ -233,9 +269,13 @@ void main() {
       expect(res.first['foreign_keys'], 1);
     });
 
-    test('Esistono tutte le 20 tabelle', () async {
+    test('Esistono tutte le 24 tabelle', () async {
       const tabelleAttese = {
         'Categoria',
+        'CellaMeteo',
+        'MeteoGiornaliero',
+        'MeteoOrario',
+        'PescataMeteo',
         'Ambiente',
         'Condizione',
         'ValoreCondizione',
@@ -264,11 +304,11 @@ void main() {
       expect(presenti.length, tabelleAttese.length);
     });
 
-    test('Esistono tutti i 18 indici idx_*', () async {
+    test('Esistono tutti i 19 indici idx_*', () async {
       final rows = await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%';",
       );
-      expect(rows.length, 18);
+      expect(rows.length, 19);
     });
   });
 
@@ -276,7 +316,7 @@ void main() {
   // SEZIONE 2: INSERIMENTI VALIDI
   // ===========================================================================
   group('2. Inserimenti Validi', () {
-    test('Inserimento completo su tutte le 20 tabelle senza errori', () async {
+    test('Inserimento completo su tutte le 24 tabelle senza errori', () async {
       final ids = await popolaDatiBase();
       expect(ids.pescataId, greaterThan(0));
       expect(ids.catturaId, greaterThan(0));
@@ -759,6 +799,73 @@ void main() {
       await db.delete('Pescata', where: 'id = ?', whereArgs: [pescataId]);
       expect(await db.query('Pescata_Condizione'), isEmpty);
       await db.delete('ValoreCondizione', where: 'id = ?', whereArgs: [morbida.valoreId]);
+    });
+
+    test('Meteo: vincoli sui dati, una riga per cella e giorno/ora, cascate su pescata e cella', () async {
+      final cellaId = await db.insert('CellaMeteo', {
+        'latitudine': 45.75,
+        'longitudine': 9.625,
+      });
+      // Stessa cella due volte
+      expect(
+        () => db.insert('CellaMeteo', {'latitudine': 45.75, 'longitudine': 9.625}),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      await db.insert('MeteoGiornaliero', {
+        'cella_id': cellaId,
+        'data': '2026-11-10',
+        'fonte': 'archivio',
+      });
+      // Stesso giorno due volte, fonte non valida, data non valida, pioggia negativa
+      for (final riga in [
+        {'cella_id': cellaId, 'data': '2026-11-10', 'fonte': 'archivio'},
+        {'cella_id': cellaId, 'data': '2026-11-11', 'fonte': 'stima'},
+        {'cella_id': cellaId, 'data': '2026-02-30', 'fonte': 'archivio'},
+        {'cella_id': cellaId, 'data': '2026-11-12', 'pioggia_mm': -1.0, 'fonte': 'archivio'},
+      ]) {
+        await expectLater(
+          () => db.insert('MeteoGiornaliero', riga),
+          throwsA(isA<DatabaseException>()),
+        );
+      }
+      // Ora in formato errato e direzione del vento fuori intervallo
+      for (final riga in [
+        {'cella_id': cellaId, 'data_ora': '2026-11-10 05:00', 'fonte': 'archivio'},
+        {'cella_id': cellaId, 'data_ora': '2026-11-10T05:00', 'direzione_vento': 400, 'fonte': 'archivio'},
+      ]) {
+        await expectLater(
+          () => db.insert('MeteoOrario', riga),
+          throwsA(isA<DatabaseException>()),
+        );
+      }
+      await db.insert('MeteoOrario', {
+        'cella_id': cellaId,
+        'data_ora': '2026-11-10T05:00',
+        'fonte': 'archivio',
+      });
+
+      final pescataId = await db.insert('Pescata', {
+        'data': '2026-11-10',
+        'fasciaOraria': 'alba',
+      });
+      await db.insert('PescataMeteo', {
+        'pescata_id': pescataId,
+        'cella_id': cellaId,
+        'data': '2026-11-10',
+        'latitudine': 45.76,
+        'longitudine': 9.64,
+      });
+
+      // Eliminata la pescata sparisce il collegamento, l'archivio resta
+      await db.delete('Pescata', where: 'id = ?', whereArgs: [pescataId]);
+      expect(await db.query('PescataMeteo'), isEmpty);
+      expect(await db.query('MeteoGiornaliero'), hasLength(1));
+
+      // Eliminata la cella sparisce il suo archivio
+      await db.delete('CellaMeteo', where: 'id = ?', whereArgs: [cellaId]);
+      expect(await db.query('MeteoGiornaliero'), isEmpty);
+      expect(await db.query('MeteoOrario'), isEmpty);
     });
 
     test('ON DELETE SET NULL + CASCADE su Esca, Spot e Pescata', () async {
