@@ -2,6 +2,7 @@ import 'package:diario_pesca/data/database_helper.dart';
 import 'package:diario_pesca/models/catalogo/caratteristica.dart';
 import 'package:diario_pesca/models/catalogo/esca.dart';
 import 'package:diario_pesca/models/catalogo/specie.dart';
+import 'package:diario_pesca/models/catalogo/valore_condizione.dart';
 import 'package:diario_pesca/models/enums.dart';
 import 'package:diario_pesca/models/foto.dart';
 import 'package:diario_pesca/models/pescate/cattura_memorabile.dart';
@@ -35,6 +36,15 @@ void main() {
   tearDown(() async {
     await dbHelper.close();
   });
+
+  /// Valore di base di una condizione (es. Livello / Morbida), già salvato.
+  Future<ValoreCondizione> valore(String condizione, String nome) async {
+    final condizioni = await catalogoRepo.getCondizioni();
+    return condizioni
+        .firstWhere((c) => c.nome == condizione)
+        .valori
+        .firstWhere((v) => v.nome == nome);
+  }
 
   Future<void> inserisciSpotDiProva(String nome, {String ambiente = 'Torrente'}) async {
     await db.insert(
@@ -94,29 +104,33 @@ void main() {
   });
 
   group('PescateRepository - Pescate', () {
-    test('salvaPescata (insert/update con esche, foto e stato battuto) e getPescate con filtri combinati', () async {
+    test('salvaPescata (insert/update con esche, foto, condizioni e stato battuto) e getPescate con filtri combinati', () async {
       await inserisciSpotDiProva('Ponte Vecchio');
       final esca1 = await catalogoRepo.salvaEsca(const Esca(nome: 'Minnow'));
       final esca2 = await catalogoRepo.salvaEsca(const Esca(nome: 'Ondulante'));
+      final morbida = await valore('Livello', 'Morbida');
+      final magra = await valore('Livello', 'Magra');
+      final velata = await valore('Trasparenza', 'Velata');
+      final chiara = await valore('Trasparenza', 'Chiara');
+      final fondoNormale = await valore('Fondo', 'Normale');
+      final velato = await valore('Meteo', 'Velato');
+      final sereno = await valore('Meteo', 'Sereno');
+      final coperto = await valore('Meteo', 'Coperto');
 
-      // Prima pescata con esche e foto
+      // Prima pescata con condizioni, esche e foto
       final salvata = await pescateRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 10),
           fasciaOraria: FasciaOraria.alba,
-          meteo: Meteo.velato,
-          trasparenza: Trasparenza.velata,
-          fondo: Fondo.normale,
-          livello: Livello.morbida,
           tempAcqua: 11.5,
           tempAria: 8.0,
           spotNome: 'Ponte Vecchio',
+          valoriCondizioni: [velato, velata, fondoNormale, morbida],
           esche: [esca1, esca2],
           foto: const [
             Foto(
               percorso: '/img/p1.jpg',
               percorsoThumbnail: '/img/thumb_p1.jpg',
-              pescataId: 0,
             ),
           ],
         ),
@@ -134,39 +148,86 @@ void main() {
       );
       expect(spotDopoPescata.first['battuto'], 1);
 
-      // Seconda pescata con parametri diversi
+      // Seconda pescata con condizioni diverse
       await pescateRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 12),
           fasciaOraria: FasciaOraria.sera,
-          meteo: Meteo.sereno,
-          trasparenza: Trasparenza.chiara,
-          livello: Livello.magra,
           spotNome: 'Ponte Vecchio',
+          valoriCondizioni: [sereno, chiara, magra],
         ),
       );
 
       // Aggiornamento prima pescata (riduco a 1 esca e cambio meteo)
       await pescateRepo.salvaPescata(
         salvata.copyWith(
-          meteo: Meteo.coperto,
+          valoriCondizioni: [coperto, velata, fondoNormale, morbida],
           esche: [esca1],
         ),
       );
 
+      // Rilettura: valori nell'ordine delle condizioni (Livello, Trasparenza, Fondo, Meteo)
+      final completa = await pescateRepo.getPescataCompleta(salvata.id!);
+      expect(
+        completa!.valoriCondizioni.map((v) => v.nome),
+        ['Morbida', 'Velata', 'Normale', 'Coperto'],
+      );
+      expect(completa.valorePer(coperto.condizioneId!)?.nome, 'Coperto');
+      expect(await db.query('Pescata_Condizione'), hasLength(7));
+
       final filtrate = await pescateRepo.getPescate(
         spotNome: 'Ponte Vecchio',
-        meteo: Meteo.coperto,
         fasciaOraria: FasciaOraria.alba,
-        trasparenza: Trasparenza.velata,
-        livello: Livello.morbida,
+        valoriCondizioni: [coperto.id!, velata.id!, morbida.id!],
       );
       expect(filtrate.length, 1);
       expect(filtrate.first.id, salvata.id);
 
+      final conMagra = await pescateRepo.getPescate(valoriCondizioni: [magra.id!]);
+      expect(conMagra.single.data, DateTime(2026, 11, 12));
+      expect(
+        await pescateRepo.getPescate(valoriCondizioni: [magra.id!, coperto.id!]),
+        isEmpty,
+      );
+
       final ultimeUna = await pescateRepo.getPescate(limit: 1);
       expect(ultimeUna.length, 1);
       expect(ultimeUna.first.data, DateTime(2026, 11, 12));
+    });
+
+    test('salvaPescata accetta un solo valore per condizione, già salvato e della condizione indicata', () async {
+      await inserisciSpotDiProva('Ponte Vecchio');
+      final morbida = await valore('Livello', 'Morbida');
+      final magra = await valore('Livello', 'Magra');
+      final velata = await valore('Trasparenza', 'Velata');
+
+      Pescata conValori(List<ValoreCondizione> valori) => Pescata(
+            data: DateTime(2026, 11, 14),
+            fasciaOraria: FasciaOraria.alba,
+            spotNome: 'Ponte Vecchio',
+            valoriCondizioni: valori,
+          );
+
+      // Due valori per la stessa condizione
+      await expectLater(
+        () => pescateRepo.salvaPescata(conValori([morbida, magra])),
+        throwsArgumentError,
+      );
+      // Valore non salvato
+      await expectLater(
+        () => pescateRepo.salvaPescata(conValori([
+          ValoreCondizione(condizioneId: morbida.condizioneId, nome: 'Inventato'),
+        ])),
+        throwsArgumentError,
+      );
+      // Valore attribuito alla condizione sbagliata: rifiutato dalla FK composta
+      await expectLater(
+        () => pescateRepo.salvaPescata(conValori([
+          velata.copyWith(condizioneId: morbida.condizioneId),
+        ])),
+        throwsA(isA<DatabaseException>()),
+      );
+      expect(await pescateRepo.getPescate(), isEmpty);
     });
 
     test('eliminaPescata rimuove i figli collegati, aggiorna battuto e preserva Spot ed Esche', () async {
@@ -178,14 +239,12 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 10),
           fasciaOraria: FasciaOraria.mattina,
-          meteo: Meteo.sereno,
           spotNome: 'Ponte Vecchio',
           esche: [esca],
           foto: const [
             Foto(
               percorso: '/img/p.jpg',
               percorsoThumbnail: '/img/tp.jpg',
-              pescataId: 0,
             ),
           ],
         ),
@@ -217,7 +276,6 @@ void main() {
           Pescata(
             data: DateTime(2026, 11, 14),
             fasciaOraria: FasciaOraria.alba,
-            meteo: Meteo.sereno,
           ),
         ),
         throwsArgumentError,
@@ -227,7 +285,6 @@ void main() {
           Pescata(
             data: DateTime(2026, 11, 14),
             fasciaOraria: FasciaOraria.alba,
-            meteo: Meteo.sereno,
             spotNome: '   ',
           ),
         ),
@@ -240,7 +297,6 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 14),
           fasciaOraria: FasciaOraria.alba,
-          meteo: Meteo.sereno,
           spotNome: 'Ponte Vecchio',
         ),
       );
@@ -252,7 +308,6 @@ void main() {
             id: pescata.id,
             data: pescata.data,
             fasciaOraria: pescata.fasciaOraria,
-            meteo: pescata.meteo,
           ),
         ),
         throwsArgumentError,
@@ -292,7 +347,6 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 11),
           fasciaOraria: FasciaOraria.tramonto,
-          meteo: Meteo.variabile,
           spotNome: 'Ponte Vecchio',
         ),
       );
@@ -308,7 +362,6 @@ void main() {
             Foto(
               percorso: '/img/c1.jpg',
               percorsoThumbnail: '/img/tc1.jpg',
-              catturaMemorabileId: 0,
             ),
           ],
         ),
@@ -358,7 +411,6 @@ void main() {
           Foto(
             percorso: '/img/esca_jerk.jpg',
             percorsoThumbnail: '/img/thumb_esca_jerk.jpg',
-            escaId: 0,
           ),
         ],
       );
@@ -371,13 +423,11 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 13),
           fasciaOraria: FasciaOraria.alba,
-          meteo: Meteo.velato,
           spotNome: 'Ponte Vecchio',
           esche: const [nuovaEsca],
           cattureMemorabili: const [
             CatturaMemorabile(
               descrizione: 'Over 45cm',
-              pescataId: 0,
               specieNome: 'Trota',
               esca: nuovaEsca,
               caratteristiche: [nuovaCaratt],
@@ -385,19 +435,16 @@ void main() {
                 Foto(
                   percorso: '/img/cattura.jpg',
                   percorsoThumbnail: '/img/thumb_cattura.jpg',
-                  catturaMemorabileId: 0,
                 ),
               ],
             ),
           ],
           riepiloghiSpecie: const [
             RiepilogoSpecie(
-              pescataId: 0,
               specieNome: 'Trota',
               quantita: 3,
               dettagli: [
                 RiepilogoCaratteristica(
-                  riepilogoSpecieId: 0,
                   caratteristica: nuovaCaratt,
                   quantita: 1,
                 ),
@@ -408,7 +455,6 @@ void main() {
             Foto(
               percorso: '/img/pescata.jpg',
               percorsoThumbnail: '/img/thumb_pescata.jpg',
-              pescataId: 0,
             ),
           ],
         ),
@@ -466,7 +512,6 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 13),
           fasciaOraria: FasciaOraria.notte,
-          meteo: Meteo.sereno,
           spotNome: 'Ponte Vecchio',
         ),
       );
@@ -500,7 +545,6 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 10),
           fasciaOraria: FasciaOraria.alba,
-          meteo: Meteo.velato,
           spotNome: 'Ponte Vecchio',
           riepiloghiSpecie: [
             RiepilogoSpecie(
@@ -561,7 +605,6 @@ void main() {
       Pescata conRiepiloghi(List<RiepilogoSpecie> riepiloghi) => Pescata(
             data: DateTime(2026, 11, 13),
             fasciaOraria: FasciaOraria.mattina,
-            meteo: Meteo.sereno,
             spotNome: 'Ponte Vecchio',
             riepiloghiSpecie: riepiloghi,
           );

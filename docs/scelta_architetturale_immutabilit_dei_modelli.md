@@ -25,6 +25,10 @@ Garantire che l'oggetto sia immutabile elimina il rischio di effetti collaterali
 Nel modulo dedicato alle statistiche e alle aggregazioni, gli oggetti di dominio vengono utilizzati per raggruppare o indicizzare dati all'interno di strutture come `Map` e `Set`.
 Se un oggetto utilizzato come chiave in una `Map` venisse modificato dopo l'inserimento, cambierebbe il valore restituito dal suo metodo `hashCode`, rendendo l'elemento irrecuperabile all'interno della struttura dati. L'immutabilità garantisce che `hashCode` e `==` restino costanti per tutto il ciclo di vita dell'oggetto.
 
+Due precisazioni:
+* l'uguaglianza confronta **tutti** i campi, comprese le liste (coordinate di uno spot, foto e caratteristiche di una cattura, dettagli di un riepilogo…), elemento per elemento tramite la funzione comune `listeUguali` (`lib/models/uguaglianza.dart`);
+* un oggetto non ancora salvato ha `id == null` (`isNuovo`). Il salvataggio non lo modifica ma restituisce una **copia con l'id**, che per `==` e `hashCode` è un oggetto diverso: per questo un oggetto nuovo non va usato come chiave da ritrovare dopo il salvataggio (vedi `struttura_del_progetto_diario_di_pesca.md`, §4.2).
+
 ### E. Ottimizzazione della Memoria (`const`)
 Una classe in cui tutti i campi sono dichiarati `final` può esporre un costruttore `const`. Questo consente al compilatore Dart di canonicalizzare le istanze identiche, riutilizzando lo stesso spazio di memoria anziché allocare nuovi oggetti duplicati.
 
@@ -92,7 +96,10 @@ final categoriaAggiornata = categoriaOriginale.copyWith(
 );
 
 // 3. Salvataggio esplicito tramite il repository
-// await territorioRepository.updateCategoria(categoriaAggiornata);
+// await territorioRepository.aggiornaCategoria(
+//   nomeOriginale: categoriaOriginale.nome,
+//   categoriaAggiornata: categoriaAggiornata,
+// );
 ```
 
 ---

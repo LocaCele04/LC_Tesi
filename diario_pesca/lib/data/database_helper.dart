@@ -60,6 +60,31 @@ class DatabaseHelper {
   /// Ambienti presenti alla prima apertura; l'utente può aggiungerne altri.
   static const List<String> ambientiDiBase = ['Torrente', 'Fiume', 'Lago', 'Mare'];
 
+  /// Condizioni presenti alla prima apertura, con i valori nell'ordine della
+  /// loro scala. L'utente può modificarle, disattivarle o aggiungerne altre.
+  static const Map<String, List<String>> condizioniDiBase = {
+    'Livello': ['Secca', 'Magra', 'Normale', 'Morbida', 'Piena'],
+    'Trasparenza': ['Sporca', 'Velata', 'Chiara'],
+    'Fondo': ['Scuro', 'Normale', 'Pulito'],
+    'Meteo': [
+      'Sereno',
+      'Velato',
+      'Variabile',
+      'Coperto',
+      'Plumbeo',
+      'Pioggia',
+      'Ventoso',
+    ],
+  };
+
+  /// Ambienti a cui sono collegate le condizioni di base.
+  static const Map<String, List<String>> ambientiCondizioniDiBase = {
+    'Livello': ['Torrente', 'Fiume'],
+    'Trasparenza': ['Torrente', 'Fiume'],
+    'Fondo': ['Torrente', 'Fiume'],
+    'Meteo': ambientiDiBase,
+  };
+
   static Future<void> onCreate(Database db, int version) async {
     // 1. Categoria
     await db.execute('''
@@ -82,6 +107,47 @@ class DatabaseHelper {
     for (final nome in ambientiDiBase) {
       await db.insert('Ambiente', {'nome': nome});
     }
+
+    // 1-ter. Condizioni personalizzabili (es. Livello, Trasparenza, Meteo)
+    // e loro valori ammessi. `ordine` dà la posizione nel form (condizioni)
+    // e nella scala (valori: Secca < Magra < ... < Piena).
+    // UNIQUE (id, condizione_id) serve alla FK composta di Pescata_Condizione.
+    await db.execute('''
+      CREATE TABLE Condizione (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL COLLATE NOCASE UNIQUE,
+        ordine INTEGER NOT NULL DEFAULT 0,
+        attiva INTEGER NOT NULL DEFAULT 1,
+        CHECK (length(trim(nome)) > 0),
+        CHECK (attiva IN (0, 1))
+      );
+    ''');
+    await db.execute('''
+      CREATE TABLE ValoreCondizione (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        condizione_id INTEGER NOT NULL,
+        nome TEXT NOT NULL COLLATE NOCASE,
+        ordine INTEGER NOT NULL DEFAULT 0,
+        attivo INTEGER NOT NULL DEFAULT 1,
+        FOREIGN KEY (condizione_id) REFERENCES Condizione (id) ON DELETE CASCADE,
+        UNIQUE (condizione_id, nome),
+        UNIQUE (id, condizione_id),
+        CHECK (length(trim(nome)) > 0),
+        CHECK (attivo IN (0, 1))
+      );
+    ''');
+    // Quali condizioni proporre nel form per ogni ambiente (guida per
+    // l'interfaccia, non vincolo sui dati delle pescate).
+    await db.execute('''
+      CREATE TABLE Ambiente_Condizione (
+        ambiente_nome TEXT NOT NULL COLLATE NOCASE,
+        condizione_id INTEGER NOT NULL,
+        PRIMARY KEY (ambiente_nome, condizione_id),
+        FOREIGN KEY (ambiente_nome) REFERENCES Ambiente (nome) ON DELETE CASCADE ON UPDATE CASCADE,
+        FOREIGN KEY (condizione_id) REFERENCES Condizione (id) ON DELETE CASCADE
+      );
+    ''');
+    await _inserisciCondizioniDiBase(db);
 
     // 2. Spot
     await db.execute('''
@@ -145,10 +211,6 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         data TEXT NOT NULL,
         fasciaOraria TEXT NOT NULL,
-        meteo TEXT NOT NULL,
-        trasparenza TEXT,
-        fondo TEXT,
-        livello TEXT,
         temp_acqua REAL,
         temp_aria REAL,
         note TEXT,
@@ -156,12 +218,23 @@ class DatabaseHelper {
         FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE SET NULL ON UPDATE CASCADE,
         CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),
         CHECK (fasciaOraria IN ('alba','mattina', 'pomeriggio', 'tramonto', 'sera', 'notte')),
-        CHECK (meteo IN ('sereno', 'coperto', 'velato', 'variabile', 'plumbeo', 'pioggia', 'ventoso')),
-        CHECK (trasparenza IN ('sporca', 'velata', 'chiara')),
-        CHECK (fondo IN ('scuro', 'normale', 'pulito')),
-        CHECK (livello IN ('secca', 'magra', 'normale', 'morbida', 'piena')),
         CHECK (temp_acqua BETWEEN 0 AND 35),
         CHECK (temp_aria BETWEEN -30 AND 45)
+      );
+    ''');
+
+    // 5-bis. Pescata_Condizione: valore scelto per ogni condizione in una
+    // pescata (al massimo uno per condizione). La FK composta garantisce che
+    // il valore appartenga alla condizione indicata; RESTRICT impedisce di
+    // eliminare un valore già usato (va disattivato).
+    await db.execute('''
+      CREATE TABLE Pescata_Condizione (
+        pescata_id INTEGER NOT NULL,
+        condizione_id INTEGER NOT NULL,
+        valore_id INTEGER NOT NULL,
+        PRIMARY KEY (pescata_id, condizione_id),
+        FOREIGN KEY (pescata_id) REFERENCES Pescata (id) ON DELETE CASCADE,
+        FOREIGN KEY (valore_id, condizione_id) REFERENCES ValoreCondizione (id, condizione_id) ON DELETE RESTRICT
       );
     ''');
 
@@ -324,6 +397,33 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_cattcar_caratteristica ON Cattura_Caratteristica (caratteristica_id);');
     await db.execute('CREATE INDEX idx_dettaglio_caratteristica ON DettaglioRiepilogo (caratteristica_id);');
     await db.execute('CREATE INDEX idx_obiettivo_anno ON Obiettivo (anno);');
+    await db.execute('CREATE INDEX idx_ambcond_condizione ON Ambiente_Condizione (condizione_id);');
+    await db.execute('CREATE INDEX idx_pescond_valore ON Pescata_Condizione (valore_id, condizione_id);');
+  }
+
+  /// Inserisce le condizioni di base con i loro valori e i collegamenti agli
+  /// ambienti di base.
+  static Future<void> _inserisciCondizioniDiBase(Database db) async {
+    var ordineCondizione = 0;
+    for (final voce in condizioniDiBase.entries) {
+      final condizioneId = await db.insert('Condizione', {
+        'nome': voce.key,
+        'ordine': ordineCondizione++,
+      });
+      for (var i = 0; i < voce.value.length; i++) {
+        await db.insert('ValoreCondizione', {
+          'condizione_id': condizioneId,
+          'nome': voce.value[i],
+          'ordine': i,
+        });
+      }
+      for (final ambiente in ambientiCondizioniDiBase[voce.key] ?? const <String>[]) {
+        await db.insert('Ambiente_Condizione', {
+          'ambiente_nome': ambiente,
+          'condizione_id': condizioneId,
+        });
+      }
+    }
   }
 
   /// Chiude la connessione e azzera il riferimento.

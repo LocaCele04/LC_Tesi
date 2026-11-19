@@ -3,6 +3,7 @@ import 'dart:math';
 import '../data/database_helper.dart';
 import '../data/db_mappers.dart';
 import '../data/query_condivise.dart';
+import '../models/catalogo/condizione.dart';
 import '../models/enums.dart';
 import '../models/territorio/ambiente.dart';
 import '../models/territorio/categoria.dart';
@@ -254,6 +255,30 @@ class TerritorioRepository {
 
       await QueryCondivise.aggiornaStatoBattutoSpot(txn, spotDaSalvare.nome);
     });
+  }
+
+  /// Condizioni compilate in almeno una pescata dello spot [spotNome] ma non
+  /// collegate all'ambiente [ambienteNome]. Da usare prima di cambiare
+  /// l'ambiente di uno spot, per proporre all'utente di collegarle anche al
+  /// nuovo ambiente. Le condizioni sono restituite senza valori.
+  ///
+  /// Cambiare ambiente non cancella mai i valori già salvati nelle pescate:
+  /// questo controllo serve solo a mantenere coerente il form.
+  Future<List<Condizione>> getCondizioniNonPreviste({
+    required String spotNome,
+    required String ambienteNome,
+  }) async {
+    final db = await _dbHelper.database;
+    final righe = await db.rawQuery('''
+      SELECT DISTINCT c.* FROM Condizione c
+      INNER JOIN Pescata_Condizione pc ON pc.condizione_id = c.id
+      INNER JOIN Pescata p ON p.id = pc.pescata_id
+      WHERE p.spot_nome = ?
+        AND c.id NOT IN (
+          SELECT condizione_id FROM Ambiente_Condizione WHERE ambiente_nome = ?)
+      ORDER BY c.ordine ASC, c.nome ASC
+    ''', [spotNome, ambienteNome]);
+    return righe.map((r) => DbMappers.condizioneFromMap(r)).toList();
   }
 
   Future<void> eliminaSpot(String nome) async {

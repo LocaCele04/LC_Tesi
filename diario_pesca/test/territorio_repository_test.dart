@@ -284,4 +284,57 @@ void main() {
       expect(await repo.getCategorie(), isEmpty);
     });
   });
+
+  group('TerritorioRepository - Condizioni al cambio di ambiente', () {
+    test('getCondizioniNonPreviste segnala le condizioni usate dalle pescate dello spot e non previste dal nuovo ambiente', () async {
+      final db = await dbHelper.database;
+      await repo.inserisciCategoria(const Categoria(nome: 'Valle'));
+      await repo.salvaSpotConCoordinate(
+        const Spot(nome: 'Valsecca', ambiente: 'Torrente', categoriaNome: 'Valle'),
+      );
+
+      Future<Map<String, Object?>> valore(String condizione, String nome) async {
+        final righe = await db.rawQuery('''
+          SELECT v.id, v.condizione_id FROM ValoreCondizione v
+          INNER JOIN Condizione c ON c.id = v.condizione_id
+          WHERE c.nome = ? AND v.nome = ?
+        ''', [condizione, nome]);
+        return righe.single;
+      }
+
+      final pescataId = await db.insert('Pescata', {
+        'data': '2026-11-10',
+        'fasciaOraria': 'alba',
+        'spot_nome': 'Valsecca',
+      });
+      for (final v in [await valore('Livello', 'Magra'), await valore('Meteo', 'Sereno')]) {
+        await db.insert('Pescata_Condizione', {
+          'pescata_id': pescataId,
+          'condizione_id': v['condizione_id'],
+          'valore_id': v['id'],
+        });
+      }
+
+      // Il Lago prevede solo il Meteo: il Livello resterebbe "non previsto"
+      final perLago = await repo.getCondizioniNonPreviste(
+        spotNome: 'Valsecca',
+        ambienteNome: 'Lago',
+      );
+      expect(perLago.map((c) => c.nome), ['Livello']);
+
+      // Il Fiume prevede entrambe le condizioni usate
+      expect(
+        await repo.getCondizioniNonPreviste(spotNome: 'Valsecca', ambienteNome: 'Fiume'),
+        isEmpty,
+      );
+
+      // Cambiare l'ambiente non tocca i valori già salvati
+      final spot = await repo.getSpotConCoordinate('Valsecca');
+      await repo.salvaSpotConCoordinate(
+        spot!.copyWith(ambiente: 'Lago'),
+        nomeOriginale: 'Valsecca',
+      );
+      expect(await db.query('Pescata_Condizione'), hasLength(2));
+    });
+  });
 }

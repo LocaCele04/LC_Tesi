@@ -1,6 +1,8 @@
 import '../models/catalogo/caratteristica.dart';
+import '../models/catalogo/condizione.dart';
 import '../models/catalogo/esca.dart';
 import '../models/catalogo/specie.dart';
+import '../models/catalogo/valore_condizione.dart';
 import '../models/enums.dart';
 import '../models/foto.dart';
 import '../models/obiettivi/obiettivo.dart';
@@ -40,6 +42,42 @@ class DbMappers {
 
   static Map<String, Object?> ambienteToMap(Ambiente a) => {
         'nome': a.nome,
+      };
+
+  static Condizione condizioneFromMap(
+    Map<String, Object?> map, {
+    List<ValoreCondizione> valori = const [],
+  }) =>
+      Condizione(
+        id: map['id'] as int?,
+        nome: map['nome'] as String,
+        ordine: map['ordine'] as int,
+        attiva: (map['attiva'] as int) == 1,
+        valori: valori,
+      );
+
+  static Map<String, Object?> condizioneToMap(Condizione c) => {
+        if (c.id != null) 'id': c.id,
+        'nome': c.nome,
+        'ordine': c.ordine,
+        'attiva': c.attiva ? 1 : 0,
+      };
+
+  static ValoreCondizione valoreCondizioneFromMap(Map<String, Object?> map) =>
+      ValoreCondizione(
+        id: map['id'] as int?,
+        condizioneId: map['condizione_id'] as int,
+        nome: map['nome'] as String,
+        ordine: map['ordine'] as int,
+        attivo: (map['attivo'] as int) == 1,
+      );
+
+  static Map<String, Object?> valoreCondizioneToMap(ValoreCondizione v) => {
+        if (v.id != null) 'id': v.id,
+        'condizione_id': v.condizioneId,
+        'nome': v.nome,
+        'ordine': v.ordine,
+        'attivo': v.attivo ? 1 : 0,
       };
 
   static Coordinata coordinataFromMap(Map<String, Object?> map) => Coordinata(
@@ -189,22 +227,13 @@ class DbMappers {
     List<Foto> foto = const [],
     List<CatturaMemorabile> cattureMemorabili = const [],
     List<RiepilogoSpecie> riepiloghiSpecie = const [],
+    List<ValoreCondizione> valoriCondizioni = const [],
   }) {
-    final trasparenzaRaw = map['trasparenza'] as String?;
-    final fondoRaw = map['fondo'] as String?;
-    final livelloRaw = map['livello'] as String?;
-
     return Pescata(
       id: map['id'] as int?,
       data: DateTime.parse(map['data'] as String),
       fasciaOraria:
           FasciaOraria.values.byName(map['fasciaOraria'] as String),
-      meteo: Meteo.values.byName(map['meteo'] as String),
-      trasparenza: trasparenzaRaw != null
-          ? Trasparenza.values.byName(trasparenzaRaw)
-          : null,
-      fondo: fondoRaw != null ? Fondo.values.byName(fondoRaw) : null,
-      livello: livelloRaw != null ? Livello.values.byName(livelloRaw) : null,
       tempAcqua: (map['temp_acqua'] as num?)?.toDouble(),
       tempAria: (map['temp_aria'] as num?)?.toDouble(),
       note: map['note'] as String?,
@@ -213,6 +242,7 @@ class DbMappers {
       foto: foto,
       cattureMemorabili: cattureMemorabili,
       riepiloghiSpecie: riepiloghiSpecie,
+      valoriCondizioni: valoriCondizioni,
     );
   }
 
@@ -220,10 +250,6 @@ class DbMappers {
         if (p.id != null) 'id': p.id,
         'data': formatData(p.data),
         'fasciaOraria': p.fasciaOraria.name,
-        'meteo': p.meteo.name,
-        'trasparenza': p.trasparenza?.name,
-        'fondo': p.fondo?.name,
-        'livello': p.livello?.name,
         'temp_acqua': p.tempAcqua,
         'temp_aria': p.tempAria,
         'note': p.note,

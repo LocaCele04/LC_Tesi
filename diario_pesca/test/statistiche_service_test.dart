@@ -53,7 +53,6 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 10),
           fasciaOraria: FasciaOraria.alba,
-          meteo: Meteo.velato,
           spotNome: 'Ponte Vecchio',
           riepiloghiSpecie: [
             RiepilogoSpecie(
@@ -71,7 +70,6 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 12),
           fasciaOraria: FasciaOraria.sera,
-          meteo: Meteo.sereno,
           spotNome: 'Ponte Vecchio',
           riepiloghiSpecie: const [
             RiepilogoSpecie(specieNome: 'Trota', quantita: 2),

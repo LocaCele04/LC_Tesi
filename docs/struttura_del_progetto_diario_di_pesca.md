@@ -47,11 +47,17 @@ Ogni tabella è scritta da **un solo repository**. Così ogni regola di validazi
 | Repository | Tabelle che scrive |
 | :--- | :--- |
 | `TerritorioRepository` | `Categoria`, `Ambiente`, `Spot`, `Coordinata` |
-| `PescateRepository` | `Pescata`, `Pescata_Esca`, `RiepilogoSpecie`, `DettaglioRiepilogo`, `CatturaMemorabile`, `Cattura_Caratteristica`, `Pianificazione`, `Foto` di pescate e catture |
-| `CatalogoRepository` | `Specie`, `Caratteristica`, `Esca`, `Foto` delle esche |
+| `PescateRepository` | `Pescata`, `Pescata_Condizione`, `Pescata_Esca`, `RiepilogoSpecie`, `DettaglioRiepilogo`, `CatturaMemorabile`, `Cattura_Caratteristica`, `Pianificazione`, `Foto` di pescate e catture |
+| `CatalogoRepository` | `Specie`, `Caratteristica`, `Esca`, `Foto` delle esche, `Condizione`, `ValoreCondizione`, `Ambiente_Condizione` |
 | `ObiettiviRepository` | `Obiettivo` |
 
 Quando una pescata, una cattura memorabile o un obiettivo devono creare **al volo** un'esca o una caratteristica (es. l'utente scrive un'esca nuova mentre registra la pescata), il repository chiamante non scrive la tabella `Esca` o `Caratteristica`: chiama i metodi `assicuraEscaSalvata` / `assicuraCaratteristicaSalvata` del `CatalogoRepository`, passando la propria transazione. La creazione resta atomica con il resto del salvataggio e la logica sta in un solo punto.
+
+Se il nome scritto dall'utente è già usato da un'esca o da una caratteristica esistente (senza distinzione di maiuscole e spazi):
+* se l'elemento nuovo ha solo il nome, o dati già presenti in quello esistente, viene **riusato l'elemento esistente**: non si crea un doppione e non si perde nulla;
+* se porta dati diversi (una descrizione diversa, foto che l'esistente non ha), il salvataggio viene **annullato** con una `NomeDuplicatoException`, che indica l'id dell'elemento esistente. Riusarlo farebbe perdere quei dati senza avvisare, quindi la scelta spetta all'utente: usare l'elemento esistente oppure cambiare nome.
+
+Per avvisare l'utente già durante l'inserimento, prima di salvare, l'interfaccia può usare `getEscaPerNome` e `getCaratteristicaPerNome` del `CatalogoRepository`.
 
 Le dipendenze tra repository sono quindi:
 ```
@@ -87,7 +93,7 @@ La radice del progetto separa il codice sorgente dell'applicazione (`lib/`) dall
 diario_pesca/
 ├── lib/
 │   ├── data/
-│   │   ├── database_helper.dart       # Connessione SQLite, schema (16 tabelle, 16 indici)
+│   │   ├── database_helper.dart       # Connessione SQLite, schema (20 tabelle, 18 indici)
 │   │   ├── db_mappers.dart            # Conversione tra righe SQL e classi Dart
 │   │   ├── query_condivise.dart       # Query usate da più componenti (stato battuto, riepiloghi)
 │   │   └── archivio_foto.dart         # Accesso ai file immagine sul dispositivo
@@ -105,8 +111,10 @@ diario_pesca/
 │   │   │   └── riepilogo_specie.dart
 │   │   ├── catalogo/
 │   │   │   ├── caratteristica.dart
+│   │   │   ├── condizione.dart
 │   │   │   ├── esca.dart
-│   │   │   └── specie.dart
+│   │   │   ├── specie.dart
+│   │   │   └── valore_condizione.dart
 │   │   ├── obiettivi/
 │   │   │   └── obiettivo.dart
 │   │   ├── enums.dart                 # Domini chiusi
@@ -114,6 +122,7 @@ diario_pesca/
 │   │   └── uguaglianza.dart           # Confronto tra liste per gli operator ==
 │   ├── repositories/
 │   │   ├── catalogo_repository.dart
+│   │   ├── eccezioni.dart             # NomeDuplicatoException
 │   │   ├── obiettivi_repository.dart
 │   │   ├── pescate_repository.dart
 │   │   └── territorio_repository.dart
@@ -140,7 +149,7 @@ diario_pesca/
 ## 4. Descrizione dei Pacchetti e delle Classi
 
 ### 4.1 `lib/data/` — Livello dati
-* **`DatabaseHelper`**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **16 tabelle** e **16 indici**, con vincoli di integrità referenziale attivi, e inserisce gli ambienti di base alla creazione.
+* **`DatabaseHelper`**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **20 tabelle** e **18 indici**, con vincoli di integrità referenziale attivi, e inserisce alla creazione gli ambienti e le condizioni di base.
 * **`DbMappers`**: traduce le righe restituite da SQLite (`Map<String, Object?>`) nelle classi del modello di dominio e viceversa. Contiene solo conversioni, nessuna query.
 * **`QueryCondivise`**: query usate da più componenti, scritte in un solo punto: l'aggiornamento di `Spot.battuto` (usato da `TerritorioRepository` e `PescateRepository`) e la lettura dei riepiloghi con i dettagli per caratteristica (usata da `PescateRepository` e `StatisticheService`).
 * **`ArchivioFoto`**: accesso ai file immagine sul dispositivo. I repository lo usano per cancellare i file rimasti senza riferimento, sempre dopo il commit della transazione.
@@ -148,7 +157,7 @@ diario_pesca/
 ### 4.2 `lib/models/` — Modello di Dominio
 Tutte le classi modello sono **oggetti immutabili** (campi `final`, metodo `copyWith` e uguaglianza strutturale, vedi `scelta_architetturale_immutabilit_dei_modelli.md`). Sono suddivise in quattro sotto-pacchetti, uno per area del dominio, più tre file comuni:
 
-* **`enums.dart`**: domini chiusi (`Accessibilita`, `Difficolta`, `FasciaOraria`, `Meteo`, `Trasparenza`, `Fondo`, `Livello`). Sono salvati nel database con il nome del valore (`.name`): **i nomi dei valori non vanno rinominati**, altrimenti i dati già salvati non vengono più letti.
+* **`enums.dart`**: domini chiusi (`FasciaOraria`, `Difficolta`, `Accessibilita`). Meteo, livello, trasparenza e fondo non sono enum ma condizioni personalizzabili (`catalogo/condizione.dart`). Sono salvati nel database con il nome del valore (`.name`): **i nomi dei valori non vanno rinominati**, altrimenti i dati già salvati non vengono più letti.
 * **`foto.dart`**: `Foto`, riferimento a un'immagine salvata sul dispositivo (`percorso` e `percorsoThumbnail`), associabile in modo esclusivo a una pescata, a una cattura memorabile o a un'esca. Sta fuori dai sotto-pacchetti perché è usata da più aree.
 * **`uguaglianza.dart`**: funzione `listeUguali`, usata dagli `operator ==` dei modelli che contengono liste.
 * **Pacchetto `territorio/`**:
@@ -165,22 +174,34 @@ Tutte le classi modello sono **oggetti immutabili** (campi `final`, metodo `copy
   * `Specie`: specie ittiche.
   * `Caratteristica`: tratto distintivo definito dall'utente per una specie (es. livrea o taglia).
   * `Esca`: esca o artificiale, con descrizione ed eventuali foto.
+  * `Condizione` e `ValoreCondizione`: condizioni che il pescatore registra nelle pescate (es. Livello, Meteo, Stato del mare) con i loro valori ordinati in una scala. Sono definite dall'utente e collegate agli ambienti per cui hanno senso; la `Pescata` contiene i valori scelti (`valoriCondizioni`, al massimo uno per condizione).
 * **Pacchetto `obiettivi/`**:
   * `Obiettivo`: traguardo numerico annuale per una specie, generico o legato a una caratteristica.
+
+#### Identità degli oggetti: id nullable e chiavi naturali
+I modelli identificano le righe del database in due modi.
+
+* **Id numerico generato da SQLite** (`Pescata`, `CatturaMemorabile`, `RiepilogoSpecie`, `Pianificazione`, `Foto`, `Esca`, `Caratteristica`, `Condizione`, `ValoreCondizione`, `Obiettivo`): il campo è `int? id`.
+  * `id == null` significa **oggetto non ancora salvato**: l'id lo assegna SQLite all'inserimento, quindi prima non esiste. Il getter `isNuovo` rende esplicito il controllo.
+  * Grazie a questa convenzione una sola classe rappresenta sia l'oggetto nuovo sia quello salvato, e i repository decidono se inserire o aggiornare in base a `isNuovo`. È anche ciò che permette la **creazione al volo** (§1.2): un'esca con `isNuovo == true` dentro una cattura viene creata nella stessa transazione.
+  * I repository **restituiscono sempre oggetti con l'id valorizzato**. L'interfaccia deve continuare a lavorare sull'oggetto restituito dal salvataggio, non su quello che ha passato.
+  * Dentro un aggregato non ancora salvato anche gli id dei genitori sono `null` (es. le foto di una pescata nuova hanno `pescataId == null`): li assegna il repository al salvataggio.
+  * Il salvataggio produce un oggetto diverso (con l'id), quindi per `==` e `hashCode` l'oggetto prima e dopo il salvataggio non sono uguali. Un oggetto nuovo non va usato come chiave di una `Map` o di un `Set` da ritrovare dopo il salvataggio.
+* **Chiave naturale**, cioè il nome (`Spot`, `Categoria`, `Ambiente`, `Specie`): il nome è sia l'identità sia il dato da mostrare. Da solo l'oggetto non dice se è nuovo o già salvato, per questo i repository hanno metodi distinti per inserire e aggiornare, e l'aggiornamento riceve il `nomeOriginale` (necessario anche per rinominare).
 
 #### Regola sui riferimenti tra modelli
 * Un modello **contiene come oggetti** i propri componenti interni: `Pescata` contiene `RiepilogoSpecie`, `CatturaMemorabile` e `Foto`; `Spot` contiene le `Coordinata`; `Esca` contiene le sue `Foto`.
 * Il riferimento al **genitore** è sempre una chiave: `Foto.pescataId`, `CatturaMemorabile.pescataId`, `Coordinata.spotNome`, `RiepilogoCaratteristica.riepilogoSpecieId`.
 * Il riferimento a un'entità di **un altro pacchetto** dipende dal tipo di chiave:
   * se la chiave è **naturale** (il nome stesso), basta la chiave, perché è già il dato da mostrare: `spotNome`, `specieNome`, `categoriaNome`, `ambiente`;
-  * se la chiave è un **id numerico**, il modello porta l'oggetto, così l'interfaccia ha il nome senza query aggiuntive: `Pescata.esche`, `CatturaMemorabile.esca`, `CatturaMemorabile.caratteristiche`, `Obiettivo.caratteristica`, `RiepilogoCaratteristica.caratteristica`.
+  * se la chiave è un **id numerico**, il modello porta l'oggetto, così l'interfaccia ha il nome senza query aggiuntive: `Pescata.esche`, `Pescata.valoriCondizioni`, `CatturaMemorabile.esca`, `CatturaMemorabile.caratteristiche`, `Obiettivo.caratteristica`, `RiepilogoCaratteristica.caratteristica`.
 
 ### 4.3 `lib/repositories/` — Repository
 Un repository per area del dominio; la tabella in §1.2 indica quali tabelle scrive ciascuno.
 
-* **`TerritorioRepository`**: categorie, ambienti, spot e coordinate GPS, con il calcolo automatico della lunghezza del tratto (formula di Haversine) e lo spostamento degli spot tra categorie.
-* **`PescateRepository`**: pescate complete (salvate in modo atomico con esche, foto, riepiloghi, dettagli e catture memorabili), catture memorabili e pianificazioni. Garantisce lo spot obbligatorio, il vincolo dettaglio ≤ totale e la pulizia dei file immagine non più usati.
-* **`CatalogoRepository`**: specie, caratteristiche ed esche; offre agli altri repository la creazione al volo di esche e caratteristiche dentro una transazione esistente.
+* **`TerritorioRepository`**: categorie, ambienti, spot e coordinate GPS, con il calcolo automatico della lunghezza del tratto (formula di Haversine), lo spostamento degli spot tra categorie e, prima di cambiare l'ambiente di uno spot, l'elenco delle condizioni usate dalle sue pescate e non previste dal nuovo ambiente (`getCondizioniNonPreviste`).
+* **`PescateRepository`**: pescate complete (salvate in modo atomico con valori delle condizioni, esche, foto, riepiloghi, dettagli e catture memorabili), catture memorabili e pianificazioni, con il filtro delle pescate per valori di condizione. Garantisce lo spot obbligatorio, un solo valore per condizione, il vincolo dettaglio ≤ totale e la pulizia dei file immagine non più usati.
+* **`CatalogoRepository`**: specie, caratteristiche, esche e condizioni (con valori, attivazione, collegamenti agli ambienti, copia dei collegamenti da un altro ambiente e le condizioni da mostrare nel form di una pescata, `getCondizioniPerForm`); offre agli altri repository la creazione al volo di esche e caratteristiche dentro una transazione esistente, con il controllo dei nomi già usati (`NomeDuplicatoException`), e all'interfaccia la ricerca per nome (`getEscaPerNome`, `getCaratteristicaPerNome`).
 * **`ObiettiviRepository`**: obiettivi annuali.
 
 Tutti i repository ricevono il `DatabaseHelper` (e, dove serve, gli altri repository e l'`ArchivioFoto`) dal costruttore: in produzione si usano le istanze predefinite, nei test un database in memoria.

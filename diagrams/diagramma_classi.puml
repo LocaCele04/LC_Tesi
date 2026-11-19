@@ -30,37 +30,6 @@ package "Enumerazioni" {
     TRAMONTO
   }
 
-  enum Meteo{
-    SERENO
-    COPERTO
-    PLUMBEO
-    VELATO
-    VARIABILE
-    PIOGGIA
-    VENTOSO
-  }
-
- enum Trasparenza{
-    CRISTALLINA
-    CHIARA
-    VELATA
-    SPORCA  
- }
-
- enum Livello{
-    PIENA
-    MORBIDA
-    NORMALE
-    MAGRA
-    SECCA
-  }
-
- enum Fondo{
-    SCURO
-    PULITO
-    NORMALE
-  }
-
 
 }
 
@@ -130,6 +99,20 @@ package "Catalogo" {
     - descrizione: String
   }
 
+  class Condizione {
+    - nome : String
+    - ordine : int
+    - attiva : boolean
+  }
+
+  class ValoreCondizione {
+    - nome : String
+    - ordine : int
+    - attivo : boolean
+  }
+
+  Condizione "1" *-down- "1..*" ValoreCondizione : {ordered}
+
   Specie "1" -down- "0..*" Caratteristica : definisce >
 }
 
@@ -168,10 +151,6 @@ package "Pescate" {
     - data : Date
     - fasciaOraria : FasciaOraria
     - note : String [0..1]
-    - livello : Livello
-    - fondo : Fondo
-    - trasparenza : Trasparenza
-    - meteo : Meteo
     - tempAcqua : real
     - tempAria: real
     /totaleCatture : int
@@ -210,6 +189,10 @@ Foto "0..*" -left- "0..1" Esca
 Pescata "0..*" -down- "0..*" Esca
 CatturaMemorabile "0..*" -left- "0..1" Esca
 
+' Condizioni
+Ambiente "0..*" -- "0..*" Condizione : prevede >
+Pescata "0..*" -- "0..*" ValoreCondizione : registra >
+
 ' Obiettivi
 Obiettivo "0..*" -right- "1" Specie : riguarda >
 Obiettivo "0..1" -down- "0..*" Caratteristica : conta >
@@ -241,6 +224,19 @@ note top of Ambiente
   l'utente può aggiungerne altri.
   Nome unico senza distinzione di maiuscole.
   Si elimina solo se nessuno Spot lo usa.
+end note
+
+note bottom of ValoreCondizione
+  Una Pescata registra al più un valore
+  per ogni Condizione.
+  Un valore usato non si elimina: si disattiva.
+end note
+
+note bottom of Condizione
+  Definite dall'utente (di base: Livello,
+  Trasparenza, Fondo, Meteo).
+  "prevede" guida il form della pescata,
+  non vincola i dati già registrati.
 end note
 
 note bottom of Tratto
