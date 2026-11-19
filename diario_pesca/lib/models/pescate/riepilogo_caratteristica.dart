@@ -1,4 +1,4 @@
-import 'caratteristica.dart';
+import '../catalogo/caratteristica.dart';
 
 class RiepilogoCaratteristica {
   final int? riepilogoSpecieId;

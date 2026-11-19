@@ -1,4 +1,5 @@
 import '../enums.dart';
+import '../uguaglianza.dart';
 import 'coordinata.dart';
 
 class Spot {
@@ -80,7 +81,8 @@ class Spot {
           battuto == other.battuto &&
           accessibilita == other.accessibilita &&
           linkParcheggio == other.linkParcheggio &&
-          categoriaNome == other.categoriaNome;
+          categoriaNome == other.categoriaNome &&
+          listeUguali(coordinate, other.coordinate);
 
   @override
   int get hashCode => Object.hash(
@@ -96,5 +98,6 @@ class Spot {
         accessibilita,
         linkParcheggio,
         categoriaNome,
+        Object.hashAll(coordinate),
       );
 }

@@ -1,6 +1,5 @@
-import 'package:flutter/foundation.dart';
-
-import 'foto.dart';
+import '../foto.dart';
+import '../uguaglianza.dart';
 
 class Esca {
   final int? id;
@@ -36,7 +35,7 @@ class Esca {
         other.id == id &&
         other.nome == nome &&
         other.descrizione == descrizione &&
-        listEquals(other.foto, foto);
+        listeUguali(other.foto, foto);
   }
 
   @override

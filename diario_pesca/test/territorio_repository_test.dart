@@ -1,4 +1,4 @@
-import 'package:diario_pesca/database/database_helper.dart';
+import 'package:diario_pesca/data/database_helper.dart';
 import 'package:diario_pesca/models/enums.dart';
 import 'package:diario_pesca/models/territorio/ambiente.dart';
 import 'package:diario_pesca/models/territorio/categoria.dart';

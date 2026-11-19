@@ -1,7 +1,8 @@
 import 'dart:math';
 
-import '../database/database_helper.dart';
-import '../database/db_mappers.dart';
+import '../data/database_helper.dart';
+import '../data/db_mappers.dart';
+import '../data/query_condivise.dart';
 import '../models/enums.dart';
 import '../models/territorio/ambiente.dart';
 import '../models/territorio/categoria.dart';
@@ -251,14 +252,7 @@ class TerritorioRepository {
         await txn.insert('Coordinata', DbMappers.coordinataToMap(coord));
       }
 
-      await txn.rawUpdate('''
-        UPDATE Spot
-        SET battuto = CASE
-          WHEN EXISTS (SELECT 1 FROM Pescata WHERE spot_nome = ?) THEN 1
-          ELSE 0
-        END
-        WHERE nome = ?
-      ''', [spotDaSalvare.nome, spotDaSalvare.nome]);
+      await QueryCondivise.aggiornaStatoBattutoSpot(txn, spotDaSalvare.nome);
     });
   }
 

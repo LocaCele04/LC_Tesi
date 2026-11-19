@@ -1,8 +1,9 @@
+import '../catalogo/esca.dart';
 import '../enums.dart';
-import '../statistiche/riepilogo_specie.dart';
+import '../foto.dart';
+import '../uguaglianza.dart';
 import 'cattura_memorabile.dart';
-import 'esca.dart';
-import 'foto.dart';
+import 'riepilogo_specie.dart';
 
 class Pescata {
   final int? id;
@@ -94,10 +95,10 @@ class Pescata {
         other.tempAria == tempAria &&
         other.note == note &&
         other.spotNome == spotNome &&
-        _listEquals(other.esche, esche) &&
-        _listEquals(other.foto, foto) &&
-        _listEquals(other.cattureMemorabili, cattureMemorabili) &&
-        _listEquals(other.riepiloghiSpecie, riepiloghiSpecie);
+        listeUguali(other.esche, esche) &&
+        listeUguali(other.foto, foto) &&
+        listeUguali(other.cattureMemorabili, cattureMemorabili) &&
+        listeUguali(other.riepiloghiSpecie, riepiloghiSpecie);
   }
 
   @override
@@ -118,13 +119,4 @@ class Pescata {
         Object.hashAll(cattureMemorabili),
         Object.hashAll(riepiloghiSpecie),
       );
-}
-
-bool _listEquals<T>(List<T> a, List<T> b) {
-  if (identical(a, b)) return true;
-  if (a.length != b.length) return false;
-  for (var i = 0; i < a.length; i++) {
-    if (a[i] != b[i]) return false;
-  }
-  return true;
 }

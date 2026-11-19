@@ -1,4 +1,4 @@
-import 'package:diario_pesca/database/database_helper.dart';
+import 'package:diario_pesca/data/database_helper.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 

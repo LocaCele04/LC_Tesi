@@ -1,14 +1,16 @@
-import 'package:diario_pesca/database/database_helper.dart';
-import 'package:diario_pesca/models/battute/cattura_memorabile.dart';
-import 'package:diario_pesca/models/battute/esca.dart';
-import 'package:diario_pesca/models/battute/foto.dart';
-import 'package:diario_pesca/models/battute/pescata.dart';
-import 'package:diario_pesca/models/battute/pianificazione.dart';
+import 'package:diario_pesca/data/database_helper.dart';
+import 'package:diario_pesca/models/catalogo/caratteristica.dart';
+import 'package:diario_pesca/models/catalogo/esca.dart';
+import 'package:diario_pesca/models/catalogo/specie.dart';
 import 'package:diario_pesca/models/enums.dart';
-import 'package:diario_pesca/models/statistiche/caratteristica.dart';
-import 'package:diario_pesca/models/statistiche/riepilogo_caratteristica.dart';
-import 'package:diario_pesca/models/statistiche/riepilogo_specie.dart';
-import 'package:diario_pesca/repositories/battute_repository.dart';
+import 'package:diario_pesca/models/foto.dart';
+import 'package:diario_pesca/models/pescate/cattura_memorabile.dart';
+import 'package:diario_pesca/models/pescate/pescata.dart';
+import 'package:diario_pesca/models/pescate/pianificazione.dart';
+import 'package:diario_pesca/models/pescate/riepilogo_caratteristica.dart';
+import 'package:diario_pesca/models/pescate/riepilogo_specie.dart';
+import 'package:diario_pesca/repositories/catalogo_repository.dart';
+import 'package:diario_pesca/repositories/pescate_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -20,12 +22,14 @@ void main() {
 
   late DatabaseHelper dbHelper;
   late Database db;
-  late BattuteRepository battuteRepo;
+  late PescateRepository pescateRepo;
+  late CatalogoRepository catalogoRepo;
 
   setUp(() async {
     dbHelper = DatabaseHelper.inMemory();
     db = await dbHelper.database;
-    battuteRepo = BattuteRepository(dbHelper: dbHelper);
+    catalogoRepo = CatalogoRepository(dbHelper: dbHelper);
+    pescateRepo = PescateRepository(dbHelper: dbHelper, catalogo: catalogoRepo);
   });
 
   tearDown(() async {
@@ -45,82 +49,12 @@ void main() {
     });
   }
 
-  group('BattuteRepository - Esche', () {
-    test('salvaEsca (insert/update con 0, 1 o più foto), getEsche (ordine e filtro) ed eliminaEsca', () async {
-      final minnow = await battuteRepo.salvaEsca(
-        const Esca(
-          nome: 'Minnow 7cm',
-          descrizione: 'Livrea vairone',
-          foto: [
-            Foto(
-              percorso: '/img/esca1_a.jpg',
-              percorsoThumbnail: '/img/thumb_esca1_a.jpg',
-              escaId: 0,
-            ),
-            Foto(
-              percorso: '/img/esca1_b.jpg',
-              percorsoThumbnail: '/img/thumb_esca1_b.jpg',
-              escaId: 0,
-            ),
-          ],
-        ),
-      );
-      final cucchiaino = await battuteRepo.salvaEsca(
-        const Esca(nome: 'Cucchiaino #2'),
-      );
-
-      expect(minnow.id, isNotNull);
-      expect(minnow.foto.length, 2);
-      expect(
-        minnow.foto.every(
-          (f) =>
-              f.id != null &&
-              f.escaId == minnow.id &&
-              f.pescataId == null &&
-              f.catturaMemorabileId == null,
-        ),
-        isTrue,
-      );
-      expect(cucchiaino.id, isNotNull);
-      expect(cucchiaino.foto, isEmpty);
-
-      // Aggiornamento descrizione e riduzione a 1 foto
-      await battuteRepo.salvaEsca(
-        minnow.copyWith(
-          descrizione: 'Affondante 8g',
-          foto: [minnow.foto.first],
-        ),
-      );
-
-      final tutte = await battuteRepo.getEsche();
-      expect(tutte.map((e) => e.nome), ['Cucchiaino #2', 'Minnow 7cm']);
-      expect(tutte[0].foto, isEmpty);
-      expect(tutte[1].descrizione, 'Affondante 8g');
-      expect(tutte[1].foto.length, 1);
-      expect(tutte[1].foto.single.percorso, '/img/esca1_a.jpg');
-
-      // Filtro testuale case-insensitive
-      final filtrate = await battuteRepo.getEsche(filtroNome: 'minnow');
-      expect(filtrate.length, 1);
-      expect(filtrate.first.id, minnow.id);
-      expect(filtrate.first.foto.length, 1);
-
-      // Eliminazione esca senza foto ed esca con foto
-      await battuteRepo.eliminaEsca(cucchiaino.id!);
-      expect((await battuteRepo.getEsche()).length, 1);
-
-      await battuteRepo.eliminaEsca(minnow.id!);
-      expect(await battuteRepo.getEsche(), isEmpty);
-      expect(await db.query('Foto'), isEmpty);
-    });
-  });
-
-  group('BattuteRepository - Pianificazioni', () {
+  group('PescateRepository - Pianificazioni', () {
     test('salvaPianificazione, getPianificazioni con filtri ed eliminaPianificazione', () async {
       await inserisciSpotDiProva('Ponte Vecchio', ambiente: 'Torrente');
       await inserisciSpotDiProva('Foce Nord', ambiente: 'Mare');
 
-      final p1 = await battuteRepo.salvaPianificazione(
+      final p1 = await pescateRepo.salvaPianificazione(
         Pianificazione(
           data: DateTime(2026, 11, 15),
           fasciaOraria: FasciaOraria.alba,
@@ -128,7 +62,7 @@ void main() {
           note: 'Uscita mattutina',
         ),
       );
-      final p2 = await battuteRepo.salvaPianificazione(
+      final p2 = await pescateRepo.salvaPianificazione(
         Pianificazione(
           data: DateTime(2026, 11, 22),
           fasciaOraria: FasciaOraria.tramonto,
@@ -140,33 +74,33 @@ void main() {
       expect(p2.id, isNotNull);
 
       // Aggiornamento
-      await battuteRepo.salvaPianificazione(
+      await pescateRepo.salvaPianificazione(
         p1.copyWith(fasciaOraria: FasciaOraria.mattina),
       );
 
-      final perSpot = await battuteRepo.getPianificazioni(spotNome: 'Ponte Vecchio');
+      final perSpot = await pescateRepo.getPianificazioni(spotNome: 'Ponte Vecchio');
       expect(perSpot.length, 1);
       expect(perSpot.first.fasciaOraria, FasciaOraria.mattina);
 
-      final perData = await battuteRepo.getPianificazioni(
+      final perData = await pescateRepo.getPianificazioni(
         daData: DateTime(2026, 11, 20),
         aData: DateTime(2026, 11, 30),
       );
       expect(perData.map((p) => p.spotNome), ['Foce Nord']);
 
-      await battuteRepo.eliminaPianificazione(p2.id!);
-      expect((await battuteRepo.getPianificazioni()).length, 1);
+      await pescateRepo.eliminaPianificazione(p2.id!);
+      expect((await pescateRepo.getPianificazioni()).length, 1);
     });
   });
 
-  group('BattuteRepository - Pescate', () {
+  group('PescateRepository - Pescate', () {
     test('salvaPescata (insert/update con esche, foto e stato battuto) e getPescate con filtri combinati', () async {
       await inserisciSpotDiProva('Ponte Vecchio');
-      final esca1 = await battuteRepo.salvaEsca(const Esca(nome: 'Minnow'));
-      final esca2 = await battuteRepo.salvaEsca(const Esca(nome: 'Ondulante'));
+      final esca1 = await catalogoRepo.salvaEsca(const Esca(nome: 'Minnow'));
+      final esca2 = await catalogoRepo.salvaEsca(const Esca(nome: 'Ondulante'));
 
       // Prima pescata con esche e foto
-      final salvata = await battuteRepo.salvaPescata(
+      final salvata = await pescateRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 10),
           fasciaOraria: FasciaOraria.alba,
@@ -201,7 +135,7 @@ void main() {
       expect(spotDopoPescata.first['battuto'], 1);
 
       // Seconda pescata con parametri diversi
-      await battuteRepo.salvaPescata(
+      await pescateRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 12),
           fasciaOraria: FasciaOraria.sera,
@@ -213,14 +147,14 @@ void main() {
       );
 
       // Aggiornamento prima pescata (riduco a 1 esca e cambio meteo)
-      await battuteRepo.salvaPescata(
+      await pescateRepo.salvaPescata(
         salvata.copyWith(
           meteo: Meteo.coperto,
           esche: [esca1],
         ),
       );
 
-      final filtrate = await battuteRepo.getPescate(
+      final filtrate = await pescateRepo.getPescate(
         spotNome: 'Ponte Vecchio',
         meteo: Meteo.coperto,
         fasciaOraria: FasciaOraria.alba,
@@ -230,7 +164,7 @@ void main() {
       expect(filtrate.length, 1);
       expect(filtrate.first.id, salvata.id);
 
-      final ultimeUna = await battuteRepo.getPescate(limit: 1);
+      final ultimeUna = await pescateRepo.getPescate(limit: 1);
       expect(ultimeUna.length, 1);
       expect(ultimeUna.first.data, DateTime(2026, 11, 12));
     });
@@ -238,9 +172,9 @@ void main() {
     test('eliminaPescata rimuove i figli collegati, aggiorna battuto e preserva Spot ed Esche', () async {
       await inserisciSpotDiProva('Ponte Vecchio');
       await db.insert('Specie', {'nome': 'Trota'});
-      final esca = await battuteRepo.salvaEsca(const Esca(nome: 'Minnow'));
+      final esca = await catalogoRepo.salvaEsca(const Esca(nome: 'Minnow'));
 
-      final pescata = await battuteRepo.salvaPescata(
+      final pescata = await pescateRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 10),
           fasciaOraria: FasciaOraria.mattina,
@@ -257,7 +191,7 @@ void main() {
         ),
       );
 
-      await battuteRepo.salvaCatturaMemorabile(
+      await pescateRepo.salvaCatturaMemorabile(
         CatturaMemorabile(
           pescataId: pescata.id!,
           specieNome: 'Trota',
@@ -265,21 +199,21 @@ void main() {
         ),
       );
 
-      await battuteRepo.eliminaPescata(pescata.id!);
+      await pescateRepo.eliminaPescata(pescata.id!);
 
-      expect(await battuteRepo.getPescataCompleta(pescata.id!), isNull);
-      expect(await battuteRepo.getCattureMemorabili(), isEmpty);
+      expect(await pescateRepo.getPescataCompleta(pescata.id!), isNull);
+      expect(await pescateRepo.getCattureMemorabili(), isEmpty);
 
       final spot = await db.query('Spot', where: 'nome = ?', whereArgs: ['Ponte Vecchio']);
       expect(spot, isNotEmpty);
       expect(spot.first['battuto'], 0);
-      expect((await battuteRepo.getEsche()).length, 1);
+      expect((await catalogoRepo.getEsche()).length, 1);
     });
 
     test('salvaPescata richiede lo spot, ma conserva nello storico le pescate di uno spot eliminato', () async {
       // Nuova pescata senza spot: rifiutata
       await expectLater(
-        () => battuteRepo.salvaPescata(
+        () => pescateRepo.salvaPescata(
           Pescata(
             data: DateTime(2026, 11, 14),
             fasciaOraria: FasciaOraria.alba,
@@ -289,7 +223,7 @@ void main() {
         throwsArgumentError,
       );
       await expectLater(
-        () => battuteRepo.salvaPescata(
+        () => pescateRepo.salvaPescata(
           Pescata(
             data: DateTime(2026, 11, 14),
             fasciaOraria: FasciaOraria.alba,
@@ -299,10 +233,10 @@ void main() {
         ),
         throwsArgumentError,
       );
-      expect(await battuteRepo.getPescate(), isEmpty);
+      expect(await pescateRepo.getPescate(), isEmpty);
 
       await inserisciSpotDiProva('Ponte Vecchio');
-      final pescata = await battuteRepo.salvaPescata(
+      final pescata = await pescateRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 14),
           fasciaOraria: FasciaOraria.alba,
@@ -313,7 +247,7 @@ void main() {
 
       // Rimuovere lo spot da una pescata che lo ha: rifiutato
       await expectLater(
-        () => battuteRepo.salvaPescata(
+        () => pescateRepo.salvaPescata(
           Pescata(
             id: pescata.id,
             data: pescata.data,
@@ -326,19 +260,19 @@ void main() {
 
       // Eliminando lo spot la pescata resta nello storico senza spot (SET NULL)
       await db.delete('Spot', where: 'nome = ?', whereArgs: ['Ponte Vecchio']);
-      final orfana = await battuteRepo.getPescataCompleta(pescata.id!);
+      final orfana = await pescateRepo.getPescataCompleta(pescata.id!);
       expect(orfana, isNotNull);
       expect(orfana!.spotNome, isNull);
 
       // ...e si può ancora modificare senza dover indicare uno spot
-      await battuteRepo.salvaPescata(orfana.copyWith(note: 'spot eliminato'));
-      final aggiornata = await battuteRepo.getPescataCompleta(pescata.id!);
+      await pescateRepo.salvaPescata(orfana.copyWith(note: 'spot eliminato'));
+      final aggiornata = await pescateRepo.getPescataCompleta(pescata.id!);
       expect(aggiornata!.note, 'spot eliminato');
       expect(aggiornata.spotNome, isNull);
     });
   });
 
-  group('BattuteRepository - Catture Memorabili e Dettaglio Completo', () {
+  group('PescateRepository - Catture Memorabili e Dettaglio Completo', () {
     test('salvaCatturaMemorabile (insert/update con cambio specie), getCattureMemorabili ed eliminaCatturaMemorabile', () async {
       await db.insert('Specie', {'nome': 'Trota'});
       await db.insert('Specie', {'nome': 'Spigola'});
@@ -351,10 +285,10 @@ void main() {
         specieNome: 'Trota',
         nome: 'Livrea marmorata',
       );
-      final esca = await battuteRepo.salvaEsca(const Esca(nome: 'Minnow 7cm'));
+      final esca = await catalogoRepo.salvaEsca(const Esca(nome: 'Minnow 7cm'));
       await inserisciSpotDiProva('Ponte Vecchio');
 
-      final pescata = await battuteRepo.salvaPescata(
+      final pescata = await pescateRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 11),
           fasciaOraria: FasciaOraria.tramonto,
@@ -363,7 +297,7 @@ void main() {
         ),
       );
 
-      final catturaTrota = await battuteRepo.salvaCatturaMemorabile(
+      final catturaTrota = await pescateRepo.salvaCatturaMemorabile(
         CatturaMemorabile(
           descrizione: 'Bellissima marmorata',
           pescataId: pescata.id!,
@@ -380,7 +314,7 @@ void main() {
         ),
       );
 
-      final catturaSpigola = await battuteRepo.salvaCatturaMemorabile(
+      final catturaSpigola = await pescateRepo.salvaCatturaMemorabile(
         CatturaMemorabile(
           pescataId: pescata.id!,
           specieNome: 'Spigola',
@@ -390,7 +324,7 @@ void main() {
       expect(catturaTrota.id, isNotNull);
       expect(catturaTrota.foto.single.catturaMemorabileId, catturaTrota.id);
 
-      final soloTrote = await battuteRepo.getCattureMemorabili(
+      final soloTrote = await pescateRepo.getCattureMemorabili(
         specieNome: 'Trota',
         escaId: esca.id,
       );
@@ -400,7 +334,7 @@ void main() {
       expect(soloTrote.first.foto.length, 1);
 
       // Cambio specie in modifica su cattura con caratteristiche precedenti
-      final modificata = await battuteRepo.salvaCatturaMemorabile(
+      final modificata = await pescateRepo.salvaCatturaMemorabile(
         catturaTrota.copyWith(
           specieNome: 'Spigola',
           caratteristiche: const [],
@@ -409,8 +343,8 @@ void main() {
       expect(modificata.specieNome, 'Spigola');
       expect(modificata.caratteristiche, isEmpty);
 
-      await battuteRepo.eliminaCatturaMemorabile(catturaSpigola.id!);
-      expect((await battuteRepo.getCattureMemorabili()).length, 1);
+      await pescateRepo.eliminaCatturaMemorabile(catturaSpigola.id!);
+      expect((await pescateRepo.getCattureMemorabili()).length, 1);
     });
 
     test('salvaPescata salva atomicamente anche nuove esche (con foto) e caratteristiche create al volo', () async {
@@ -433,7 +367,7 @@ void main() {
         nome: 'Pinna bianca',
       );
 
-      final pescata = await battuteRepo.salvaPescata(
+      final pescata = await pescateRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 13),
           fasciaOraria: FasciaOraria.alba,
@@ -480,7 +414,7 @@ void main() {
         ),
       );
 
-      final completa = await battuteRepo.getPescataCompleta(pescata.id!);
+      final completa = await pescateRepo.getPescataCompleta(pescata.id!);
 
       expect(completa, isNotNull);
       expect(completa!.spotNome, 'Ponte Vecchio');
@@ -528,7 +462,7 @@ void main() {
       );
 
       await inserisciSpotDiProva('Ponte Vecchio');
-      final pescata = await battuteRepo.salvaPescata(
+      final pescata = await pescateRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 13),
           fasciaOraria: FasciaOraria.notte,
@@ -538,7 +472,7 @@ void main() {
       );
 
       expect(
-        () => battuteRepo.salvaCatturaMemorabile(
+        () => pescateRepo.salvaCatturaMemorabile(
           CatturaMemorabile(
             pescataId: pescata.id!,
             specieNome: 'Trota',
@@ -547,6 +481,138 @@ void main() {
         ),
         throwsA(isA<DatabaseException>()),
       );
+    });
+  });
+
+  group('PescateRepository - Riepiloghi Specie e Dettagli', () {
+    test('salvaPescata salva e aggiorna i riepiloghi con i dettagli per caratteristica', () async {
+      await inserisciSpotDiProva('Ponte Vecchio');
+      await catalogoRepo.inserisciSpecie(const Specie(nome: 'Trota'));
+      final marmorata = await catalogoRepo.salvaCaratteristica(
+        const Caratteristica(specieNome: 'Trota', nome: 'Livrea marmorata'),
+      );
+      final ibrido = await catalogoRepo.salvaCaratteristica(
+        const Caratteristica(specieNome: 'Trota', nome: 'Ibrido'),
+      );
+
+      // Inserimento iniziale con 2 dettagli per caratteristica
+      final salvata = await pescateRepo.salvaPescata(
+        Pescata(
+          data: DateTime(2026, 11, 10),
+          fasciaOraria: FasciaOraria.alba,
+          meteo: Meteo.velato,
+          spotNome: 'Ponte Vecchio',
+          riepiloghiSpecie: [
+            RiepilogoSpecie(
+              specieNome: 'Trota',
+              quantita: 4,
+              dettagli: [
+                RiepilogoCaratteristica(caratteristica: marmorata, quantita: 2),
+                RiepilogoCaratteristica(caratteristica: ibrido, quantita: 1),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      final riepilogo = salvata.riepiloghiSpecie.single;
+      expect(riepilogo.id, isNotNull);
+      expect(riepilogo.pescataId, salvata.id);
+      expect(riepilogo.dettagli.length, 2);
+      expect(
+        riepilogo.dettagli.every((d) => d.riepilogoSpecieId == riepilogo.id),
+        isTrue,
+      );
+
+      // Aggiornamento: cambio quantità e riduco a 1 dettaglio
+      await pescateRepo.salvaPescata(
+        salvata.copyWith(
+          riepiloghiSpecie: [
+            RiepilogoSpecie(
+              specieNome: 'Trota',
+              quantita: 5,
+              dettagli: [
+                RiepilogoCaratteristica(caratteristica: marmorata, quantita: 3),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      final completa = await pescateRepo.getPescataCompleta(salvata.id!);
+      final aggiornato = completa!.riepiloghiSpecie.single;
+      expect(aggiornato.quantita, 5);
+      expect(aggiornato.dettagli.single.quantita, 3);
+      expect(aggiornato.dettagli.single.caratteristica.nome, 'Livrea marmorata');
+      expect(await db.query('DettaglioRiepilogo'), hasLength(1));
+    });
+
+    test('salvaPescata valida dettaglio <= totale e blocca caratteristiche o specie incoerenti', () async {
+      await inserisciSpotDiProva('Ponte Vecchio');
+      await catalogoRepo.inserisciSpecie(const Specie(nome: 'Trota'));
+      await catalogoRepo.inserisciSpecie(const Specie(nome: 'Spigola'));
+      final carattTrota = await catalogoRepo.salvaCaratteristica(
+        const Caratteristica(specieNome: 'Trota', nome: 'Livrea marmorata'),
+      );
+      final carattSpigola = await catalogoRepo.salvaCaratteristica(
+        const Caratteristica(specieNome: 'Spigola', nome: 'Over 2 kg'),
+      );
+
+      Pescata conRiepiloghi(List<RiepilogoSpecie> riepiloghi) => Pescata(
+            data: DateTime(2026, 11, 13),
+            fasciaOraria: FasciaOraria.mattina,
+            meteo: Meteo.sereno,
+            spotNome: 'Ponte Vecchio',
+            riepiloghiSpecie: riepiloghi,
+          );
+
+      // Dettaglio superiore al totale -> ArgumentError
+      await expectLater(
+        () => pescateRepo.salvaPescata(conRiepiloghi([
+          RiepilogoSpecie(
+            specieNome: 'Trota',
+            quantita: 2,
+            dettagli: [
+              RiepilogoCaratteristica(caratteristica: carattTrota, quantita: 3),
+            ],
+          ),
+        ])),
+        throwsArgumentError,
+      );
+
+      // Caratteristica di un'altra specie -> rifiutata dalla FK composta
+      await expectLater(
+        () => pescateRepo.salvaPescata(conRiepiloghi([
+          RiepilogoSpecie(
+            specieNome: 'Trota',
+            quantita: 2,
+            dettagli: [
+              RiepilogoCaratteristica(caratteristica: carattSpigola, quantita: 1),
+            ],
+          ),
+        ])),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      // Stessa specie due volte nella stessa pescata -> UNIQUE
+      await expectLater(
+        () => pescateRepo.salvaPescata(conRiepiloghi(const [
+          RiepilogoSpecie(specieNome: 'Trota', quantita: 1),
+          RiepilogoSpecie(specieNome: 'Trota', quantita: 2),
+        ])),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      // Le transazioni fallite non lasciano dati parziali
+      expect(await pescateRepo.getPescate(), isEmpty);
+
+      // Una pescata valida e poi la rimozione dei suoi riepiloghi
+      final valida = await pescateRepo.salvaPescata(conRiepiloghi(const [
+        RiepilogoSpecie(specieNome: 'Trota', quantita: 2),
+      ]));
+      await pescateRepo.salvaPescata(valida.copyWith(riepiloghiSpecie: const []));
+      final completa = await pescateRepo.getPescataCompleta(valida.id!);
+      expect(completa!.riepiloghiSpecie, isEmpty);
     });
   });
 }

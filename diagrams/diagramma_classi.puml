@@ -89,7 +89,7 @@ package "Territorio e Spot" {
     - linkParcheggio : String [0..1]
     - accessibilita : StatoAccessibilita
     - battuto : boolean
-    /numeroBattute : int
+    /numeroPescate : int
     /mediaCatture : double
     + segnalaOstacolo()
     + terminaOstacoli()
@@ -112,9 +112,9 @@ package "Territorio e Spot" {
 }
 
 ' =====================================================
-'  AREA SPECIE E OBIETTIVI (Destra)
+'  CATALOGO (anagrafiche personali)
 ' =====================================================
-package "Specie e Obiettivi" {
+package "Catalogo" {
   class Specie {
     - nome : String
     - info : String
@@ -125,22 +125,38 @@ package "Specie e Obiettivi" {
     - descrizione : String
   }
 
+  class Esca {
+    - nome : String
+    - descrizione: String
+  }
+
+  Specie "1" -down- "0..*" Caratteristica : definisce >
+}
+
+' =====================================================
+'  OBIETTIVI
+' =====================================================
+package "Obiettivi" {
   class Obiettivo {
     - anno : int
     - quantita : int
     + progresso() : int
     + isRaggiunto() : boolean
   }
-
-  Specie "1" -down- "0..*" Caratteristica : definisce >
-  Obiettivo "0..*" -right- "1" Specie : riguarda >
-  Obiettivo "0..1" -down- "0..*" Caratteristica : conta >
 }
 
 ' =====================================================
-'  AREA BATTUTE ED EVENTI (Centro)
+'  FOTO (condivisa da pescate, catture ed esche)
 ' =====================================================
-package "Battute e Catture" {
+class Foto {
+  - percorso : String
+  - percorsoThumbnail : String
+}
+
+' =====================================================
+'  PESCATE (Centro)
+' =====================================================
+package "Pescate" {
   class Pianificazione {
     - data : Date
     - fasciaOraria : FasciaOraria
@@ -165,26 +181,9 @@ package "Battute e Catture" {
     - descrizione : String
   }
 
-  class Esca {
-    - nome : String
-    - descrizione: String
-  }
-
-  class Foto {
-    - percorso : String
-    - percorsoThumbnail : String
-  }
-
   ' Struttura interna Pescata
   Pianificazione .right.> Pescata : <<create>>
-  Pescata "0..1" -left- "0..*" Foto
-  Pescata "0..*" -down- "0..*" Esca
-  Foto "0..*" -left- "0..1" Esca
-
-  ' Connessioni ordinate a stella per CatturaMemorabile
   Pescata "1" -down- "0..*" CatturaMemorabile
-  CatturaMemorabile "0..*" -left- "0..1" Esca
-  CatturaMemorabile "0..1" -right- "1..*" Foto
 }
 
 ' =====================================================
@@ -203,6 +202,17 @@ class RiepilogoCaratteristica {
 ' =====================================================
 Pianificazione "0..*" -left- "0..1" Spot : prevede >
 Pescata "0..*" -left- "0..1" Spot : si svolge in >
+
+' Foto ed esche
+Pescata "0..1" -left- "0..*" Foto
+CatturaMemorabile "0..1" -right- "1..*" Foto
+Foto "0..*" -left- "0..1" Esca
+Pescata "0..*" -down- "0..*" Esca
+CatturaMemorabile "0..*" -left- "0..1" Esca
+
+' Obiettivi
+Obiettivo "0..*" -right- "1" Specie : riguarda >
+Obiettivo "0..1" -down- "0..*" Caratteristica : conta >
 
 ' Collegamenti CatturaMemorabile -> Specie / Caratteristica (dal basso)
 CatturaMemorabile "0..*" -down- "1" Specie : è di >

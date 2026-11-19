@@ -1,6 +1,6 @@
 # Schema Logico Relazionale
 
-Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/database/database_helper.dart`): 16 tabelle e 16 indici su SQLite.
+Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/data/database_helper.dart`): 16 tabelle e 16 indici su SQLite.
 
 ---
 
@@ -150,10 +150,10 @@ Tutti e tre i casi sono garantiti dal database: la colonna `specie_nome` è ripe
 ### 3.3 Quantità nel Dettaglio — *garantito dai repository*
 La quantità di un `DettaglioRiepilogo` non può superare la quantità del `RiepilogoSpecie` a cui appartiene:
 $$\text{quantità}(\text{DettaglioRiepilogo}) \le \text{quantità}(\text{RiepilogoSpecie})$$
-Il vincolo coinvolge due tabelle e non è esprimibile con un `CHECK`: è verificato in `StatisticheRepository.salvaRiepilogoSpecie` e `BattuteRepository.salvaPescata` prima del salvataggio.
+Il vincolo coinvolge due tabelle e non è esprimibile con un `CHECK`: è verificato in `PescateRepository.salvaPescata` prima del salvataggio, che è l'unico punto in cui si scrivono i riepiloghi.
 
 ### 3.4 Spot obbligatorio per le pescate — *garantito dai repository*
-Una nuova pescata deve avere uno spot, e a una pescata esistente non si può togliere lo spot. La colonna `Pescata.spot_nome` non può essere `NOT NULL`, perché deve poter diventare NULL per effetto di `ON DELETE SET NULL` quando lo spot viene eliminato: il vincolo è quindi verificato in `BattuteRepository.salvaPescata`. Una pescata rimasta senza spot dopo l'eliminazione dello spot resta modificabile.
+Una nuova pescata deve avere uno spot, e a una pescata esistente non si può togliere lo spot. La colonna `Pescata.spot_nome` non può essere `NOT NULL`, perché deve poter diventare NULL per effetto di `ON DELETE SET NULL` quando lo spot viene eliminato: il vincolo è quindi verificato in `PescateRepository.salvaPescata`. Una pescata rimasta senza spot dopo l'eliminazione dello spot resta modificabile.
 
 ### 3.5 Domini estendibili — *garantiti da FK*
 L'ambiente di uno spot non è un dominio chiuso ma una tabella di dominio (`Ambiente`) che l'utente può ampliare: la chiave esterna impedisce valori non registrati o scritti in modo diverso, e la collation `NOCASE` evita duplicati che differiscono solo per maiuscole e minuscole (`Torrente` / `torrente`). Le altre enumerazioni (difficoltà, fascia oraria, meteo, trasparenza, fondo, livello, accessibilità) restano domini chiusi, perché sono scale con un ordine e sono usate in filtri e statistiche.

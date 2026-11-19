@@ -1,3 +1,4 @@
+import '../uguaglianza.dart';
 import 'riepilogo_caratteristica.dart';
 
 class RiepilogoSpecie {
@@ -39,8 +40,10 @@ class RiepilogoSpecie {
           id == other.id &&
           pescataId == other.pescataId &&
           specieNome == other.specieNome &&
-          quantita == other.quantita;
+          quantita == other.quantita &&
+          listeUguali(dettagli, other.dettagli);
 
   @override
-  int get hashCode => Object.hash(id, pescataId, specieNome, quantita);
+  int get hashCode =>
+      Object.hash(id, pescataId, specieNome, quantita, Object.hashAll(dettagli));
 } 
