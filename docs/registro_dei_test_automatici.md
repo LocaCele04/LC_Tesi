@@ -78,6 +78,20 @@ Questa suite verifica `MeteoRepository`, l'archivio dei dati meteo storici, e la
 
 * **Pioggia cumulata:** verifica la somma della pioggia sui 3, 14 e 30 giorni precedenti escludendo il giorno della pescata, il risultato nullo se il meteo non è scaricato e il rifiuto di finestre oltre i 30 giorni.
 
-## 7. `test/statistiche_service_test.dart` (1 test)
+## 7. `test/meteo_service_test.dart` (7 test)
+
+Questa suite verifica `MeteoService` senza accedere alla rete: un client HTTP simulato (`MockClient` del pacchetto `http`) risponde nel formato reale di Open-Meteo (`timeformat=unixtime`, scarto orario, blocchi `daily` e `hourly`) e registra le richieste ricevute. La data di "oggi" è fissata nel test.
+
+* **Storico delle pescate:**
+  * una pescata vecchia si scarica con una sola chiamata all'archivio, con i parametri corretti (coordinate del primo punto, intervallo di 31 giorni più un giorno di margine per lato, fuso orario, variabili), e risulta collegata alla cella con 31 giorni, ore in UTC, pressione media calcolata dalle ore e solo le ore necessarie salvate;
+  * una pescata recente usa l'archivio fino a 5 giorni fa e l'API delle previsioni per gli ultimi giorni, e la fonte dei dati lo riflette;
+  * una pescata nello stesso punto e nello stesso giorno non richiede chiamate, una del giorno dopo richiede solo il giorno mancante;
+  * le pescate della giornata in corso non vengono scaricate;
+  * rete assente, errore HTTP del servizio e risposta in formato inatteso vengono contati come errori senza interrompere l'aggiornamento né salvare dati;
+  * se il servizio non ha ancora i dati di alcuni giorni la pescata resta incompleta e si completa al tentativo successivo.
+
+* **Previsioni:** verifica che `getPrevisioni` chieda i giorni indicati all'API delle previsioni, restituisca giorni e ore con fonte *previsione* senza salvarli e rifiuti un numero di giorni non valido.
+
+## 8. `test/statistiche_service_test.dart` (1 test)
 
 Questa suite verifica `StatisticheService`, il servizio di sola lettura per le statistiche: la lettura dei riepiloghi filtrati per pescata o per specie su più pescate, completi dei dettagli per caratteristica, e il risultato vuoto per una specie mai catturata.

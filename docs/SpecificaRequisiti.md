@@ -199,9 +199,11 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
     * la registrazione di una pescata non attende mai il meteo: senza rete o con il servizio non disponibile, la pescata resta *da scaricare* e i dati vengono recuperati appena possibile; lo stesso vale per le pescate importate dallo storico;
     * per le date più vecchie si usa l'archivio storico (definitivo), per gli ultimi giorni non ancora in archivio il modello di previsione; un dato d'archivio non viene mai sostituito da uno di previsione;
     * se cambia la data della pescata o il primo punto dello spot, la pescata torna *da scaricare*; rinominare o eliminare lo spot non tocca i dati già scaricati;
-    * una pescata il cui spot non ha coordinate non ha dati meteo.
+    * una pescata il cui spot non ha coordinate non ha dati meteo;
+    * si scaricano solo i dati delle pescate di giornate già concluse;
+    * un errore di rete o del servizio non blocca nulla: le pescate restano da scaricare e vengono ritentate.
   * **Output / Risposta**: Dati meteo consultabili nella scheda della pescata e utilizzabili nelle statistiche.
-  * **Limiti noti**: i dati sono riferiti a una cella di circa 10 km: la pioggia cumulata è rappresentativa, mentre temperatura e vento in fondo a una valle stretta possono scostarsi dal valore della cella.
+  * **Limiti noti**: i dati sono riferiti a una cella di circa 10 km: la pioggia cumulata è rappresentativa, mentre temperatura e vento in fondo a una valle stretta possono scostarsi dal valore della cella. I giorni più recenti di una pescata, scaricati dal modello di previsione, non vengono sostituiti dai dati d'archivio quando questi diventano disponibili.
 
 #### 3.2.5 Backup e Ripristino Dati
 

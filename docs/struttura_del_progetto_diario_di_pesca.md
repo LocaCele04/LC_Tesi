@@ -81,6 +81,7 @@ Il progetto utilizza l'SDK **Dart `^3.11.1`** e integra un insieme essenziale di
 | **`sqflite`** | `^2.4.2` | Plugin nativo per la creazione e gestione del database SQLite su Android e iOS. |
 | **`path`** | `^1.9.1` | Libreria per comporre in modo sicuro i percorsi dei file su disco (database e immagini). |
 | **`sqflite_common_ffi`** | `^2.4.0` | Driver SQLite basato su FFI che consente di eseguire il motore relazionale su desktop durante i test automatici. |
+| **`http`** | `^1.2.2` | Client HTTP per le richieste a Open-Meteo (dati meteo storici e previsioni); nei test viene sostituito da un client simulato (`MockClient`). |
 | **`cupertino_icons`** | `^1.0.8` | Raccolta standard di icone in stile iOS affiancata alle Material Icons di Flutter. |
 | **`flutter_test`** | SDK | Framework ufficiale per l'esecuzione dei test automatizzati. |
 | **`flutter_lints`** | `^6.0.0` | Regole di analisi statica per mantenere coerenza stilistica e qualità del codice Dart. |
@@ -139,13 +140,14 @@ diario_pesca/
 │   │   ├── statistiche_service.dart
 │   │   ├── foto_service.dart          # [previsto]
 │   │   ├── backup_service.dart        # [previsto]
-│   │   └── meteo_service.dart         # [previsto]
+│   │   └── meteo_service.dart         # Open-Meteo: storico e previsioni
 │   ├── ui/                            # [previsto] screens/ · widgets/ · state/
 │   └── main.dart                      # Punto di ingresso dell'applicazione
 ├── test/
 │   ├── catalogo_repository_test.dart
 │   ├── database_integrita_test.dart
 │   ├── meteo_repository_test.dart
+│   ├── meteo_service_test.dart
 │   ├── obiettivi_repository_test.dart
 │   ├── pescate_repository_test.dart
 │   ├── statistiche_service_test.dart
@@ -225,9 +227,19 @@ Tutti i repository ricevono il `DatabaseHelper` (e, dove serve, gli altri reposi
 * **`StatisticheService`** *(implementato)*: statistiche di sola lettura sullo storico. Oggi espone la lettura dei riepiloghi per pescata o per specie e la pioggia cumulata nei giorni precedenti una pescata (`getPioggiaCumulata`, con finestra da 1 a 30 giorni); accoglierà medie, conteggi, confronti tra anni e progresso degli obiettivi.
 * **`FotoService`** *(previsto)*: acquisizione da fotocamera o galleria, compressione, generazione delle anteprime e salvataggio con percorso relativo alla cartella documenti dell'app (REQ-DES-03), tramite `ArchivioFoto`.
 * **`BackupService`** *(previsto)*: creazione e ripristino dell'archivio ZIP (dati in JSON + foto) su Google Drive (REQ-FUN-14, REQ-FUN-15).
-* **`MeteoService`** *(previsto)*: comunicazione con Open-Meteo (pacchetto `http`, da aggiungere), in due ruoli:
-  * **previsioni** per uno spot nei giorni e nelle ore successive (REQ-FUN-13), solo da mostrare, senza salvarle;
-  * **scaricamento dei dati storici** delle pescate (REQ-FUN-17): chiede al `MeteoRepository` le pescate da scaricare, le raggruppa per punto e, per ognuno, se la cella è già nota e l'archivio contiene tutto, la assegna senza rete (`assegnaCella`); altrimenti scarica i giorni e le ore mancanti, dall'archivio storico per le date più vecchie e dall'API delle previsioni con `past_days` per gli ultimi giorni, e salva tutto con `salvaDati`. Viene avviato quando c'è rete (all'apertura dell'app o dello storico) e non blocca mai la registrazione di una pescata. Deve citare Open-Meteo come fonte (licenza CC BY 4.0).
+* **`MeteoService`** *(implementato)*: comunicazione con Open-Meteo tramite il pacchetto `http`, in due ruoli:
+  * **previsioni** per un punto nei giorni e nelle ore successive (`getPrevisioni`, REQ-FUN-13), solo da mostrare, senza salvarle;
+  * **scaricamento dei dati storici** delle pescate (`aggiornaStorico`, REQ-FUN-17):
+    * considera solo le pescate di giorni già conclusi;
+    * le raggruppa per punto e, nello stesso punto, per intervalli di date che si sovrappongono;
+    * se la cella del punto è già nota e l'archivio contiene tutto, collega la pescata senza nessuna chiamata (`assegnaCella`);
+    * altrimenti scarica solo i giorni e le ore mancanti, dall'archivio storico per le date più vecchie di 5 giorni e dall'API delle previsioni per gli ultimi, con un giorno di margine per lato (Open-Meteo calcola i confini delle ore con uno scarto fisso che ignora l'ora legale), e salva tutto con `salvaDati`;
+    * collega una pescata alla cella solo quando i suoi dati sono completi; giorni ancora vuoti nella risposta restano mancanti e vengono richiesti al tentativo successivo;
+    * un errore di rete o del servizio non interrompe l'aggiornamento: il gruppo resta da scaricare. Il risultato (`EsitoAggiornamentoMeteo`) riporta pescate completate, incomplete, errori e chiamate.
+
+  Le richieste usano `timeformat=unixtime`, così le ore arrivano come istanti UTC esatti. La pressione media giornaliera è calcolata dalla pressione oraria, perché il nome della variabile giornaliera non è documentato. Il servizio va avviato quando c'è rete (all'apertura dell'app o dello storico) e non blocca mai la registrazione di una pescata. Dove l'app mostra i dati deve comparire `MeteoService.attribuzione` (licenza CC BY 4.0).
+
+  **Limiti noti:** la cella di un punto è quella della prima risposta, anche se archivio e previsioni usano griglie leggermente diverse; i giorni recenti scaricati come *previsione* restano tali, perché una pescata già completa non viene riscaricata quando quei giorni entrano in archivio.
 
 ### 4.5 `lib/ui/` — Presentazione *(previsto)*
 * **`screens/`** e **`widgets/`**: schermate principali e componenti grafici riutilizzabili.
@@ -235,7 +247,7 @@ Tutti i repository ricevono il `DatabaseHelper` (e, dove serve, gli altri reposi
 
 ### 4.6 `test/` — Test automatici
 Una suite per componente, descritte nel `registro_dei_test_automatici.md`:
-`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `statistiche_service_test.dart`.
+`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`.
 
 ---
 
