@@ -20,7 +20,23 @@ void main() {
     await dbHelper.close();
   });
 
-  /// Helper che popola un set completo e valido di dati su tutte le 16 tabelle.
+  /// Id di un valore di base e della sua condizione (es. Livello / Morbida).
+  Future<({int valoreId, int condizioneId})> valore(
+    String condizione,
+    String nome,
+  ) async {
+    final righe = await db.rawQuery('''
+      SELECT v.id, v.condizione_id FROM ValoreCondizione v
+      INNER JOIN Condizione c ON c.id = v.condizione_id
+      WHERE c.nome = ? AND v.nome = ?
+    ''', [condizione, nome]);
+    return (
+      valoreId: righe.single['id'] as int,
+      condizioneId: righe.single['condizione_id'] as int,
+    );
+  }
+
+  /// Helper che popola un set completo e valido di dati su tutte le 20 tabelle.
   Future<
       ({
         int pescataId,
@@ -86,14 +102,16 @@ void main() {
     final pescataId = await db.insert('Pescata', {
       'data': '2026-11-12',
       'fasciaOraria': 'alba',
-      'meteo': 'velato',
-      'trasparenza': 'velata',
-      'fondo': 'normale',
-      'livello': 'morbida',
       'temp_acqua': 11.5,
       'temp_aria': 8.0,
       'note': 'Attività sulle correntine',
       'spot_nome': 'Ponte Vecchio',
+    });
+    final morbida = await valore('Livello', 'Morbida');
+    await db.insert('Pescata_Condizione', {
+      'pescata_id': pescataId,
+      'condizione_id': morbida.condizioneId,
+      'valore_id': morbida.valoreId,
     });
 
     final esca1Id = await db.insert('Esca', {
@@ -215,10 +233,14 @@ void main() {
       expect(res.first['foreign_keys'], 1);
     });
 
-    test('Esistono tutte le 16 tabelle', () async {
+    test('Esistono tutte le 20 tabelle', () async {
       const tabelleAttese = {
         'Categoria',
         'Ambiente',
+        'Condizione',
+        'ValoreCondizione',
+        'Ambiente_Condizione',
+        'Pescata_Condizione',
         'Spot',
         'Coordinata',
         'Pianificazione',
@@ -242,11 +264,11 @@ void main() {
       expect(presenti.length, tabelleAttese.length);
     });
 
-    test('Esistono tutti i 16 indici idx_*', () async {
+    test('Esistono tutti i 18 indici idx_*', () async {
       final rows = await db.rawQuery(
         "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%';",
       );
-      expect(rows.length, 16);
+      expect(rows.length, 18);
     });
   });
 
@@ -254,7 +276,7 @@ void main() {
   // SEZIONE 2: INSERIMENTI VALIDI
   // ===========================================================================
   group('2. Inserimenti Validi', () {
-    test('Inserimento completo su tutte le 16 tabelle senza errori', () async {
+    test('Inserimento completo su tutte le 20 tabelle senza errori', () async {
       final ids = await popolaDatiBase();
       expect(ids.pescataId, greaterThan(0));
       expect(ids.catturaId, greaterThan(0));
@@ -395,12 +417,11 @@ void main() {
       );
     });
 
-    test('Pescata: temp_acqua fuori range o meteo non valido rifiutati', () async {
+    test('Pescata: temp_acqua fuori range o fasciaOraria non valida rifiutate', () async {
       expect(
         () => db.insert('Pescata', {
           'data': '2026-11-12',
           'fasciaOraria': 'sera',
-          'meteo': 'sereno',
           'temp_acqua': 40.0,
         }),
         throwsA(isA<DatabaseException>()),
@@ -408,8 +429,84 @@ void main() {
       expect(
         () => db.insert('Pescata', {
           'data': '2026-11-12',
-          'fasciaOraria': 'sera',
-          'meteo': 'neve',
+          'fasciaOraria': 'mezzanotte',
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
+    });
+
+    test('Condizioni: valori di base, unicità senza maiuscole, FK composta e un valore per condizione', () async {
+      final condizioni = await db.query('Condizione', orderBy: 'ordine ASC');
+      expect(
+        condizioni.map((r) => r['nome']),
+        ['Livello', 'Trasparenza', 'Fondo', 'Meteo'],
+      );
+      final livelli = await db.rawQuery('''
+        SELECT v.nome FROM ValoreCondizione v
+        INNER JOIN Condizione c ON c.id = v.condizione_id
+        WHERE c.nome = 'Livello' ORDER BY v.ordine
+      ''');
+      expect(
+        livelli.map((r) => r['nome']),
+        ['Secca', 'Magra', 'Normale', 'Morbida', 'Piena'],
+      );
+      final perLago = await db.rawQuery('''
+        SELECT c.nome FROM Condizione c
+        INNER JOIN Ambiente_Condizione ac ON ac.condizione_id = c.id
+        WHERE ac.ambiente_nome = 'lago'
+      ''');
+      expect(perLago.map((r) => r['nome']), ['Meteo']);
+
+      // Nomi unici senza distinzione di maiuscole
+      expect(
+        () => db.insert('Condizione', {'nome': 'livello'}),
+        throwsA(isA<DatabaseException>()),
+      );
+      final livelloId = condizioni.first['id'] as int;
+      expect(
+        () => db.insert('ValoreCondizione', {
+          'condizione_id': livelloId,
+          'nome': 'MAGRA',
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
+      // Lo stesso nome in condizioni diverse è ammesso (Normale: Livello e Fondo)
+      final normali = await db.query(
+        'ValoreCondizione',
+        where: 'nome = ?',
+        whereArgs: ['Normale'],
+      );
+      expect(normali.length, 2);
+
+      final pescataId = await db.insert('Pescata', {
+        'data': '2026-11-12',
+        'fasciaOraria': 'alba',
+      });
+      final morbida = await valore('Livello', 'Morbida');
+      final magra = await valore('Livello', 'Magra');
+      final velata = await valore('Trasparenza', 'Velata');
+      final scuro = await valore('Fondo', 'Scuro');
+
+      await db.insert('Pescata_Condizione', {
+        'pescata_id': pescataId,
+        'condizione_id': morbida.condizioneId,
+        'valore_id': morbida.valoreId,
+      });
+      // Secondo valore per la stessa condizione nella stessa pescata
+      expect(
+        () => db.insert('Pescata_Condizione', {
+          'pescata_id': pescataId,
+          'condizione_id': magra.condizioneId,
+          'valore_id': magra.valoreId,
+        }),
+        throwsA(isA<DatabaseException>()),
+      );
+      // Valore che appartiene a un'altra condizione
+      expect(
+        () => db.insert('Pescata_Condizione', {
+          'pescata_id': pescataId,
+          'condizione_id': scuro.condizioneId,
+          'valore_id': velata.valoreId,
         }),
         throwsA(isA<DatabaseException>()),
       );
@@ -608,6 +705,60 @@ void main() {
       await db.delete('Ambiente', where: 'nome = ?', whereArgs: ['Mare']);
       final mare = await db.query('Ambiente', where: 'nome = ?', whereArgs: ['Mare']);
       expect(mare, isEmpty);
+    });
+
+    test('Condizioni: RESTRICT sui valori usati, CASCADE su condizioni non usate, ambienti e pescate', () async {
+      final pescataId = await db.insert('Pescata', {
+        'data': '2026-11-12',
+        'fasciaOraria': 'alba',
+      });
+      final morbida = await valore('Livello', 'Morbida');
+      await db.insert('Pescata_Condizione', {
+        'pescata_id': pescataId,
+        'condizione_id': morbida.condizioneId,
+        'valore_id': morbida.valoreId,
+      });
+
+      // Valore usato: non eliminabile, né direttamente né con la sua condizione
+      await expectLater(
+        () => db.delete('ValoreCondizione', where: 'id = ?', whereArgs: [morbida.valoreId]),
+        throwsA(isA<DatabaseException>()),
+      );
+      await expectLater(
+        () => db.delete('Condizione', where: 'id = ?', whereArgs: [morbida.condizioneId]),
+        throwsA(isA<DatabaseException>()),
+      );
+
+      // Condizione mai usata: eliminata con valori e collegamenti
+      final fondoId = (await valore('Fondo', 'Scuro')).condizioneId;
+      await db.delete('Condizione', where: 'id = ?', whereArgs: [fondoId]);
+      expect(
+        await db.query('ValoreCondizione', where: 'condizione_id = ?', whereArgs: [fondoId]),
+        isEmpty,
+      );
+      expect(
+        await db.query('Ambiente_Condizione', where: 'condizione_id = ?', whereArgs: [fondoId]),
+        isEmpty,
+      );
+
+      // Rinomina dell'ambiente propagata ai collegamenti (Livello, Trasparenza, Meteo)
+      await db.update(
+        'Ambiente',
+        {'nome': 'Torrente alpino'},
+        where: 'nome = ?',
+        whereArgs: ['Torrente'],
+      );
+      final collegamenti = await db.query(
+        'Ambiente_Condizione',
+        where: 'ambiente_nome = ?',
+        whereArgs: ['Torrente alpino'],
+      );
+      expect(collegamenti.length, 3);
+
+      // Eliminata la pescata spariscono le sue righe e il valore torna eliminabile
+      await db.delete('Pescata', where: 'id = ?', whereArgs: [pescataId]);
+      expect(await db.query('Pescata_Condizione'), isEmpty);
+      await db.delete('ValoreCondizione', where: 'id = ?', whereArgs: [morbida.valoreId]);
     });
 
     test('ON DELETE SET NULL + CASCADE su Esca, Spot e Pescata', () async {

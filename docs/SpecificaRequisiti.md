@@ -20,10 +20,12 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 ### 1.3 Definizioni, Acronimi e Abbreviazioni
 * **SRS**: Software Requirements Specification (Specifica dei Requisiti Software).
 * **Categoria**: raggruppamento di spot scelto dall'utente, simile a una cartella (es. la valle di appartenenza come *Val Taleggio*, oppure una zona come *Fondovalle*). Ogni spot appartiene a una sola categoria.
-* **Ambiente**: tipologia del corso o specchio d'acqua di uno spot (es. torrente, fiume, lago, mare).
+* **Ambiente**: tipologia del corso o specchio d'acqua di uno spot (es. torrente, fiume, lago, mare), definibile dall'utente.
+* **Condizione**: aspetto della pescata che il pescatore vuole registrare, scelto da un elenco di valori (es. *Livello*: secca, magra, normale, morbida, piena; *Meteo*; per il mare *Stato del mare*). Condizioni e valori sono definiti dall'utente; ogni condizione è collegata agli ambienti per cui ha senso.
+* **Valore di condizione**: uno dei valori ammessi di una condizione, con una posizione nella scala della condizione (es. *Morbida* viene dopo *Normale* nel Livello).
 * **Spot**: luogo di pesca identificato da un nome, appartenente a una categoria, caratterizzato da un ambiente e da un tracciato geografico (tratto) che ne delimita l'estensione lungo il corso d'acqua.
 * **Tratto**: sequenza ordinata di coordinate geografiche (polilinea) che rappresenta il percorso fisico di uno spot lungo il torrente, analoga ai tracciati salvati in Google Earth.
-* **Pescata**: attività di pesca svolta in un singolo spot in una certa data e fascia oraria, con condizioni meteo e dell'acqua, riepilogo delle catture, esche utilizzate, foto ed eventuali note. Un'uscita in cui si visitano più spot si registra come più pescate, una per spot.
+* **Pescata**: attività di pesca svolta in un singolo spot in una certa data e fascia oraria, con le condizioni registrate (es. meteo, livello dell'acqua), le temperature, il riepilogo delle catture, le esche utilizzate, le foto ed eventuali note. Un'uscita in cui si visitano più spot si registra come più pescate, una per spot.
 * **Riepilogo specie**: numero di esemplari di una specie catturati in una pescata, eventualmente suddiviso per caratteristica (es. 12 trote, di cui 3 "over 30"). L'app non registra i singoli pesci catturati ma solo questi totali.
 * **Caratteristica**: aspetto che il pescatore vuole evidenziare per una specie, definito da lui nelle impostazioni (es. un colore, una misura come "over 35", un peso). Ogni caratteristica appartiene a una sola specie.
 * **Cattura memorabile**: singola cattura che il pescatore vuole ricordare, associata a una pescata, con specie, una o più foto, esca usata e caratteristiche soddisfatte. È già conteggiata nel riepilogo specie della pescata.
@@ -47,10 +49,11 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 ### 2.2 Funzionalità Principali del Prodotto
 * Gestione degli spot di pesca, organizzati in categorie, con relativo tracciato geografico (tratto) disegnabile manualmente sulla mappa dell'app.
-* Registrazione delle pescate, con data, fascia oraria, spot, condizioni meteo e dell'acqua, riepilogo delle catture per specie ed esche utilizzate.
+* Registrazione delle pescate, con data, fascia oraria, spot, condizioni personalizzabili (meteo, livello, trasparenza…), temperature, riepilogo delle catture per specie ed esche utilizzate.
 * Allegato di fotografie alle pescate, alle catture memorabili e alle esche, con compressione automatica per contenere lo spazio occupato.
 * Registrazione delle catture memorabili, consultabili in un'apposita sezione.
 * Definizione di caratteristiche personalizzate per ciascuna specie di pesce.
+* Definizione di condizioni personalizzate e dei loro valori, collegate agli ambienti, per adattare l'app a qualsiasi tipo di pesca.
 * Visualizzazione di statistiche e riepiloghi (per spot, per periodo, per specie) a partire dallo storico registrato.
 * Pianificazione delle uscite future e degli obiettivi annuali.
 * Consultazione delle condizioni meteo per uno spot, tramite chiamata diretta a un servizio meteo esterno.
@@ -138,8 +141,8 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 #### 3.2.2 Gestione Pescate e Catture
 
 * **[REQ-FUN-06]** - *Must have*
-  * **Descrizione**: Il sistema deve permettere la registrazione di una nuova pescata, comprensiva di data, fascia oraria, spot frequentato, condizioni meteo e note libere; facoltativamente trasparenza, fondo e livello dell'acqua, temperatura dell'acqua e dell'aria.
-  * **Input**: Data, fascia oraria, meteo, spot selezionato dall'elenco degli spot esistenti (con possibilità di crearne uno al momento), dati facoltativi e note testuali.
+  * **Descrizione**: Il sistema deve permettere la registrazione di una nuova pescata, comprensiva di data, fascia oraria e spot frequentato; facoltativamente le condizioni previste per l'ambiente dello spot (es. meteo, livello, trasparenza, fondo, vedi [REQ-FUN-16]), la temperatura dell'acqua e dell'aria e note libere.
+  * **Input**: Data, fascia oraria, spot selezionato dall'elenco degli spot esistenti (con possibilità di crearne uno al momento), un valore per ciascuna condizione che si vuole compilare, dati facoltativi e note testuali.
   * **Elaborazione**: Lo spot è obbligatorio: una pescata nuova non può essere salvata senza spot, e a una pescata esistente non si può togliere lo spot. Fa eccezione solo una pescata il cui spot è stato eliminato (vedi [REQ-DES-07]), che resta modificabile anche senza spot.
   * **Output**: Nuova pescata salvata e consultabile nello storico; lo spot risulta visitato (battuto).
 
@@ -201,6 +204,22 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 ---
 
+#### 3.2.6 Personalizzazione
+
+* **[REQ-FUN-16]** - *Must have*
+  * **Descrizione**: L'utente deve poter definire le condizioni da registrare nelle pescate e i loro valori, e collegarle agli ambienti per cui hanno senso, così da adattare l'app al proprio modo di classificare e a qualsiasi tipo di pesca (torrente, lago, mare…).
+  * **Input**: Nome della condizione; elenco ordinato dei valori ammessi; ambienti a cui collegarla. Alla creazione di un nuovo ambiente, l'utente può copiare i collegamenti da un ambiente esistente.
+  * **Elaborazione**:
+    * nomi di condizioni e valori unici senza distinzione di maiuscole (all'interno della stessa condizione, per i valori);
+    * l'ordine dei valori definisce la scala della condizione, usata da filtri e statistiche;
+    * un valore usato in almeno una pescata non può essere eliminato ma solo disattivato; una condizione può essere eliminata solo se nessuno dei suoi valori è stato usato, altrimenti si disattiva;
+    * nel form di una pescata compaiono le condizioni attive collegate all'ambiente dello spot, più quelle che la pescata ha già compilato;
+    * prima di cambiare l'ambiente di uno spot, l'app segnala le condizioni usate dalle sue pescate e non previste dal nuovo ambiente, proponendo di collegarle.
+  * **Output**: Condizioni e valori disponibili nella registrazione delle pescate e nei filtri dello storico.
+  * **Valori iniziali**: *Livello* (Secca, Magra, Normale, Morbida, Piena), *Trasparenza* (Sporca, Velata, Chiara) e *Fondo* (Scuro, Normale, Pulito) collegate a Torrente e Fiume; *Meteo* (Sereno, Velato, Variabile, Coperto, Plumbeo, Pioggia, Ventoso) collegata a tutti gli ambienti di base.
+
+---
+
 ### 3.3 Vincoli di Progettazione ed Implementazione
 
 * **[REQ-DES-01]**: L'app deve essere sviluppata in Flutter (Dart), per garantire una base di codice unica cross-platform Android/iOS.
@@ -211,10 +230,13 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **[REQ-DES-06]**: Le caratteristiche aggiunte alla cattura memorabile non vengono conteggiate negli obiettivi: nella registrazione di una pescata il pescatore considera la cattura memorabile come una cattura qualsiasi e inserisce già da subito i valori totali per specie e caratteristiche. Questo semplifica l'inserimento dei dati; la cattura memorabile viene aggiunta a parte ma rimane comunque associata alla pescata.
 * **[REQ-DES-07]**: Politiche di eliminazione, garantite dal database tramite vincoli di integrità referenziale:
   * una categoria che contiene spot non può essere eliminata;
+  * un valore di condizione usato in almeno una pescata non può essere eliminato (si disattiva), e così la sua condizione;
   * un ambiente usato da almeno uno spot non può essere eliminato;
   * l'eliminazione di uno spot elimina il suo tratto e le sue pianificazioni, mentre le pescate svolte nello spot restano nello storico senza spot associato (è l'unico modo in cui una pescata può trovarsi senza spot, vedi [REQ-FUN-06]);
   * l'eliminazione di una pescata elimina riepiloghi, catture memorabili e foto collegate, compresi i file immagine sul dispositivo;
   * una specie usata in almeno una pescata o cattura memorabile non può essere eliminata.
+
+* **[REQ-DES-08]**: Il collegamento tra condizioni e ambienti guida soltanto il form di registrazione e non vincola i dati: il database non impone che le condizioni di una pescata siano previste dall'ambiente del suo spot. In questo modo cambiare l'ambiente di uno spot o i collegamenti di un ambiente non rende invalide né cancella le condizioni già registrate nelle pescate passate.
 
 ---
 

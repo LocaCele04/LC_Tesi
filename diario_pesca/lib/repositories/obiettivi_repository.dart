@@ -96,7 +96,7 @@ class ObiettiviRepository {
       final obiettivoAllineato =
           obiettivo.copyWith(caratteristica: carattAllineata);
 
-      if (obiettivoAllineato.id == null) {
+      if (obiettivoAllineato.isNuovo) {
         final id = await txn.insert(
           'Obiettivo',
           DbMappers.obiettivoToMap(obiettivoAllineato),

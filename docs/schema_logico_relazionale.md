@@ -1,6 +1,6 @@
 # Schema Logico Relazionale
 
-Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/data/database_helper.dart`): 16 tabelle e 16 indici su SQLite.
+Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/data/database_helper.dart`): 20 tabelle e 18 indici su SQLite.
 
 ---
 
@@ -24,6 +24,27 @@ Lo schema descritto in questo documento corrisponde a quello effettivamente crea
 ### **Ambiente**
 * **`nome`**: TEXT **(PK)** `COLLATE NOCASE` — non vuoto; unico senza distinzione tra maiuscole e minuscole
 * Popolata alla creazione del database con i valori di base `Torrente`, `Fiume`, `Lago`, `Mare`; l'utente può aggiungerne altri.
+
+### **Condizione**
+* **`id`**: INTEGER **(PK, autoincrement)**
+* `nome`: TEXT `COLLATE NOCASE` **(NOT NULL, UQ)** — non vuoto; unico senza distinzione tra maiuscole e minuscole
+* `ordine`: INTEGER **(NOT NULL)**, default 0 — posizione nel form della pescata
+* `attiva`: INTEGER **(NOT NULL)**, default 1 — 0/1; una condizione disattivata non è più proposta nelle nuove pescate
+* Popolata alla creazione del database con `Livello`, `Trasparenza`, `Fondo`, `Meteo` (vedi §3.7).
+
+### **ValoreCondizione**
+* **`id`**: INTEGER **(PK, autoincrement)**
+* *`condizione_id`*: INTEGER **(FK, NOT NULL)** $\rightarrow$ `Condizione(id)` — `ON DELETE CASCADE`
+* `nome`: TEXT `COLLATE NOCASE` **(NOT NULL)** — non vuoto
+* `ordine`: INTEGER **(NOT NULL)**, default 0 — posizione nella scala della condizione (es. Secca 0 … Piena 4)
+* `attivo`: INTEGER **(NOT NULL)**, default 1 — 0/1; un valore disattivato non è più proposto nelle nuove pescate
+* **UQ** (`condizione_id`, `nome`) — nomi unici all'interno della stessa condizione
+* **UQ** (`id`, `condizione_id`) — chiave candidata usata dalla FK composta di `Pescata_Condizione`
+
+### **Ambiente_Condizione** *(Relazione N:M "prevede")*
+* *`ambiente_nome`*: TEXT `COLLATE NOCASE` **(PK, FK)** $\rightarrow$ `Ambiente(nome)` — `ON DELETE CASCADE`, `ON UPDATE CASCADE`
+* *`condizione_id`*: INTEGER **(PK, FK)** $\rightarrow$ `Condizione(id)` — `ON DELETE CASCADE`
+* Indica quali condizioni proporre nel form per gli spot di un ambiente; non vincola i dati delle pescate (vedi §3.7).
 
 ### **Spot**
 * **`nome`**: TEXT **(PK)** — non vuoto
@@ -56,14 +77,17 @@ Lo schema descritto in questo documento corrisponde a quello effettivamente crea
 * **`id`**: INTEGER **(PK, autoincrement)**
 * `data`: TEXT **(NOT NULL)** — data ISO valida
 * `fasciaOraria`: TEXT **(NOT NULL)** — `alba | mattina | pomeriggio | tramonto | sera | notte`
-* `meteo`: TEXT **(NOT NULL)** — `sereno | coperto | velato | variabile | plumbeo | pioggia | ventoso`
-* `trasparenza`: TEXT *(NULL)* — `sporca | velata | chiara`
-* `fondo`: TEXT *(NULL)* — `scuro | normale | pulito`
-* `livello`: TEXT *(NULL)* — `secca | magra | normale | morbida | piena`
 * `temp_acqua`: REAL *(NULL)* — tra 0 e 35 °C
 * `temp_aria`: REAL *(NULL)* — tra -30 e 45 °C
 * `note`: TEXT *(NULL)*
 * *`spot_nome`*: TEXT *(FK, NULL)* $\rightarrow$ `Spot(nome)` — `ON DELETE SET NULL`, `ON UPDATE CASCADE`. Nullable solo per consentire il `SET NULL` quando uno spot viene eliminato: alla creazione lo spot è obbligatorio (vedi §3.4)
+
+### **Pescata_Condizione** *(valore scelto per una condizione in una pescata)*
+* *`pescata_id`*: INTEGER **(PK, FK)** $\rightarrow$ `Pescata(id)` — `ON DELETE CASCADE`
+* *`condizione_id`*: INTEGER **(PK)**
+* `valore_id`: INTEGER **(NOT NULL)**
+* **FK** (`valore_id`, `condizione_id`) $\rightarrow$ `ValoreCondizione(id, condizione_id)` — `ON DELETE RESTRICT`
+* La chiave primaria (`pescata_id`, `condizione_id`) ammette al massimo un valore per condizione in ogni pescata; la FK composta garantisce che il valore appartenga alla condizione indicata.
 
 ### **Esca**
 * **`id`**: INTEGER **(PK, autoincrement)**
@@ -156,10 +180,15 @@ Il vincolo coinvolge due tabelle e non è esprimibile con un `CHECK`: è verific
 Una nuova pescata deve avere uno spot, e a una pescata esistente non si può togliere lo spot. La colonna `Pescata.spot_nome` non può essere `NOT NULL`, perché deve poter diventare NULL per effetto di `ON DELETE SET NULL` quando lo spot viene eliminato: il vincolo è quindi verificato in `PescateRepository.salvaPescata`. Una pescata rimasta senza spot dopo l'eliminazione dello spot resta modificabile.
 
 ### 3.5 Domini estendibili — *garantiti da FK*
-L'ambiente di uno spot non è un dominio chiuso ma una tabella di dominio (`Ambiente`) che l'utente può ampliare: la chiave esterna impedisce valori non registrati o scritti in modo diverso, e la collation `NOCASE` evita duplicati che differiscono solo per maiuscole e minuscole (`Torrente` / `torrente`). Le altre enumerazioni (difficoltà, fascia oraria, meteo, trasparenza, fondo, livello, accessibilità) restano domini chiusi, perché sono scale con un ordine e sono usate in filtri e statistiche.
+L'ambiente di uno spot e le condizioni di una pescata non sono domini chiusi ma tabelle di dominio (`Ambiente`, `Condizione`, `ValoreCondizione`) che l'utente può ampliare: le chiavi esterne impediscono valori non registrati o scritti in modo diverso, e la collation `NOCASE` evita duplicati che differiscono solo per maiuscole e minuscole (`Torrente` / `torrente`). Per le condizioni la colonna `ordine` conserva la scala dei valori anche quando sono definiti dall'utente, così filtri e statistiche possono confrontarli (es. "livello da Normale in su"). Restano domini chiusi solo la fascia oraria, comune a ogni tipo di pesca, e la difficoltà e l'accessibilità dello spot.
 
 ### 3.6 Domini chiusi e formati — *garantiti da CHECK*
 Stringhe non vuote per i nomi, intervalli numerici (voto, temperature, coordinate, anno, quantità), valori ammessi delle enumerazioni, date di calendario valide. In SQLite un valore `NULL` supera sempre un `CHECK`, quindi i campi facoltativi restano facoltativi.
+
+### 3.7 Condizioni e ambienti: una guida per il form, non un vincolo — *scelta progettuale*
+`Ambiente_Condizione` dice quali condizioni proporre registrando una pescata in uno spot di un certo ambiente (es. il Livello per il Torrente, lo Stato del mare per il Mare). Il database **non** impone però che le condizioni di una pescata siano previste dall'ambiente del suo spot: se lo facesse, cambiare l'ambiente di uno spot o scollegare una condizione renderebbe invalide le pescate già registrate. Le righe di `Pescata_Condizione` restano quindi valide qualunque cosa accada ai collegamenti, e il form mostra sempre le condizioni previste più quelle che la pescata ha già compilato.
+
+Alla creazione del database: `Livello` (Secca, Magra, Normale, Morbida, Piena), `Trasparenza` (Sporca, Velata, Chiara) e `Fondo` (Scuro, Normale, Pulito) sono collegate a Torrente e Fiume; `Meteo` (Sereno, Velato, Variabile, Coperto, Plumbeo, Pioggia, Ventoso) a tutti e quattro gli ambienti di base.
 
 ---
 
@@ -168,10 +197,12 @@ Stringhe non vuote per i nomi, intervalli numerici (voto, temperature, coordinat
 | Operazione | Effetto |
 | :--- | :--- |
 | Eliminare una **Categoria** | Bloccata (`RESTRICT`) se contiene spot: prima vanno spostati in un'altra categoria (`TerritorioRepository.spostaSpot`). |
-| Eliminare un **Ambiente** | Bloccata (`RESTRICT`) se usato da almeno uno spot. |
+| Eliminare un **Ambiente** | Bloccata (`RESTRICT`) se usato da almeno uno spot; altrimenti elimina i suoi collegamenti con le condizioni (`CASCADE`). |
+| Eliminare un **Valore di condizione** | Bloccata (`RESTRICT`) se usato in almeno una pescata: va disattivato. |
+| Eliminare una **Condizione** | Elimina valori e collegamenti agli ambienti (`CASCADE`), ma è bloccata se uno dei suoi valori è usato in una pescata (il `RESTRICT` sul valore blocca la cascata): va disattivata. |
 | Rinominare una **Categoria** / **Ambiente** / **Spot** / **Specie** | Il nuovo nome si propaga a tutte le tabelle figlie (`ON UPDATE CASCADE`). |
 | Eliminare uno **Spot** | Elimina coordinate (tratto) e pianificazioni (`CASCADE`); le pescate restano nello storico con `spot_nome = NULL` (`SET NULL`). |
-| Eliminare una **Pescata** | Elimina legami con le esche, riepiloghi, dettagli, catture memorabili e foto (`CASCADE`); il repository cancella anche i file immagine dal disco e ricalcola `Spot.battuto`. |
+| Eliminare una **Pescata** | Elimina valori delle condizioni, legami con le esche, riepiloghi, dettagli, catture memorabili e foto (`CASCADE`); il repository cancella anche i file immagine dal disco e ricalcola `Spot.battuto`. |
 | Eliminare un'**Esca** | Elimina i legami con le pescate e le sue foto (`CASCADE`); nelle catture memorabili il riferimento diventa NULL (`SET NULL`). |
 | Eliminare una **Specie** | Bloccata (`RESTRICT`) se usata in riepiloghi o catture memorabili; altrimenti elimina caratteristiche e obiettivi (`CASCADE`). |
 | Eliminare una **Caratteristica** | Elimina obiettivi, dettagli e associazioni con le catture che la usano (`CASCADE`). |
@@ -198,3 +229,5 @@ Stringhe non vuote per i nomi, intervalli numerici (voto, temperature, coordinat
 | `idx_cattcar_caratteristica` | Cattura_Caratteristica (caratteristica_id) |
 | `idx_dettaglio_caratteristica` | DettaglioRiepilogo (caratteristica_id) |
 | `idx_obiettivo_anno` | Obiettivo (anno) |
+| `idx_ambcond_condizione` | Ambiente_Condizione (condizione_id) |
+| `idx_pescond_valore` | Pescata_Condizione (valore_id, condizione_id) |

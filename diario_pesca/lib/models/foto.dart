@@ -21,6 +21,11 @@ class Foto {
     'Una foto non può essere associata contemporaneamente a più di un elemento tra pescata, cattura memorabile ed esca',
   );
 
+  /// `true` se l'oggetto non è ancora stato salvato nel database: l'id lo
+  /// assegna SQLite all'inserimento. I repository restituiscono sempre
+  /// oggetti con l'id valorizzato.
+  bool get isNuovo => id == null;
+
   Foto copyWith({
     int? id,
     String? percorso,

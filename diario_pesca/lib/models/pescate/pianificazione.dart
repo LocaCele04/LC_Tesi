@@ -15,6 +15,11 @@ class Pianificazione {
     this.spotNome,
   });
 
+  /// `true` se l'oggetto non è ancora stato salvato nel database: l'id lo
+  /// assegna SQLite all'inserimento. I repository restituiscono sempre
+  /// oggetti con l'id valorizzato.
+  bool get isNuovo => id == null;
+
   Pianificazione copyWith({
     int? id,
     DateTime? data,

@@ -22,6 +22,11 @@ class CatturaMemorabile {
     this.foto = const [],
   });
 
+  /// `true` se l'oggetto non è ancora stato salvato nel database: l'id lo
+  /// assegna SQLite all'inserimento. I repository restituiscono sempre
+  /// oggetti con l'id valorizzato.
+  bool get isNuovo => id == null;
+
   CatturaMemorabile copyWith({
     int? id,
     String? descrizione,

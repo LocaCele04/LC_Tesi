@@ -15,41 +15,11 @@ enum FasciaOraria {
   notte,
 }
 
-/// Vincolo CHECK su Pescata.meteo
-enum Meteo {
-  sereno,
-  coperto,
-  velato,
-  variabile,
-  plumbeo,
-  pioggia,
-  ventoso,
-}
-
-/// Vincolo CHECK su Pescata.trasparenza
-enum Trasparenza {
-  sporca,
-  velata,
-  chiara,
-}
-
+/// Vincolo CHECK su Spot.accessibilita
 enum Accessibilita {
   accessibile,
   inaccessibile,
 }
 
-/// Vincolo CHECK su Pescata.fondo
-enum Fondo {
-  scuro,
-  normale,
-  pulito,
-}
-
-/// Vincolo CHECK su Pescata.livello
-enum Livello {
-  secca,
-  magra,
-  normale,
-  morbida,
-  piena,
-}
+// Meteo, livello, trasparenza e fondo non sono enum: sono condizioni
+// personalizzabili dall'utente (tabelle Condizione e ValoreCondizione).

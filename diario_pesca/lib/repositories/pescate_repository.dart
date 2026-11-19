@@ -6,6 +6,7 @@ import '../data/db_mappers.dart';
 import '../data/query_condivise.dart';
 import '../models/catalogo/caratteristica.dart';
 import '../models/catalogo/esca.dart';
+import '../models/catalogo/valore_condizione.dart';
 import '../models/enums.dart';
 import '../models/foto.dart';
 import '../models/pescate/cattura_memorabile.dart';
@@ -18,8 +19,8 @@ import 'catalogo_repository.dart';
 /// Pescate con tutto ciò che contengono (riepiloghi specie con dettagli,
 /// catture memorabili, foto, legami con le esche) e pianificazioni.
 ///
-/// È l'unico componente che scrive le tabelle `Pescata`, `Pescata_Esca`,
-/// `RiepilogoSpecie`, `DettaglioRiepilogo`, `CatturaMemorabile`,
+/// È l'unico componente che scrive le tabelle `Pescata`, `Pescata_Condizione`,
+/// `Pescata_Esca`, `RiepilogoSpecie`, `DettaglioRiepilogo`, `CatturaMemorabile`,
 /// `Cattura_Caratteristica`, `Pianificazione` e le foto di pescate e catture.
 /// Esche e caratteristiche nuove vengono create tramite il
 /// [CatalogoRepository] dentro la stessa transazione.
@@ -79,14 +80,15 @@ class PescateRepository {
     return righe.map(DbMappers.pianificazioneFromMap).toList();
   }
 
-  /// Elenco pescate con filtri ambientali e temporali combinabili (senza figli).
-  /// Utile per lista generale, ultime N pescate (`limit`), storico spot e filtri.
+  /// Elenco pescate con filtri combinabili (senza figli). Utile per lista
+  /// generale, ultime N pescate (`limit`), storico spot e filtri.
+  ///
+  /// [valoriCondizioni] restituisce solo le pescate che hanno **tutti** i
+  /// valori indicati (es. Livello = Morbida e Trasparenza = Velata).
   Future<List<Pescata>> getPescate({
     String? spotNome,
-    Meteo? meteo,
     FasciaOraria? fasciaOraria,
-    Trasparenza? trasparenza,
-    Livello? livello,
+    List<int> valoriCondizioni = const [],
     DateTime? daData,
     DateTime? aData,
     int? limit,
@@ -100,21 +102,16 @@ class PescateRepository {
       condizioni.add('spot_nome = ?');
       argomenti.add(spotNome);
     }
-    if (meteo != null) {
-      condizioni.add('meteo = ?');
-      argomenti.add(meteo.name);
-    }
     if (fasciaOraria != null) {
       condizioni.add('fasciaOraria = ?');
       argomenti.add(fasciaOraria.name);
     }
-    if (trasparenza != null) {
-      condizioni.add('trasparenza = ?');
-      argomenti.add(trasparenza.name);
-    }
-    if (livello != null) {
-      condizioni.add('livello = ?');
-      argomenti.add(livello.name);
+    for (final valoreId in valoriCondizioni.toSet()) {
+      condizioni.add(
+        'EXISTS (SELECT 1 FROM Pescata_Condizione pc '
+        'WHERE pc.pescata_id = Pescata.id AND pc.valore_id = ?)',
+      );
+      argomenti.add(valoreId);
     }
     if (daData != null) {
       condizioni.add('data >= ?');
@@ -199,12 +196,24 @@ class PescateRepository {
       pescataId: id,
     );
 
+    // 5. Valori delle condizioni, nell'ordine delle condizioni nel form
+    final righeCondizioni = await db.rawQuery('''
+      SELECT v.* FROM ValoreCondizione v
+      INNER JOIN Pescata_Condizione pc ON pc.valore_id = v.id
+      INNER JOIN Condizione c ON c.id = pc.condizione_id
+      WHERE pc.pescata_id = ?
+      ORDER BY c.ordine ASC, c.nome ASC
+    ''', [id]);
+    final valoriCondizioni =
+        righeCondizioni.map(DbMappers.valoreCondizioneFromMap).toList();
+
     return DbMappers.pescataFromMap(
       righePescata.first,
       esche: esche,
       foto: foto,
       cattureMemorabili: catture,
       riepiloghiSpecie: riepiloghi,
+      valoriCondizioni: valoriCondizioni,
     );
   }
 
@@ -214,7 +223,7 @@ class PescateRepository {
 
   Future<Pianificazione> salvaPianificazione(Pianificazione p) async {
     final db = await _dbHelper.database;
-    if (p.id == null) {
+    if (p.isNuovo) {
       final id =
           await db.insert('Pianificazione', DbMappers.pianificazioneToMap(p));
       return p.copyWith(id: id);
@@ -233,8 +242,9 @@ class PescateRepository {
     await db.delete('Pianificazione', where: 'id = ?', whereArgs: [id]);
   }
 
-  /// Inserisce o aggiorna atomicamente una Pescata insieme a esche, foto,
-  /// riepiloghi specie con dettagli e catture memorabili, aggiornando
+  /// Inserisce o aggiorna atomicamente una Pescata insieme ai valori delle
+  /// condizioni, esche, foto, riepiloghi specie con dettagli e catture
+  /// memorabili, aggiornando
   /// anche lo stato `battuto` dello spot.
   ///
   /// Lo spot è obbligatorio. Nel database `spot_nome` resta nullable solo per
@@ -244,12 +254,13 @@ class PescateRepository {
   Future<Pescata> salvaPescata(Pescata pescata) async {
     final spotIndicato =
         pescata.spotNome != null && pescata.spotNome!.trim().isNotEmpty;
-    if (pescata.id == null && !spotIndicato) {
+    if (pescata.isNuovo && !spotIndicato) {
       throw ArgumentError('Lo spot è obbligatorio per registrare una pescata');
     }
     for (final r in pescata.riepiloghiSpecie) {
       _validaRiepilogoSpecie(r);
     }
+    _validaValoriCondizioni(pescata.valoriCondizioni);
 
     final db = await _dbHelper.database;
     final percorsiFotoDaRimuovere = <String>{};
@@ -258,7 +269,7 @@ class PescateRepository {
       late final int pescataId;
       String? vecchioSpotNome;
 
-      if (pescata.id == null) {
+      if (pescata.isNuovo) {
         pescataId = await txn.insert('Pescata', DbMappers.pescataToMap(pescata));
       } else {
         pescataId = pescata.id!;
@@ -297,6 +308,11 @@ class PescateRepository {
           whereArgs: [pescataId],
         );
         await txn.delete(
+          'Pescata_Condizione',
+          where: 'pescata_id = ?',
+          whereArgs: [pescataId],
+        );
+        await txn.delete(
           'Foto',
           where: 'pescata_id = ?',
           whereArgs: [pescataId],
@@ -318,6 +334,15 @@ class PescateRepository {
           where: 'id = ?',
           whereArgs: [pescataId],
         );
+      }
+
+      // 0. Valori delle condizioni (al massimo uno per condizione)
+      for (final v in pescata.valoriCondizioni) {
+        await txn.insert('Pescata_Condizione', {
+          'pescata_id': pescataId,
+          'condizione_id': v.condizioneId,
+          'valore_id': v.id,
+        });
       }
 
       // 1. Esche (salva al volo se id == null)
@@ -462,7 +487,7 @@ class PescateRepository {
     final percorsiFotoDaRimuovere = <String>{};
 
     final risultato = await db.transaction((txn) async {
-      if (cattura.id == null) {
+      if (cattura.isNuovo) {
         return await _inserisciCatturaInTransazione(
           txn,
           cattura,
@@ -543,6 +568,24 @@ class PescateRepository {
   // ===========================================================================
   // HELPER PRIVATI
   // ===========================================================================
+
+  /// I valori delle condizioni devono essere già salvati (si scelgono da un
+  /// elenco, non si creano dalla pescata) e al massimo uno per condizione.
+  void _validaValoriCondizioni(List<ValoreCondizione> valori) {
+    final condizioniViste = <int>{};
+    for (final v in valori) {
+      if (v.isNuovo || v.condizioneId == null) {
+        throw ArgumentError(
+          'Il valore "${v.nome}" non è salvato: i valori delle condizioni si scelgono tra quelli esistenti',
+        );
+      }
+      if (!condizioniViste.add(v.condizioneId!)) {
+        throw ArgumentError(
+          'Una pescata può avere un solo valore per ogni condizione',
+        );
+      }
+    }
+  }
 
   void _validaRiepilogoSpecie(RiepilogoSpecie r) {
     if (r.quantita < 0) {
