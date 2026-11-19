@@ -169,7 +169,7 @@ diario_pesca/
 ### 4.2 `lib/models/` — Modello di Dominio
 Tutte le classi modello sono **oggetti immutabili** (campi `final`, metodo `copyWith` e uguaglianza strutturale, vedi `scelta_architetturale_immutabilit_dei_modelli.md`). Sono suddivise in quattro sotto-pacchetti, uno per area del dominio, più tre file comuni:
 
-* **`enums.dart`**: domini chiusi (`FasciaOraria`, `Difficolta`, `Accessibilita`, `FonteMeteo`) e `StatoMeteo`, che non è salvato ma calcolato. Meteo, livello, trasparenza e fondo non sono enum ma condizioni personalizzabili (`catalogo/condizione.dart`). Sono salvati nel database con il nome del valore (`.name`): **i nomi dei valori non vanno rinominati**, altrimenti i dati già salvati non vengono più letti.
+* **`enums.dart`**: domini chiusi (`FasciaOraria`, `Difficolta`, `Accessibilita`) e `StatoMeteo`, che non è salvato ma calcolato. Meteo, livello, trasparenza e fondo non sono enum ma condizioni personalizzabili (`catalogo/condizione.dart`). Sono salvati nel database con il nome del valore (`.name`): **i nomi dei valori non vanno rinominati**, altrimenti i dati già salvati non vengono più letti.
 * **`foto.dart`**: `Foto`, riferimento a un'immagine salvata sul dispositivo (`percorso` e `percorsoThumbnail`), associabile in modo esclusivo a una pescata, a una cattura memorabile o a un'esca. Sta fuori dai sotto-pacchetti perché è usata da più aree.
 * **`uguaglianza.dart`**: funzione `listeUguali`, usata dagli `operator ==` dei modelli che contengono liste.
 * **Pacchetto `territorio/`**:
@@ -190,8 +190,8 @@ Tutte le classi modello sono **oggetti immutabili** (campi `final`, metodo `copy
 * **Pacchetto `obiettivi/`**:
   * `Obiettivo`: traguardo numerico annuale per una specie, generico o legato a una caratteristica.
 * **Pacchetto `meteo/`** (dati meteo storici scaricati da Open-Meteo):
-  * `CellaMeteo`: cella della griglia del modello meteo (circa 10 km) a cui appartiene il punto di uno spot, con la sua quota media.
-  * `MeteoGiorno` e `MeteoOra`: dati giornalieri e orari di una cella (pioggia, temperature, pressione, vento), con la fonte (archivio o previsione). Le ore sono in UTC.
+  * `CellaMeteo`: cella della griglia del modello meteo (circa 2 km) a cui appartiene il punto di uno spot, alla quota di quel punto. La quota fa parte dell'identità della cella perché Open-Meteo corregge le temperature in base alla quota.
+  * `MeteoGiorno` e `MeteoOra`: dati giornalieri e orari di una cella (pioggia, temperature, pressione, vento). Le ore sono in UTC.
   * `RichiestaMeteo` e `MeteoPescata`: viste di sola lettura, cioè una pescata da scaricare con il punto a cui chiedere i dati, e il meteo completo di una pescata (stato, cella, 31 giorni, ore del giorno prima e del giorno stesso).
 
 #### Identità degli oggetti: id nullable e chiavi naturali
@@ -219,7 +219,7 @@ Un repository per area del dominio; la tabella in §1.2 indica quali tabelle scr
 * **`PescateRepository`**: pescate complete (salvate in modo atomico con valori delle condizioni, esche, foto, riepiloghi, dettagli e catture memorabili), catture memorabili e pianificazioni, con il filtro delle pescate per valori di condizione. Garantisce lo spot obbligatorio, un solo valore per condizione, il vincolo dettaglio ≤ totale e la pulizia dei file immagine non più usati.
 * **`CatalogoRepository`**: specie, caratteristiche, esche e condizioni (con valori, attivazione, collegamenti agli ambienti, copia dei collegamenti da un altro ambiente e le condizioni da mostrare nel form di una pescata, `getCondizioniPerForm`); offre agli altri repository la creazione al volo di esche e caratteristiche dentro una transazione esistente, con il controllo dei nomi già usati (`NomeDuplicatoException`), e all'interfaccia la ricerca per nome (`getEscaPerNome`, `getCaratteristicaPerNome`).
 * **`ObiettiviRepository`**: obiettivi annuali.
-* **`MeteoRepository`**: archivio dei dati meteo storici. Indica quali pescate sono da scaricare e con quale punto, quale cella è già nota per un punto e quali giorni e ore mancano in archivio; salva i dati scaricati senza mai sostituire un dato d'archivio con uno di previsione; calcola lo stato del meteo di una pescata e ne restituisce i dati. Non accede alla rete.
+* **`MeteoRepository`**: archivio dei dati meteo storici. Indica quali pescate sono da scaricare e con quale punto, quale cella è già nota per un punto e quali giorni e ore mancano in archivio; salva i dati scaricati (un dato riscaricato sostituisce il precedente); calcola lo stato del meteo di una pescata e ne restituisce i dati. Non accede alla rete.
 
 Tutti i repository ricevono il `DatabaseHelper` (e, dove serve, gli altri repository e l'`ArchivioFoto`) dal costruttore: in produzione si usano le istanze predefinite, nei test un database in memoria.
 
@@ -233,13 +233,15 @@ Tutti i repository ricevono il `DatabaseHelper` (e, dove serve, gli altri reposi
     * considera solo le pescate di giorni già conclusi;
     * le raggruppa per punto e, nello stesso punto, per intervalli di date che si sovrappongono;
     * se la cella del punto è già nota e l'archivio contiene tutto, collega la pescata senza nessuna chiamata (`assegnaCella`);
-    * altrimenti scarica solo i giorni e le ore mancanti, dall'archivio storico per le date più vecchie di 5 giorni e dall'API delle previsioni per gli ultimi, con un giorno di margine per lato (Open-Meteo calcola i confini delle ore con uno scarto fisso che ignora l'ora legale), e salva tutto con `salvaDati`;
+    * altrimenti scarica con una sola chiamata i giorni e le ore mancanti dall'archivio delle previsioni passate (*Historical Forecast API*, modello scelto da Open-Meteo: sulle Alpi ICON-D2, circa 2 km), con un giorno di margine per lato (Open-Meteo calcola i confini delle ore con uno scarto fisso che ignora l'ora legale), e salva con `salvaDati` solo i giorni già conclusi e le ore necessarie;
     * collega una pescata alla cella solo quando i suoi dati sono completi; giorni ancora vuoti nella risposta restano mancanti e vengono richiesti al tentativo successivo;
     * un errore di rete o del servizio non interrompe l'aggiornamento: il gruppo resta da scaricare. Il risultato (`EsitoAggiornamentoMeteo`) riporta pescate completate, incomplete, errori e chiamate.
 
   Le richieste usano `timeformat=unixtime`, così le ore arrivano come istanti UTC esatti. La pressione media giornaliera è calcolata dalla pressione oraria, perché il nome della variabile giornaliera non è documentato. Il servizio va avviato quando c'è rete (all'apertura dell'app o dello storico) e non blocca mai la registrazione di una pescata. Dove l'app mostra i dati deve comparire `MeteoService.attribuzione` (licenza CC BY 4.0).
 
-  **Limiti noti:** la cella di un punto è quella della prima risposta, anche se archivio e previsioni usano griglie leggermente diverse; i giorni recenti scaricati come *previsione* restano tali, perché una pescata già completa non viene riscaricata quando quei giorni entrano in archivio.
+  La fonte è stata scelta con una prova sui 164 spot dello storico con coordinate (stagione 2025): la rianalisi storica (circa 10 km) li riduceva a 15 celle, l'archivio delle previsioni passate a 36, e arriva fino a ieri senza ritardo, così tutto lo storico ha un'unica fonte coerente con le previsioni.
+
+  **Limiti noti:** la cella di un punto è quella della prima risposta; l'archivio delle previsioni passate è completo dalla metà del 2021: per date più vecchie mancano alcune variabili, e i giorni senza nessun valore restano mancanti (la pescata resta incompleta e viene ritentata).
 
 ### 4.5 `lib/ui/` — Presentazione *(previsto)*
 * **`screens/`** e **`widgets/`**: schermate principali e componenti grafici riutilizzabili.

@@ -65,7 +65,6 @@ void main() {
   /// i-esimo (0 = il più vecchio) vale [pioggia] (i).
   List<MeteoGiorno> giorniFinti(
     DateTime data, {
-    FonteMeteo fonte = FonteMeteo.archivio,
     double Function(int i)? pioggia,
   }) {
     final giorni = MeteoRepository.giorniRichiesti(data);
@@ -80,14 +79,13 @@ void main() {
           ventoMax: 12,
           rafficaMax: 25,
           direzioneVento: 180,
-          fonte: fonte,
         ),
     ];
   }
 
-  List<MeteoOra> oreFinte(DateTime data, {FonteMeteo fonte = FonteMeteo.archivio}) => [
+  List<MeteoOra> oreFinte(DateTime data) => [
         for (final ora in MeteoRepository.oreRichieste(data))
-          MeteoOra(dataOra: ora, pioggiaMm: 0, temperatura: 6, pressione: 1014, fonte: fonte),
+          MeteoOra(dataOra: ora, pioggiaMm: 0, temperatura: 6, pressione: 1014),
       ];
 
   group('MeteoRepository - Intervalli e pescate da scaricare', () {
@@ -198,31 +196,28 @@ void main() {
       expect(await db.query('CellaMeteo'), hasLength(1));
     });
 
-    test('un dato d\'archivio non viene sovrascritto da una previsione, il contrario sì', () async {
+    test('un dato già presente viene sostituito; la stessa cella a un\'altra quota è una cella distinta', () async {
       final data = DateTime(2026, 3, 15);
       final cella = await meteoRepo.salvaDati(
         cella: cellaBrembo,
-        giorni: [
-          MeteoGiorno(data: data, pioggiaMm: 5, fonte: FonteMeteo.previsione),
-          MeteoGiorno(data: DateTime(2026, 3, 14), pioggiaMm: 8, fonte: FonteMeteo.archivio),
-        ],
+        giorni: [MeteoGiorno(data: data, pioggiaMm: 5, tempMax: 10)],
       );
-      await meteoRepo.salvaDati(
+      final stessa = await meteoRepo.salvaDati(
         cella: cellaBrembo,
-        giorni: [
-          MeteoGiorno(data: data, pioggiaMm: 7, fonte: FonteMeteo.archivio),
-          MeteoGiorno(data: DateTime(2026, 3, 14), pioggiaMm: 1, fonte: FonteMeteo.previsione),
-        ],
+        giorni: [MeteoGiorno(data: data, pioggiaMm: 7, tempMax: 10)],
       );
+      expect(stessa.id, cella.id);
+      final righe = await db.query('MeteoGiornaliero', where: 'cella_id = ?', whereArgs: [cella.id]);
+      expect(righe.single['pioggia_mm'], 7.0);
 
-      final righe = await db.query(
-        'MeteoGiornaliero',
-        where: 'cella_id = ?',
-        whereArgs: [cella.id],
-        orderBy: 'data ASC',
+      // Stesso punto della griglia, 300 m più in alto: temperature diverse
+      final alta = await meteoRepo.salvaDati(
+        cella: cellaBrembo.copyWith(elevazione: 1120),
+        giorni: [MeteoGiorno(data: data, pioggiaMm: 7, tempMax: 8)],
       );
-      expect(righe.map((r) => r['pioggia_mm']), [8.0, 7.0]);
-      expect(righe.map((r) => r['fonte']), ['archivio', 'archivio']);
+      expect(alta.id, isNot(cella.id));
+      expect(alta.elevazione, 1120);
+      expect(await db.query('CellaMeteo'), hasLength(2));
     });
   });
 

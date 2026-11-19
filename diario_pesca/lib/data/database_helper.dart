@@ -240,22 +240,22 @@ class DatabaseHelper {
 
     // 5-ter. Archivio meteo (dati scaricati da Open-Meteo).
     // I dati sono organizzati per cella della griglia del modello meteo
-    // (~10 km) e per giorno/ora: spot vicini e pescate ravvicinate
-    // condividono le stesse righe invece di duplicarle.
+    // (~2 km) e per giorno/ora: spot vicini e pescate ravvicinate
+    // condividono le stesse righe invece di duplicarle. La quota fa parte
+    // della cella perché Open-Meteo corregge le temperature in base alla
+    // quota del punto richiesto: due spot nella stessa cella della griglia
+    // ma a quote diverse hanno temperature diverse.
     await db.execute('''
       CREATE TABLE CellaMeteo (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         latitudine REAL NOT NULL,
         longitudine REAL NOT NULL,
-        elevazione REAL,
-        UNIQUE (latitudine, longitudine),
+        elevazione REAL NOT NULL,
+        UNIQUE (latitudine, longitudine, elevazione),
         CHECK (latitudine BETWEEN -90 AND 90),
         CHECK (longitudine BETWEEN -180 AND 180)
       );
     ''');
-    // `fonte`: 'archivio' (rianalisi storica, definitiva) o 'previsione'
-    // (modello di previsione, usato per gli ultimi giorni non ancora in
-    // archivio). Un dato d'archivio non viene mai sovrascritto da una previsione.
     await db.execute('''
       CREATE TABLE MeteoGiornaliero (
         cella_id INTEGER NOT NULL,
@@ -267,13 +267,11 @@ class DatabaseHelper {
         vento_max REAL,
         raffica_max REAL,
         direzione_vento INTEGER,
-        fonte TEXT NOT NULL,
         PRIMARY KEY (cella_id, data),
         FOREIGN KEY (cella_id) REFERENCES CellaMeteo (id) ON DELETE CASCADE,
         CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),
         CHECK (pioggia_mm >= 0),
-        CHECK (direzione_vento BETWEEN 0 AND 360),
-        CHECK (fonte IN ('archivio', 'previsione'))
+        CHECK (direzione_vento BETWEEN 0 AND 360)
       );
     ''');
     // `data_ora` è in UTC: in ora locale il cambio dell'ora legale
@@ -288,13 +286,11 @@ class DatabaseHelper {
         vento REAL,
         raffica REAL,
         direzione_vento INTEGER,
-        fonte TEXT NOT NULL,
         PRIMARY KEY (cella_id, data_ora),
         FOREIGN KEY (cella_id) REFERENCES CellaMeteo (id) ON DELETE CASCADE,
         CHECK (data_ora GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-2][0-9]:00'),
         CHECK (pioggia_mm >= 0),
-        CHECK (direzione_vento BETWEEN 0 AND 360),
-        CHECK (fonte IN ('archivio', 'previsione'))
+        CHECK (direzione_vento BETWEEN 0 AND 360)
       );
     ''');
     // Per ogni pescata scaricata: la cella usata e i dati della richiesta

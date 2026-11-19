@@ -25,8 +25,14 @@ const scartoSecondi = 3600;
 /// Risposta finta nel formato di Open-Meteo con `timeformat=unixtime`:
 /// giorni e ore dell'intervallo richiesto, pioggia 1 mm al giorno,
 /// pressione 1015 hPa. I giorni dopo [disponibileFinoA] hanno valori nulli,
-/// come succede per i giorni non ancora entrati in archivio.
-http.Response rispostaOpenMeteo(http.Request richiesta, {DateTime? disponibileFinoA}) {
+/// come succede per le date non coperte dal modello. La cella è sempre la
+/// stessa; la quota è quella del punto richiesto ([quota]), come fa
+/// Open-Meteo, che corregge le temperature in base alla quota.
+http.Response rispostaOpenMeteo(
+  http.Request richiesta, {
+  DateTime? disponibileFinoA,
+  double Function(double latitudine)? quota,
+}) {
   final p = richiesta.url.queryParameters;
   final DateTime da;
   final DateTime a;
@@ -73,7 +79,7 @@ http.Response rispostaOpenMeteo(http.Request richiesta, {DateTime? disponibileFi
     jsonEncode({
       'latitude': 45.75,
       'longitude': 9.625,
-      'elevation': 820.0,
+      'elevation': quota?.call(double.parse(p['latitude']!)) ?? 820.0,
       'utc_offset_seconds': scartoSecondi,
       'timezone': 'Europe/Rome',
       'daily': {
@@ -154,7 +160,7 @@ void main() {
       );
 
   group('MeteoService - Storico delle pescate', () {
-    test('una pescata vecchia si scarica dall\'archivio con una sola chiamata e viene collegata alla cella', () async {
+    test('una pescata si scarica dall\'archivio delle previsioni con una sola chiamata e viene collegata alla cella', () async {
       final data = DateTime(2026, 1, 10);
       final pescata = await salvaPescata(data);
 
@@ -165,8 +171,10 @@ void main() {
       expect(esito.chiamate, 1);
 
       final url = chiamate.single.url;
-      expect(url.host, 'archive-api.open-meteo.com');
-      expect(url.path, '/v1/archive');
+      expect(url.host, 'historical-forecast-api.open-meteo.com');
+      expect(url.path, '/v1/forecast');
+      // Modello scelto da Open-Meteo (ICON-D2 a 2 km sulle Alpi)
+      expect(url.queryParameters.containsKey('models'), isFalse);
       expect(url.queryParameters['latitude'], '45.7612');
       expect(url.queryParameters['longitude'], '9.6401');
       // 30 giorni prima e il giorno stesso, più un giorno di margine per lato
@@ -184,7 +192,6 @@ void main() {
       expect(meteo.giorni.length, 31);
       expect(meteo.giorni.first.data, DateTime(2025, 12, 11));
       expect(meteo.giorni.last.data, data);
-      expect(meteo.giorni.every((g) => g.fonte == FonteMeteo.archivio), isTrue);
       expect(meteo.giorni.first.pioggiaMm, 1);
       expect(meteo.giorni.first.pressioneMedia, 1015);
       expect(meteo.giorni.first.direzioneVento, 180);
@@ -193,26 +200,48 @@ void main() {
       expect(await db.query('MeteoOrario'), hasLength(meteo.ore.length));
     });
 
-    test('una pescata recente usa l\'archivio per i giorni vecchi e le previsioni per gli ultimi', () async {
-      final pescata = await salvaPescata(DateTime(2026, 2, 18));
+    test('una pescata di ieri si scarica subito con una chiamata; i dati di oggi non si salvano', () async {
+      final pescata = await salvaPescata(DateTime(2026, 2, 19));
 
       final esito = await servizio().aggiornaStorico();
       expect(esito.completate, 1);
-      expect(esito.chiamate, 2);
-      expect(
-        chiamate.map((c) => c.url.host),
-        ['archive-api.open-meteo.com', 'api.open-meteo.com'],
-      );
-      // Oggi 20/02: l'archivio arriva fino al 15/02 (5 giorni di ritardo)
-      expect(chiamate.first.url.queryParameters['end_date'], '2026-02-16');
-      expect(chiamate.last.url.queryParameters['start_date'], '2026-02-15');
+      expect(esito.chiamate, 1);
+      // Il giorno di margine arriva a oggi, che però non è ancora concluso
+      expect(chiamate.single.url.queryParameters['end_date'], '2026-02-20');
 
       final meteo = await meteoRepo.getMeteoPescata(pescata.id!);
       expect(meteo.stato, StatoMeteo.scaricato);
-      final perData = {for (final g in meteo.giorni) g.data: g.fonte};
-      expect(perData[DateTime(2026, 2, 15)], FonteMeteo.archivio);
-      expect(perData[DateTime(2026, 2, 17)], FonteMeteo.previsione);
-      expect(perData[DateTime(2026, 2, 18)], FonteMeteo.previsione);
+      expect(meteo.giorni.last.data, DateTime(2026, 2, 19));
+      expect(await db.query('MeteoGiornaliero', where: "data >= '2026-02-20'"), isEmpty);
+    });
+
+    test('spot nella stessa cella della griglia ma a quote diverse hanno celle distinte', () async {
+      await territorioRepo.salvaSpotConCoordinate(
+        const Spot(
+          nome: 'Valsecca alta',
+          ambiente: 'Torrente',
+          categoriaNome: 'Valle',
+          coordinate: [Coordinata(ordine: 0, latitudine: 45.7701, longitudine: 9.6420)],
+        ),
+      );
+      final bassa = await salvaPescata(DateTime(2026, 1, 10));
+      final alta = await pescateRepo.salvaPescata(
+        Pescata(data: DateTime(2026, 1, 10), fasciaOraria: FasciaOraria.alba, spotNome: 'Valsecca alta'),
+      );
+
+      final esito = await servizio(
+        risposta: (r) => rispostaOpenMeteo(r, quota: (lat) => lat > 45.765 ? 1180.0 : 820.0),
+      ).aggiornaStorico();
+      expect(esito.completate, 2);
+      expect(esito.chiamate, 2);
+
+      final meteoBassa = await meteoRepo.getMeteoPescata(bassa.id!);
+      final meteoAlta = await meteoRepo.getMeteoPescata(alta.id!);
+      expect(meteoBassa.cella?.latitudine, meteoAlta.cella?.latitudine);
+      expect(meteoBassa.cella?.elevazione, 820);
+      expect(meteoAlta.cella?.elevazione, 1180);
+      expect(meteoAlta.cella?.id, isNot(meteoBassa.cella?.id));
+      expect(await db.query('CellaMeteo'), hasLength(2));
     });
 
     test('pescate nello stesso punto riusano l\'archivio: nessuna chiamata o solo i giorni mancanti', () async {
@@ -275,7 +304,7 @@ void main() {
       expect(await db.query('MeteoGiornaliero'), isEmpty);
     });
 
-    test('se mancano giorni non ancora disponibili la pescata resta incompleta e si completa al tentativo successivo', () async {
+    test('se il servizio non restituisce tutti i giorni la pescata resta incompleta e si completa al tentativo successivo', () async {
       final data = DateTime(2026, 1, 10);
       final pescata = await salvaPescata(data);
 
@@ -308,7 +337,6 @@ void main() {
       expect(previsioni.cella.latitudine, 45.75);
       expect(previsioni.giorni.length, 3);
       expect(previsioni.giorni.first.data, DateTime(2026, 2, 20));
-      expect(previsioni.giorni.every((g) => g.fonte == FonteMeteo.previsione), isTrue);
       expect(previsioni.ore.length, 72);
       expect(await db.query('MeteoGiornaliero'), isEmpty);
 

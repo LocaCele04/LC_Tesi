@@ -24,16 +24,6 @@ enum Accessibilita {
 // Meteo, livello, trasparenza e fondo non sono enum: sono condizioni
 // personalizzabili dall'utente (tabelle Condizione e ValoreCondizione).
 
-/// Vincolo CHECK su MeteoGiornaliero.fonte e MeteoOrario.fonte
-enum FonteMeteo {
-  /// Rianalisi storica (Open-Meteo Historical Weather API), definitiva.
-  archivio,
-
-  /// Modello di previsione (Open-Meteo Forecast API con `past_days`), usato
-  /// per i giorni più recenti non ancora disponibili in archivio.
-  previsione,
-}
-
 /// Stato dei dati meteo di una pescata. Non è salvato: lo calcola il
 /// `MeteoRepository` confrontando la pescata con l'ultima richiesta fatta.
 enum StatoMeteo {

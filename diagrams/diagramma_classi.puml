@@ -30,11 +30,6 @@ package "Enumerazioni" {
     TRAMONTO
   }
 
-  enum FonteMeteo {
-    ARCHIVIO
-    PREVISIONE
-  }
-
   enum StatoMeteo {
     DA_SCARICARE
     SCARICATO
@@ -157,7 +152,7 @@ package "Meteo" {
   class CellaMeteo {
     - latitudine : double
     - longitudine : double
-    - elevazione : double [0..1]
+    - elevazione : double
   }
 
   class MeteoGiorno {
@@ -169,7 +164,6 @@ package "Meteo" {
     - ventoMax : double [0..1]
     - rafficaMax : double [0..1]
     - direzioneVento : int [0..1]
-    - fonte : FonteMeteo
   }
 
   class MeteoOra {
@@ -180,7 +174,6 @@ package "Meteo" {
     - vento : double [0..1]
     - raffica : double [0..1]
     - direzioneVento : int [0..1]
-    - fonte : FonteMeteo
   }
 
   class RichiestaMeteo {

@@ -12,7 +12,7 @@ import '../models/meteo/richiesta_meteo.dart';
 /// Archivio dei dati meteo storici delle pescate (scaricati da Open-Meteo).
 ///
 /// È l'unico componente che scrive `CellaMeteo`, `MeteoGiornaliero`,
-/// `MeteoOrario` e `PescataMeteo`. Non scarica nulla: il futuro
+/// `MeteoOrario` e `PescataMeteo`. Non scarica nulla: il
 /// `MeteoService` chiede a questo repository cosa manca
 /// ([getPescateDaScaricare], [getCellaPerPunto], [getDatiMancanti]),
 /// interroga Open-Meteo e salva il risultato con [salvaDati].
@@ -158,9 +158,9 @@ class MeteoRepository {
   /// Salva in un'unica transazione i dati scaricati per una cella e collega
   /// a quella cella le pescate di [richieste].
   ///
-  /// La cella viene creata se non esiste (stesse coordinate di griglia).
-  /// Un dato già presente con fonte `archivio` non viene sovrascritto da uno
-  /// con fonte `previsione`; negli altri casi il dato nuovo sostituisce il vecchio.
+  /// La cella viene creata se non esiste (stesse coordinate di griglia e
+  /// stessa quota). Un dato già presente per lo stesso giorno o la stessa
+  /// ora viene sostituito da quello nuovo.
   Future<CellaMeteo> salvaDati({
     required CellaMeteo cella,
     List<MeteoGiorno> giorni = const [],
@@ -174,10 +174,6 @@ class MeteoRepository {
       final cellaId = cellaSalvata.id!;
 
       for (final g in giorni) {
-        final chiave = DbMappers.formatData(g.data);
-        if (await _haDatoArchivio(txn, 'MeteoGiornaliero', 'data', cellaId, chiave, g.fonte)) {
-          continue;
-        }
         await txn.insert(
           'MeteoGiornaliero',
           DbMappers.meteoGiornoToMap(g, cellaId),
@@ -186,10 +182,6 @@ class MeteoRepository {
       }
 
       for (final o in ore) {
-        final chiave = DbMappers.formatDataOra(o.dataOra);
-        if (await _haDatoArchivio(txn, 'MeteoOrario', 'data_ora', cellaId, chiave, o.fonte)) {
-          continue;
-        }
         await txn.insert(
           'MeteoOrario',
           DbMappers.meteoOraToMap(o, cellaId),
@@ -305,22 +297,12 @@ class MeteoRepository {
   Future<CellaMeteo> _assicuraCella(DatabaseExecutor txn, CellaMeteo cella) async {
     final esistente = await txn.query(
       'CellaMeteo',
-      where: 'latitudine = ? AND longitudine = ?',
-      whereArgs: [cella.latitudine, cella.longitudine],
+      where: 'latitudine = ? AND longitudine = ? AND elevazione = ?',
+      whereArgs: [cella.latitudine, cella.longitudine, cella.elevazione],
       limit: 1,
     );
     if (esistente.isNotEmpty) {
-      final trovata = DbMappers.cellaMeteoFromMap(esistente.first);
-      if (trovata.elevazione == null && cella.elevazione != null) {
-        await txn.update(
-          'CellaMeteo',
-          {'elevazione': cella.elevazione},
-          where: 'id = ?',
-          whereArgs: [trovata.id],
-        );
-        return trovata.copyWith(elevazione: cella.elevazione);
-      }
-      return trovata;
+      return DbMappers.cellaMeteoFromMap(esistente.first);
     }
     final nuova = CellaMeteo(
       latitudine: cella.latitudine,
@@ -329,27 +311,6 @@ class MeteoRepository {
     );
     final id = await txn.insert('CellaMeteo', DbMappers.cellaMeteoToMap(nuova));
     return nuova.copyWith(id: id);
-  }
-
-  /// `true` se esiste già un dato d'archivio e quello nuovo è una previsione:
-  /// in quel caso il dato nuovo va scartato.
-  Future<bool> _haDatoArchivio(
-    DatabaseExecutor txn,
-    String tabella,
-    String colonnaChiave,
-    int cellaId,
-    String chiave,
-    FonteMeteo fonteNuova,
-  ) async {
-    if (fonteNuova == FonteMeteo.archivio) return false;
-    final righe = await txn.query(
-      tabella,
-      columns: ['fonte'],
-      where: 'cella_id = ? AND $colonnaChiave = ?',
-      whereArgs: [cellaId, chiave],
-      limit: 1,
-    );
-    return righe.isNotEmpty && righe.first['fonte'] == FonteMeteo.archivio.name;
   }
 
   Future<void> _collegaPescate(

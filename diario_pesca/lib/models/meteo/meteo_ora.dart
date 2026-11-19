@@ -1,5 +1,3 @@
-import '../enums.dart';
-
 /// Dati meteo orari di una cella. [dataOra] è in UTC (per mostrarla usare
 /// `toLocal()`): così il cambio dell'ora legale non crea ore mancanti o
 /// ripetute. Valori assenti nel servizio sono `null`. Unità: mm, °C, hPa
@@ -13,7 +11,6 @@ class MeteoOra {
   final double? vento;
   final double? raffica;
   final int? direzioneVento;
-  final FonteMeteo fonte;
 
   const MeteoOra({
     this.cellaId,
@@ -24,7 +21,6 @@ class MeteoOra {
     this.vento,
     this.raffica,
     this.direzioneVento,
-    required this.fonte,
   });
 
   MeteoOra copyWith({
@@ -36,7 +32,6 @@ class MeteoOra {
     double? vento,
     double? raffica,
     int? direzioneVento,
-    FonteMeteo? fonte,
   }) {
     return MeteoOra(
       cellaId: cellaId ?? this.cellaId,
@@ -47,13 +42,12 @@ class MeteoOra {
       vento: vento ?? this.vento,
       raffica: raffica ?? this.raffica,
       direzioneVento: direzioneVento ?? this.direzioneVento,
-      fonte: fonte ?? this.fonte,
     );
   }
 
   @override
   String toString() =>
-      'MeteoOra(cellaId: $cellaId, dataOra: $dataOra, pioggiaMm: $pioggiaMm, fonte: $fonte)';
+      'MeteoOra(cellaId: $cellaId, dataOra: $dataOra, pioggiaMm: $pioggiaMm)';
 
   @override
   bool operator ==(Object other) =>
@@ -66,8 +60,7 @@ class MeteoOra {
           other.pressione == pressione &&
           other.vento == vento &&
           other.raffica == raffica &&
-          other.direzioneVento == direzioneVento &&
-          other.fonte == fonte;
+          other.direzioneVento == direzioneVento;
 
   @override
   int get hashCode => Object.hash(
@@ -79,6 +72,5 @@ class MeteoOra {
         vento,
         raffica,
         direzioneVento,
-        fonte,
       );
 }

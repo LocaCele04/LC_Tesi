@@ -1,19 +1,22 @@
-/// Cella della griglia del modello meteo (circa 10 km) a cui Open-Meteo
-/// associa un punto richiesto. [latitudine] e [longitudine] sono quelle della
-/// cella restituite dal servizio, non quelle dello spot; [elevazione] è la
-/// quota media della cella, utile per capire quanto il dato è
-/// rappresentativo di un fondovalle.
+/// Cella della griglia del modello meteo (circa 2 km) a cui Open-Meteo
+/// associa un punto richiesto, alla quota di quel punto.
+///
+/// [latitudine] e [longitudine] sono quelle della cella restituite dal
+/// servizio, non quelle dello spot. [elevazione] è la quota (m) del punto
+/// richiesto, che Open-Meteo usa per correggere le temperature: per questo
+/// fa parte dell'identità della cella, e due spot nella stessa cella della
+/// griglia ma a quote diverse hanno celle (e temperature) distinte.
 class CellaMeteo {
   final int? id;
   final double latitudine;
   final double longitudine;
-  final double? elevazione;
+  final double elevazione;
 
   const CellaMeteo({
     this.id,
     required this.latitudine,
     required this.longitudine,
-    this.elevazione,
+    required this.elevazione,
   });
 
   /// `true` se l'oggetto non è ancora stato salvato nel database: l'id lo

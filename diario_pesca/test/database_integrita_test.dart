@@ -129,7 +129,6 @@ void main() {
       'vento_max': 14.0,
       'raffica_max': 30.0,
       'direzione_vento': 200,
-      'fonte': 'archivio',
     });
     await db.insert('MeteoOrario', {
       'cella_id': cellaId,
@@ -140,7 +139,6 @@ void main() {
       'vento': 6.0,
       'raffica': 12.0,
       'direzione_vento': 190,
-      'fonte': 'previsione',
     });
     await db.insert('PescataMeteo', {
       'pescata_id': pescataId,
@@ -805,24 +803,34 @@ void main() {
       final cellaId = await db.insert('CellaMeteo', {
         'latitudine': 45.75,
         'longitudine': 9.625,
+        'elevazione': 820.0,
       });
-      // Stessa cella due volte
-      expect(
-        () => db.insert('CellaMeteo', {'latitudine': 45.75, 'longitudine': 9.625}),
-        throwsA(isA<DatabaseException>()),
-      );
+      // Stessa cella alla stessa quota due volte, oppure senza quota
+      for (final riga in [
+        {'latitudine': 45.75, 'longitudine': 9.625, 'elevazione': 820.0},
+        {'latitudine': 45.75, 'longitudine': 9.625},
+      ]) {
+        await expectLater(
+          () => db.insert('CellaMeteo', riga),
+          throwsA(isA<DatabaseException>()),
+        );
+      }
+      // Stessa cella della griglia a un'altra quota: è una cella distinta
+      await db.insert('CellaMeteo', {
+        'latitudine': 45.75,
+        'longitudine': 9.625,
+        'elevazione': 1100.0,
+      });
 
       await db.insert('MeteoGiornaliero', {
         'cella_id': cellaId,
         'data': '2026-11-10',
-        'fonte': 'archivio',
       });
-      // Stesso giorno due volte, fonte non valida, data non valida, pioggia negativa
+      // Stesso giorno due volte, data non valida, pioggia negativa
       for (final riga in [
-        {'cella_id': cellaId, 'data': '2026-11-10', 'fonte': 'archivio'},
-        {'cella_id': cellaId, 'data': '2026-11-11', 'fonte': 'stima'},
-        {'cella_id': cellaId, 'data': '2026-02-30', 'fonte': 'archivio'},
-        {'cella_id': cellaId, 'data': '2026-11-12', 'pioggia_mm': -1.0, 'fonte': 'archivio'},
+        {'cella_id': cellaId, 'data': '2026-11-10'},
+        {'cella_id': cellaId, 'data': '2026-02-30'},
+        {'cella_id': cellaId, 'data': '2026-11-12', 'pioggia_mm': -1.0},
       ]) {
         await expectLater(
           () => db.insert('MeteoGiornaliero', riga),
@@ -831,8 +839,8 @@ void main() {
       }
       // Ora in formato errato e direzione del vento fuori intervallo
       for (final riga in [
-        {'cella_id': cellaId, 'data_ora': '2026-11-10 05:00', 'fonte': 'archivio'},
-        {'cella_id': cellaId, 'data_ora': '2026-11-10T05:00', 'direzione_vento': 400, 'fonte': 'archivio'},
+        {'cella_id': cellaId, 'data_ora': '2026-11-10 05:00'},
+        {'cella_id': cellaId, 'data_ora': '2026-11-10T05:00', 'direzione_vento': 400},
       ]) {
         await expectLater(
           () => db.insert('MeteoOrario', riga),
@@ -842,7 +850,6 @@ void main() {
       await db.insert('MeteoOrario', {
         'cella_id': cellaId,
         'data_ora': '2026-11-10T05:00',
-        'fonte': 'archivio',
       });
 
       final pescataId = await db.insert('Pescata', {

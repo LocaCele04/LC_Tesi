@@ -93,8 +93,8 @@ Lo schema descritto in questo documento corrisponde a quello effettivamente crea
 * **`id`**: INTEGER **(PK, autoincrement)**
 * `latitudine`: REAL **(NOT NULL)** — tra -90 e 90; coordinate della cella della griglia restituite da Open-Meteo
 * `longitudine`: REAL **(NOT NULL)** — tra -180 e 180
-* `elevazione`: REAL *(NULL)* — quota media della cella (m)
-* **UQ** (`latitudine`, `longitudine`)
+* `elevazione`: REAL **(NOT NULL)** — quota (m) del punto richiesto, restituita da Open-Meteo, che la usa per correggere le temperature
+* **UQ** (`latitudine`, `longitudine`, `elevazione`) — la stessa cella della griglia a quote diverse dà celle distinte, perché le temperature cambiano con la quota
 
 ### **MeteoGiornaliero**
 * *`cella_id`*: INTEGER **(PK, FK)** $\rightarrow$ `CellaMeteo(id)` — `ON DELETE CASCADE`
@@ -104,7 +104,6 @@ Lo schema descritto in questo documento corrisponde a quello effettivamente crea
 * `pressione_media`: REAL *(NULL)* — hPa, ridotta al livello del mare
 * `vento_max`, `raffica_max`: REAL *(NULL)* — km/h
 * `direzione_vento`: INTEGER *(NULL)* — gradi tra 0 e 360 (direzione dominante)
-* `fonte`: TEXT **(NOT NULL)** — `archivio | previsione`
 
 ### **MeteoOrario**
 * *`cella_id`*: INTEGER **(PK, FK)** $\rightarrow$ `CellaMeteo(id)` — `ON DELETE CASCADE`
@@ -114,7 +113,6 @@ Lo schema descritto in questo documento corrisponde a quello effettivamente crea
 * `pressione`: REAL *(NULL)* — hPa, ridotta al livello del mare
 * `vento`, `raffica`: REAL *(NULL)* — km/h
 * `direzione_vento`: INTEGER *(NULL)* — gradi tra 0 e 360
-* `fonte`: TEXT **(NOT NULL)** — `archivio | previsione`
 
 ### **PescataMeteo** *(dati della richiesta meteo di una pescata)*
 * *`pescata_id`*: INTEGER **(PK, FK)** $\rightarrow$ `Pescata(id)` — `ON DELETE CASCADE`
@@ -224,7 +222,7 @@ Stringhe non vuote per i nomi, intervalli numerici (voto, temperature, coordinat
 Alla creazione del database: `Livello` (Secca, Magra, Normale, Morbida, Piena), `Trasparenza` (Sporca, Velata, Chiara) e `Fondo` (Scuro, Normale, Pulito) sono collegate a Torrente e Fiume; `Meteo` (Sereno, Velato, Variabile, Coperto, Plumbeo, Pioggia, Ventoso) a tutti e quattro gli ambienti di base.
 
 ### 3.8 Archivio meteo e stato calcolato — *scelta progettuale*
-I dati meteo non sono copiati in ogni pescata ma archiviati per **cella della griglia del modello meteo** (circa 10 km) e per giorno (`MeteoGiornaliero`) o ora (`MeteoOrario`): pescate vicine nello spazio e nel tempo condividono le stesse righe, e un giorno già in archivio non viene riscaricato. Per ogni pescata servono i 30 giorni precedenti più il giorno della pescata (giornalieri) e il giorno prima più il giorno della pescata (orari); le finestre statistiche (es. pioggia degli ultimi 14 giorni) si calcolano con query su questi dati.
+I dati meteo non sono copiati in ogni pescata ma archiviati per **cella della griglia del modello meteo** (circa 2 km, alla quota del punto) e per giorno (`MeteoGiornaliero`) o ora (`MeteoOrario`): pescate vicine nello spazio e nel tempo condividono le stesse righe, e un giorno già in archivio non viene riscaricato. Per ogni pescata servono i 30 giorni precedenti più il giorno della pescata (giornalieri) e il giorno prima più il giorno della pescata (orari); le finestre statistiche (es. pioggia degli ultimi 14 giorni) si calcolano con query su questi dati.
 
 Lo **stato del meteo** di una pescata (*da scaricare*, *scaricato*, *non disponibile*) non è una colonna ma viene **calcolato** confrontando la pescata con `PescataMeteo`, che conserva la data e il punto usati per la richiesta:
 * *scaricato* se esiste la riga e data e punto coincidono con quelli attuali (o lo spot non esiste più);
@@ -233,7 +231,7 @@ Lo **stato del meteo** di una pescata (*da scaricare*, *scaricato*, *non disponi
 
 In questo modo nessun altro componente deve ricordarsi di "invalidare" il meteo: spostare la data di una pescata o il primo punto di uno spot la rende automaticamente da scaricare, mentre rinominare o eliminare lo spot non tocca i dati.
 
-La colonna `fonte` distingue i dati d'**archivio** (rianalisi storica, definitiva, disponibile con alcuni giorni di ritardo) da quelli di **previsione** (usati per gli ultimi giorni): un dato d'archivio non viene mai sovrascritto da uno di previsione, il contrario sì.
+Tutti i dati vengono da un'unica fonte, l'archivio delle previsioni passate di Open-Meteo (modello ICON-D2, circa 2 km): per questo non serve una colonna che distingua la provenienza, e un dato riscaricato sostituisce semplicemente quello precedente.
 
 ---
 

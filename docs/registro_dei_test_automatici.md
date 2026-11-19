@@ -72,25 +72,26 @@ Questa suite verifica `MeteoRepository`, l'archivio dei dati meteo storici, e la
 
 * **Intervalli e pescate da scaricare:** verifica che per una pescata si chiedano 31 giorni (30 precedenti più il giorno stesso) e le ore, in UTC, dalla mezzanotte locale del giorno prima a quella del giorno dopo; che sia da scaricare solo una pescata il cui spot ha coordinate, usando il primo punto del tratto, e che senza coordinate lo stato sia *non disponibile*.
 
-* **Salvataggio e lettura:** verifica che i dati salvati rendano la pescata *scaricata* e vengano restituiti in ordine (31 giorni, ore in UTC, quota della cella); che una seconda pescata nello stesso punto riusi la cella già nota e che risultino mancanti solo i giorni e le ore nuovi; il collegamento di una pescata a una cella già completa senza nuovi dati; la priorità dei dati d'archivio su quelli di previsione.
+* **Salvataggio e lettura:** verifica che i dati salvati rendano la pescata *scaricata* e vengano restituiti in ordine (31 giorni, ore in UTC, quota della cella); che una seconda pescata nello stesso punto riusi la cella già nota e che risultino mancanti solo i giorni e le ore nuovi; il collegamento di una pescata a una cella già completa senza nuovi dati; la sostituzione di un dato riscaricato e la creazione di una cella distinta per lo stesso punto della griglia a un'altra quota.
 
 * **Stato calcolato:** verifica che modificare lo spot senza cambiare il primo punto lasci il meteo *scaricato*, che cambiare il primo punto o la data della pescata lo renda *da scaricare* (e di nuovo *scaricato* tornando alla data originale), che rinominare o eliminare lo spot non tocchi i dati e che eliminando la pescata resti l'archivio.
 
 * **Pioggia cumulata:** verifica la somma della pioggia sui 3, 14 e 30 giorni precedenti escludendo il giorno della pescata, il risultato nullo se il meteo non è scaricato e il rifiuto di finestre oltre i 30 giorni.
 
-## 7. `test/meteo_service_test.dart` (7 test)
+## 7. `test/meteo_service_test.dart` (8 test)
 
 Questa suite verifica `MeteoService` senza accedere alla rete: un client HTTP simulato (`MockClient` del pacchetto `http`) risponde nel formato reale di Open-Meteo (`timeformat=unixtime`, scarto orario, blocchi `daily` e `hourly`) e registra le richieste ricevute. La data di "oggi" è fissata nel test.
 
 * **Storico delle pescate:**
-  * una pescata vecchia si scarica con una sola chiamata all'archivio, con i parametri corretti (coordinate del primo punto, intervallo di 31 giorni più un giorno di margine per lato, fuso orario, variabili), e risulta collegata alla cella con 31 giorni, ore in UTC, pressione media calcolata dalle ore e solo le ore necessarie salvate;
-  * una pescata recente usa l'archivio fino a 5 giorni fa e l'API delle previsioni per gli ultimi giorni, e la fonte dei dati lo riflette;
+  * una pescata si scarica con una sola chiamata all'archivio delle previsioni passate, con i parametri corretti (coordinate del primo punto, intervallo di 31 giorni più un giorno di margine per lato, fuso orario, variabili, nessun modello imposto), e risulta collegata alla cella con 31 giorni, ore in UTC, pressione media calcolata dalle ore e solo le ore necessarie salvate;
+  * una pescata di ieri si scarica subito con una sola chiamata, e i dati di oggi, non ancora conclusi, non vengono salvati;
+  * due spot nella stessa cella della griglia ma a quote diverse ottengono celle distinte;
   * una pescata nello stesso punto e nello stesso giorno non richiede chiamate, una del giorno dopo richiede solo il giorno mancante;
   * le pescate della giornata in corso non vengono scaricate;
   * rete assente, errore HTTP del servizio e risposta in formato inatteso vengono contati come errori senza interrompere l'aggiornamento né salvare dati;
-  * se il servizio non ha ancora i dati di alcuni giorni la pescata resta incompleta e si completa al tentativo successivo.
+  * se il servizio non restituisce i dati di alcuni giorni la pescata resta incompleta e si completa al tentativo successivo.
 
-* **Previsioni:** verifica che `getPrevisioni` chieda i giorni indicati all'API delle previsioni, restituisca giorni e ore con fonte *previsione* senza salvarli e rifiuti un numero di giorni non valido.
+* **Previsioni:** verifica che `getPrevisioni` chieda i giorni indicati all'API delle previsioni, restituisca giorni e ore senza salvarli e rifiuti un numero di giorni non valido.
 
 ## 8. `test/statistiche_service_test.dart` (1 test)
 

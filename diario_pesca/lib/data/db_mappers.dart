@@ -363,7 +363,7 @@ class DbMappers {
         id: map['id'] as int?,
         latitudine: _reale(map['latitudine'])!,
         longitudine: _reale(map['longitudine'])!,
-        elevazione: _reale(map['elevazione']),
+        elevazione: _reale(map['elevazione'])!,
       );
 
   static Map<String, Object?> cellaMeteoToMap(CellaMeteo c) => {
@@ -383,7 +383,6 @@ class DbMappers {
         ventoMax: _reale(map['vento_max']),
         rafficaMax: _reale(map['raffica_max']),
         direzioneVento: map['direzione_vento'] as int?,
-        fonte: FonteMeteo.values.byName(map['fonte'] as String),
       );
 
   static Map<String, Object?> meteoGiornoToMap(MeteoGiorno g, int cellaId) => {
@@ -396,7 +395,6 @@ class DbMappers {
         'vento_max': g.ventoMax,
         'raffica_max': g.rafficaMax,
         'direzione_vento': g.direzioneVento,
-        'fonte': g.fonte.name,
       };
 
   static MeteoOra meteoOraFromMap(Map<String, Object?> map) => MeteoOra(
@@ -408,7 +406,6 @@ class DbMappers {
         vento: _reale(map['vento']),
         raffica: _reale(map['raffica']),
         direzioneVento: map['direzione_vento'] as int?,
-        fonte: FonteMeteo.values.byName(map['fonte'] as String),
       );
 
   static Map<String, Object?> meteoOraToMap(MeteoOra o, int cellaId) => {
@@ -420,6 +417,5 @@ class DbMappers {
         'vento': o.vento,
         'raffica': o.raffica,
         'direzione_vento': o.direzioneVento,
-        'fonte': o.fonte.name,
       };
 }

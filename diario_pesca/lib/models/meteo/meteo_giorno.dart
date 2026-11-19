@@ -1,5 +1,3 @@
-import '../enums.dart';
-
 /// Dati meteo giornalieri di una cella. Valori assenti nel servizio sono
 /// `null`. Unità: mm, °C, hPa (al livello del mare), km/h, gradi (0–360).
 class MeteoGiorno {
@@ -12,7 +10,6 @@ class MeteoGiorno {
   final double? ventoMax;
   final double? rafficaMax;
   final int? direzioneVento;
-  final FonteMeteo fonte;
 
   const MeteoGiorno({
     this.cellaId,
@@ -24,7 +21,6 @@ class MeteoGiorno {
     this.ventoMax,
     this.rafficaMax,
     this.direzioneVento,
-    required this.fonte,
   });
 
   MeteoGiorno copyWith({
@@ -37,7 +33,6 @@ class MeteoGiorno {
     double? ventoMax,
     double? rafficaMax,
     int? direzioneVento,
-    FonteMeteo? fonte,
   }) {
     return MeteoGiorno(
       cellaId: cellaId ?? this.cellaId,
@@ -49,13 +44,12 @@ class MeteoGiorno {
       ventoMax: ventoMax ?? this.ventoMax,
       rafficaMax: rafficaMax ?? this.rafficaMax,
       direzioneVento: direzioneVento ?? this.direzioneVento,
-      fonte: fonte ?? this.fonte,
     );
   }
 
   @override
   String toString() =>
-      'MeteoGiorno(cellaId: $cellaId, data: $data, pioggiaMm: $pioggiaMm, fonte: $fonte)';
+      'MeteoGiorno(cellaId: $cellaId, data: $data, pioggiaMm: $pioggiaMm)';
 
   @override
   bool operator ==(Object other) =>
@@ -69,8 +63,7 @@ class MeteoGiorno {
           other.pressioneMedia == pressioneMedia &&
           other.ventoMax == ventoMax &&
           other.rafficaMax == rafficaMax &&
-          other.direzioneVento == direzioneVento &&
-          other.fonte == fonte;
+          other.direzioneVento == direzioneVento;
 
   @override
   int get hashCode => Object.hash(
@@ -83,6 +76,5 @@ class MeteoGiorno {
         ventoMax,
         rafficaMax,
         direzioneVento,
-        fonte,
       );
 }

@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../data/db_mappers.dart';
-import '../models/enums.dart';
 import '../models/meteo/cella_meteo.dart';
 import '../models/meteo/meteo_giorno.dart';
 import '../models/meteo/meteo_ora.dart';
@@ -16,7 +15,7 @@ class EsitoAggiornamentoMeteo {
   final int completate;
 
   /// Pescate rimaste da scaricare perché il servizio non ha restituito tutti
-  /// i dati (es. giorni non ancora disponibili): verranno ritentate.
+  /// i dati (es. date troppo vecchie per il modello): verranno ritentate.
   final int incomplete;
 
   /// Gruppi di pescate non aggiornati per un errore di rete o del servizio.
@@ -66,20 +65,21 @@ class MeteoServiceException implements Exception {
 /// * [getPrevisioni] restituisce le previsioni per un punto, senza salvarle
 ///   (REQ-FUN-13).
 ///
+/// Lo storico viene dall'archivio delle previsioni passate (Historical
+/// Forecast API) con il modello scelto automaticamente da Open-Meteo, che
+/// sulle Alpi è ICON-D2 (griglia di circa 2 km): più fine dei circa 10 km
+/// della rianalisi storica, copre dal 2021-2022 in poi e arriva fino a ieri
+/// senza ritardo, quindi tutto lo storico ha un'unica fonte.
+///
 /// I dati sono rilasciati con licenza CC BY 4.0: l'app deve mostrare
 /// [attribuzione] dove li visualizza. Il piano gratuito è riservato all'uso
 /// non commerciale.
 class MeteoService {
   static const String attribuzione = 'Dati meteo: Open-Meteo.com (CC BY 4.0)';
 
-  /// Giorni di ritardo con cui i dati arrivano nell'archivio storico: i
-  /// giorni più recenti si chiedono all'API delle previsioni.
-  static const int giorniRitardoArchivio = 5;
-
-  static const String _hostArchivio = 'archive-api.open-meteo.com';
-  static const String _pathArchivio = '/v1/archive';
+  static const String _hostStorico = 'historical-forecast-api.open-meteo.com';
   static const String _hostPrevisioni = 'api.open-meteo.com';
-  static const String _pathPrevisioni = '/v1/forecast';
+  static const String _path = '/v1/forecast';
 
   final MeteoRepository _meteo;
   final http.Client _client;
@@ -103,9 +103,8 @@ class MeteoService {
   /// * Si considerano solo le pescate di giorni già conclusi (data prima di
   ///   oggi): per la giornata in corso i dati non sono ancora definitivi.
   /// * Le pescate sono raggruppate per punto e, nello stesso punto, per
-  ///   intervalli di date sovrapposti: ogni gruppo richiede una o due
-  ///   chiamate (archivio per le date più vecchie, previsioni per gli ultimi
-  ///   [giorniRitardoArchivio] giorni) e solo i giorni e le ore mancanti.
+  ///   intervalli di date sovrapposti: ogni gruppo richiede al massimo una
+  ///   chiamata, solo per i giorni e le ore mancanti.
   /// * Se la cella del punto è già nota e l'archivio contiene tutto, la
   ///   pescata viene collegata senza nessuna chiamata.
   /// * Un errore di rete o del servizio non interrompe l'aggiornamento: il
@@ -145,34 +144,23 @@ class MeteoService {
 
         if (giorniDaScaricare.isNotEmpty) {
           final ordinati = giorniDaScaricare.toList()..sort();
-          final soglia = oggi.subtract(const Duration(days: giorniRitardoArchivio));
-          final daArchivio = ordinati.where((g) => !g.isAfter(soglia)).toList();
-          final daPrevisioni = ordinati.where((g) => g.isAfter(soglia)).toList();
-
-          for (final (giorni, fonte) in [
-            (daArchivio, FonteMeteo.archivio),
-            (daPrevisioni, FonteMeteo.previsione),
-          ]) {
-            if (giorni.isEmpty) continue;
-            chiamate++;
-            final risposta = await _scarica(
-              latitudine: primo.latitudine,
-              longitudine: primo.longitudine,
-              da: giorni.first,
-              a: giorni.last,
-              fonte: fonte,
-            );
-            // La cella di un punto è quella della prima risposta: dati di
-            // archivio e di previsione dello stesso punto restano insieme
-            // anche se i due modelli usano griglie leggermente diverse.
-            cella = await _meteo.salvaDati(
-              cella: cella ?? risposta.cella,
-              giorni: risposta.giorni,
-              ore: risposta.ore
-                  .where((o) => oreNecessarie.contains(o.dataOra.millisecondsSinceEpoch))
-                  .toList(),
-            );
-          }
+          chiamate++;
+          final risposta = await _scarica(
+            latitudine: primo.latitudine,
+            longitudine: primo.longitudine,
+            da: ordinati.first,
+            a: ordinati.last,
+          );
+          // Si salvano solo i giorni già conclusi (il margine può arrivare a
+          // oggi, i cui valori non sono definitivi) e le ore che servono.
+          // La cella di un punto è quella della prima risposta.
+          cella = await _meteo.salvaDati(
+            cella: cella ?? risposta.cella,
+            giorni: risposta.giorni.where((g) => g.data.isBefore(oggi)).toList(),
+            ore: risposta.ore
+                .where((o) => oreNecessarie.contains(o.dataOra.millisecondsSinceEpoch))
+                .toList(),
+          );
         }
 
         if (cella == null) {
@@ -220,14 +208,12 @@ class MeteoService {
     }
     final risposta = await _richiedi(
       _hostPrevisioni,
-      _pathPrevisioni,
       {
         'latitude': '$latitudine',
         'longitude': '$longitudine',
         'forecast_days': '$giorni',
         ..._parametriComuni,
       },
-      FonteMeteo.previsione,
     );
     return PrevisioniMeteo(
       cella: risposta.cella,
@@ -259,16 +245,13 @@ class MeteoService {
     required double longitudine,
     required DateTime da,
     required DateTime a,
-    required FonteMeteo fonte,
   }) {
     // Un giorno di margine per lato: Open-Meteo calcola i confini delle ore
     // con lo scarto orario del momento della richiesta, quindi a cavallo del
     // cambio dell'ora legale la prima o l'ultima ora necessaria potrebbe
     // restare fuori. I giorni in più sono semplicemente archiviati.
-    final archivio = fonte == FonteMeteo.archivio;
     return _richiedi(
-      archivio ? _hostArchivio : _hostPrevisioni,
-      archivio ? _pathArchivio : _pathPrevisioni,
+      _hostStorico,
       {
         'latitude': '$latitudine',
         'longitude': '$longitudine',
@@ -276,17 +259,14 @@ class MeteoService {
         'end_date': DbMappers.formatData(a.add(const Duration(days: 1))),
         ..._parametriComuni,
       },
-      fonte,
     );
   }
 
   Future<_RispostaMeteo> _richiedi(
     String host,
-    String path,
     Map<String, String> parametri,
-    FonteMeteo fonte,
   ) async {
-    final risposta = await _client.get(Uri.https(host, path, parametri));
+    final risposta = await _client.get(Uri.https(host, _path, parametri));
     final Object? corpo;
     try {
       corpo = jsonDecode(risposta.body);
@@ -300,7 +280,7 @@ class MeteoService {
       );
     }
     try {
-      return _interpreta(corpo, fonte);
+      return _interpreta(corpo);
     } on TypeError {
       throw const MeteoServiceException('Formato della risposta non previsto');
     }
@@ -309,16 +289,17 @@ class MeteoService {
   /// Converte la risposta JSON di Open-Meteo nei modelli dell'app.
   /// Giorni e ore senza nessun valore vengono scartati: restano mancanti e
   /// verranno richiesti di nuovo in seguito.
-  _RispostaMeteo _interpreta(Map<String, dynamic> json, FonteMeteo fonte) {
+  _RispostaMeteo _interpreta(Map<String, dynamic> json) {
     final lat = json['latitude'];
     final lon = json['longitude'];
-    if (lat is! num || lon is! num) {
-      throw const MeteoServiceException('Coordinate della cella assenti');
+    final quota = json['elevation'];
+    if (lat is! num || lon is! num || quota is! num) {
+      throw const MeteoServiceException('Coordinate o quota della cella assenti');
     }
     final cella = CellaMeteo(
       latitudine: lat.toDouble(),
       longitudine: lon.toDouble(),
-      elevazione: (json['elevation'] as num?)?.toDouble(),
+      elevazione: quota.toDouble(),
     );
     final scarto = Duration(seconds: (json['utc_offset_seconds'] as num?)?.toInt() ?? 0);
 
@@ -341,7 +322,6 @@ class MeteoService {
           vento: _valore(orario, 'wind_speed_10m', i),
           raffica: _valore(orario, 'wind_gusts_10m', i),
           direzioneVento: _valore(orario, 'wind_direction_10m', i)?.round(),
-          fonte: fonte,
         );
         if (ora.pressione != null) {
           final locale = istante.add(scarto);
@@ -384,7 +364,6 @@ class MeteoService {
           ventoMax: _valore(giornaliero, 'wind_speed_10m_max', i),
           rafficaMax: _valore(giornaliero, 'wind_gusts_10m_max', i),
           direzioneVento: _valore(giornaliero, 'wind_direction_10m_dominant', i)?.round(),
-          fonte: fonte,
         );
         if (_haValori([giorno.pioggiaMm, giorno.tempMin, giorno.tempMax])) {
           giorni.add(giorno);
