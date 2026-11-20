@@ -37,7 +37,7 @@ void main() {
       retry: (tentativo, errore) => null,
     );
     // Il modulo resta aperto per tutto il test (come la schermata).
-    container.listen(moduloPescataProvider, (_, _) {});
+    container.listen(moduloPescataProvider(null), (_, _) {});
 
     final territorio = container.read(territorioRepositoryProvider);
     await territorio.inserisciCategoria(const Categoria(nome: 'Valle'));
@@ -63,8 +63,8 @@ void main() {
     await dbHelper.close();
   });
 
-  BozzaPescata bozza() => container.read(moduloPescataProvider);
-  ModuloPescataNotifier modulo() => container.read(moduloPescataProvider.notifier);
+  BozzaPescata bozza() => container.read(moduloPescataProvider(null));
+  ModuloPescataNotifier modulo() => container.read(moduloPescataProvider(null).notifier);
 
   group('Modulo pescata - Controlli', () {
     test('la bozza parte da oggi; senza spot e fascia oraria non si salva', () async {
@@ -120,7 +120,7 @@ void main() {
     test('le condizioni dipendono dall\'ambiente: cambiandolo i valori scelti si tolgono', () async {
       final m = modulo();
       m.impostaSpot('Valsecca', 'Torrente');
-      final condizioni = await container.read(condizioniPerAmbienteProvider('Torrente').future);
+      final condizioni = await container.read(condizioniPerFormProvider((ambiente: 'Torrente', pescataId: null)).future);
       expect(condizioni.map((c) => c.nome), containsAll(['Livello', 'Trasparenza', 'Fondo', 'Meteo']));
       final livello = condizioni.firstWhere((c) => c.nome == 'Livello');
       final morbida = livello.valori.firstWhere((v) => v.nome == 'Morbida');
@@ -136,7 +136,7 @@ void main() {
       expect(bozza().valori, hasLength(1));
       m.impostaSpot('Lago Nero', 'Lago');
       expect(bozza().valori, isEmpty);
-      final delLago = await container.read(condizioniPerAmbienteProvider('Lago').future);
+      final delLago = await container.read(condizioniPerFormProvider((ambiente: 'Lago', pescataId: null)).future);
       expect(delLago.map((c) => c.nome), ['Meteo']);
     });
 
@@ -181,7 +181,7 @@ void main() {
       m.impostaSpot('Valsecca', 'Torrente');
       m.impostaData(DateTime(2026, 2, 18));
       m.impostaFascia(FasciaOraria.mattina);
-      final livello = (await container.read(condizioniPerAmbienteProvider('Torrente').future))
+      final livello = (await container.read(condizioniPerFormProvider((ambiente: 'Torrente', pescataId: null)).future))
           .firstWhere((c) => c.nome == 'Livello');
       m.impostaValore(livello, livello.valori.firstWhere((v) => v.nome == 'Normale'));
       m.impostaTempAcqua('7');

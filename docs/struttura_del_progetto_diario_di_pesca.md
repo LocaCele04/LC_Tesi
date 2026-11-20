@@ -147,12 +147,15 @@ diario_pesca/
 │   │   ├── state/
 │   │   │   ├── dipendenze.dart        # Provider di database, repository, servizi, orologio
 │   │   │   ├── spot_state.dart        # Stato degli spot (schema di riferimento)
-│   │   │   ├── pescate_state.dart     # Elenco delle pescate
+│   │   │   ├── pescate_state.dart     # Pescate: elenco, dettaglio, totali, meteo
 │   │   │   ├── catalogo_state.dart    # Esche, specie, caratteristiche, condizioni
 │   │   │   ├── modulo_pescata_state.dart  # Bozza del modulo "Registra pescata"
 │   │   │   ├── modulo_spot_state.dart # Bozza del modulo dello spot, lettura dei punti
 │   │   │   └── bozza_non_valida.dart  # Errore comune dei moduli
 │   │   ├── screens/
+│   │   │   ├── home_screen.dart       # Barra in basso: Pescate | Spot
+│   │   │   ├── elenco_pescate_screen.dart
+│   │   │   ├── scheda_pescata_screen.dart
 │   │   │   ├── elenco_spot_screen.dart
 │   │   │   ├── modulo_spot_screen.dart
 │   │   │   └── registra_pescata_screen.dart
@@ -165,6 +168,7 @@ diario_pesca/
 ├── test/
 │   ├── catalogo_repository_test.dart
 │   ├── database_integrita_test.dart
+│   ├── elenco_pescate_screen_test.dart
 │   ├── elenco_spot_screen_test.dart
 │   ├── modulo_pescata_test.dart
 │   ├── modulo_spot_screen_test.dart
@@ -173,10 +177,13 @@ diario_pesca/
 │   ├── meteo_service_test.dart
 │   ├── obiettivi_repository_test.dart
 │   ├── pescate_repository_test.dart
+│   ├── pescate_state_test.dart
 │   ├── registra_pescata_screen_test.dart
 │   ├── spot_state_test.dart
 │   ├── statistiche_service_test.dart
-│   └── territorio_repository_test.dart
+│   ├── territorio_repository_test.dart
+│   └── supporto/
+│       └── open_meteo_finto.dart      # Risposta finta di Open-Meteo per i test
 ├── scriptCopiaDB.bat                  # Copia il database dal telefono al PC (per DBeaver)
 └── pubspec.yaml
 ```
@@ -241,7 +248,7 @@ I modelli identificano le righe del database in due modi.
 Un repository per area del dominio; la tabella in §1.2 indica quali tabelle scrive ciascuno.
 
 * **`TerritorioRepository`**: categorie, ambienti, spot e coordinate GPS, con il calcolo automatico della lunghezza del tratto (formula di Haversine), lo spostamento degli spot tra categorie e, prima di cambiare l'ambiente di uno spot, l'elenco delle condizioni usate dalle sue pescate e non previste dal nuovo ambiente (`getCondizioniNonPreviste`).
-* **`PescateRepository`**: pescate complete (salvate in modo atomico con valori delle condizioni, esche, foto, riepiloghi, dettagli e catture memorabili), catture memorabili e pianificazioni, con il filtro delle pescate per valori di condizione. Garantisce lo spot obbligatorio, un solo valore per condizione, il vincolo dettaglio ≤ totale e la pulizia dei file immagine non più usati.
+* **`PescateRepository`**: pescate complete (salvate in modo atomico con valori delle condizioni, esche, foto, riepiloghi, dettagli e catture memorabili), catture memorabili e pianificazioni, con il filtro delle pescate per valori di condizione e i totali delle catture di ogni pescata per gli elenchi (`getTotaliCatture`). Garantisce lo spot obbligatorio, un solo valore per condizione, il vincolo dettaglio ≤ totale e la pulizia dei file immagine non più usati.
 * **`CatalogoRepository`**: specie, caratteristiche, esche e condizioni (con valori, attivazione, collegamenti agli ambienti, copia dei collegamenti da un altro ambiente e le condizioni da mostrare nel form di una pescata, `getCondizioniPerForm`); offre agli altri repository la creazione al volo di esche e caratteristiche dentro una transazione esistente, con il controllo dei nomi già usati (`NomeDuplicatoException`), e all'interfaccia la ricerca per nome (`getEscaPerNome`, `getCaratteristicaPerNome`).
 * **`ObiettiviRepository`**: obiettivi annuali.
 * **`MeteoRepository`**: archivio dei dati meteo storici. Indica quali pescate sono da scaricare e con quale punto, quale cella è già nota per un punto e quali giorni e ore mancano in archivio; salva i dati scaricati (un dato riscaricato sostituisce il precedente); calcola lo stato del meteo di una pescata e ne restituisce i dati. Non accede alla rete.
@@ -273,24 +280,29 @@ La gestione dello stato usa **Riverpod 3**; motivazioni, alternative e regole d'
 * **`state/`**: i provider. È l'unico punto in cui lo stato è mutabile: i modelli restano immutabili e ogni modifica confermata dall'utente passa da un repository o da un servizio.
   * `dipendenze.dart`: un provider per il database, ogni repository e ogni servizio, creati una sola volta. Nei test basta sostituire `databaseHelperProvider` con un database in memoria.
   * `spot_state.dart`: stato degli spot ed **esempio di riferimento** per le altre aree. `elencoSpotProvider` (elenco con i metodi `salva` ed `elimina`, che chiamano il repository e invalidano elenco, dettagli e pescate), `dettaglioSpotProvider` (spot con coordinate, `autoDispose`), `categorieProvider` e `ambientiProvider`.
-  * `pescate_state.dart`: `elencoPescateProvider`, con `salva` ed `elimina`. Salvare una pescata ricarica anche gli spot (lo spot diventa *battuto*) e le esche (un'esca scritta al momento entra nel catalogo).
-  * `catalogo_state.dart`: esche, specie (con l'aggiunta di una specie dal modulo), caratteristiche di una specie e condizioni previste per un ambiente.
+  * `pescate_state.dart`: `elencoPescateProvider`, con `salva` ed `elimina`. Salvare una pescata ricarica anche gli spot (lo spot diventa *battuto*), le esche (un'esca scritta al momento entra nel catalogo), il dettaglio e il meteo della pescata. `totaliCattureProvider` e `pescateSenzaMeteoProvider` *dipendono* dall'elenco: si ricalcolano da soli quando l'elenco viene ricaricato, senza invalidazioni esplicite. `dettaglioPescataProvider`, `meteoPescataProvider` e `pioggiaCumulataProvider` (pioggia dei giorni precedenti, dallo `StatisticheService`) servono la scheda. `aggiornamentoMeteoProvider` scarica il meteo mancante con il `MeteoService` e ne tiene l'esito; mentre scarica è in caricamento.
+  * `catalogo_state.dart`: esche, specie (con l'aggiunta di una specie dal modulo), caratteristiche di una specie, condizioni del modulo per un ambiente (`condizioniPerFormProvider`, che per una pescata già salvata include anche le condizioni che usa) e nomi delle condizioni per id.
   * `modulo_spot_state.dart`: il modulo dello spot, nuovo o da modificare. `BozzaSpot` (nome, categoria, ambiente, difficoltà, accessibilità, voto, punti del tratto, lunghezza scritta a mano usata solo con meno di due punti, note e link del parcheggio) con `errori()` e `inSpot()`; `ModuloSpotNotifier` (`autoDispose`, una bozza per spot) con un metodo per ogni modifica, `salva()` ed `elimina()`. Se cambia l'ambiente di uno spot, `condizioniDaCollegare()` restituisce le condizioni già usate nelle sue pescate ma non previste per il nuovo ambiente, che l'utente può collegare al salvataggio. `leggiCoordinata()` riconosce un punto incollato da Google Maps: due numeri (con punto o virgola decimale), gradi-primi-secondi o un link completo; i link brevi `maps.app.goo.gl` non contengono le coordinate.
   * `bozza_non_valida.dart`: l'errore `BozzaNonValida`, comune ai moduli, con i problemi in parole per l'utente.
-  * `modulo_pescata_state.dart`: il modulo *Registra pescata*. `BozzaPescata` è la bozza immutabile (spot e ambiente, data, fascia oraria, valori delle condizioni, esche, catture per specie con le caratteristiche, temperature e note); `errori()` restituisce i problemi in parole per l'utente, `inPescata()` la pescata da salvare. `ModuloPescataNotifier` (`autoDispose`) ha un metodo per ogni modifica e `salva()`. Cambiando lo spot verso un altro ambiente i valori delle condizioni si tolgono; cambiando la specie di una riga si tolgono le sue caratteristiche; un'esca nuova con il nome di una esistente seleziona quella.
+  * `modulo_pescata_state.dart`: il modulo della pescata, nuova o da modificare. `moduloPescataProvider` è una *family*: `null` per una pescata nuova, `(pescata: …, ambiente: …)` per modificarne una; in modifica la bozza parte dai dati salvati e conserva id, foto e catture memorabili, che il modulo non tocca. Una pescata rimasta senza spot (spot eliminato) si modifica senza doverne scegliere uno. `BozzaPescata` è la bozza immutabile (spot e ambiente, data, fascia oraria, valori delle condizioni, esche, catture per specie con le caratteristiche, temperature e note); `errori()` restituisce i problemi in parole per l'utente, `inPescata()` la pescata da salvare. `ModuloPescataNotifier` (`autoDispose`) ha un metodo per ogni modifica e `salva()`. Cambiando lo spot verso un altro ambiente i valori delle condizioni si tolgono; cambiando la specie di una riga si tolgono le sue caratteristiche; un'esca nuova con il nome di una esistente seleziona quella.
 * **`widgets/`**: componenti riutilizzabili. `VistaAsincrona` mostra un dato asincrono nei suoi tre stati: caricamento, errore con pulsante *Riprova*, dati; `sezioneAsincrona` è la versione compatta per una sezione di un modulo. `mostraProblemi` e `chiediConferma` sono i dialoghi comuni; `chiediNome` chiede un nome in un dialogo; `etichette.dart` contiene i testi per l'utente (fasce orarie, date in italiano).
 * **`screens/`**: le schermate.
-  * `ElencoSpotScreen` mostra gli spot con ambiente, categoria e stato *battuto*, e si aggiorna trascinando verso il basso. Oggi è la schermata iniziale dell'app: toccando uno spot lo si modifica, il pulsante in alto crea uno spot nuovo e *Nuova pescata* apre il modulo della pescata.
+  * `HomeScreen`: schermata iniziale, con la barra in basso che passa tra *Pescate* e *Spot*; le due sezioni restano in memoria e non perdono la posizione.
+  * `ElencoPescateScreen`: pescate dalla più recente, divise per mese, con data, fascia, spot (o *Spot eliminato*), totale delle catture e l'icona del meteo da scaricare. *Nuova pescata* apre il modulo; il pulsante in alto scarica il meteo mancante e ne descrive l'esito.
+  * `SchedaPescataScreen`: spot, data e fascia, catture per specie con le caratteristiche e il totale, condizioni, temperature, esche, note e meteo. Il meteo mostra lo stato: *non disponibile* (spot senza coordinate), *da scaricare* (con il pulsante per scaricarlo, solo per giornate concluse) o i dati del giorno (temperatura minima e massima, pioggia, vento, pressione) con la pioggia dei 3, 7 e 14 giorni precedenti, la quota della zona e l'attribuzione richiesta da Open-Meteo. Dalla barra in alto si modifica (riapre il modulo con i dati salvati) o si elimina, con conferma.
+  * `ElencoSpotScreen` mostra gli spot con ambiente, categoria e stato *battuto*, e si aggiorna trascinando verso il basso: toccando uno spot lo si modifica, *Nuovo spot* ne crea uno.
   * `ModuloSpotScreen` (nuovo spot o modifica, aperto per nome con `ModificaSpotScreen`): nome, categoria (con aggiunta di una categoria nuova), ambiente, difficoltà, accessibilità, voto, punti del tratto (incollati, con riordino e rimozione; il primo è quello del meteo), lunghezza calcolata o scritta a mano, esposizione, punti complicati, note e link del parcheggio. Cambiando l'ambiente propone di collegare le condizioni già usate nelle pescate; l'eliminazione chiede conferma. Si chiude restituendo lo spot salvato. Il disegno del tratto sulla mappa ([REQ-FUN-01]) arriverà con la mappa.
-  * `RegistraPescataScreen` ([REQ-FUN-06], [REQ-FUN-07]): spot con ricerca per nome, data (non futura), fascia oraria, condizioni dell'ambiente dello spot, temperature, esche (con ricerca e aggiunta di un'esca nuova), catture per specie con totale e caratteristiche, totale della pescata e note. Salvando, i problemi vengono elencati in un dialogo. Il pulsante *Nuovo spot* apre il modulo dello spot e sceglie subito lo spot creato. Mancano ancora le foto e le catture memorabili (servono il `FotoService`).
+  * `RegistraPescataScreen` ([REQ-FUN-06], [REQ-FUN-07]), per una pescata nuova o da modificare: spot con ricerca per nome, data (non futura), fascia oraria, condizioni dell'ambiente dello spot, temperature, esche (con ricerca e aggiunta di un'esca nuova), catture per specie con totale e caratteristiche, totale della pescata e note. Salvando, i problemi vengono elencati in un dialogo. Il pulsante *Nuovo spot* apre il modulo dello spot e sceglie subito lo spot creato. Mancano ancora le foto e le catture memorabili (servono il `FotoService`).
 
 L'interfaccia è in italiano anche nei componenti di Flutter (calendario, dialoghi) grazie a `flutter_localizations`.
 
 Nell'app e nei test i nuovi tentativi automatici di Riverpod sono disattivati: un errore viene mostrato subito e l'utente può riprovare.
 
+Il manifesto Android dichiara il permesso `INTERNET`, necessario alla versione di rilascio per scaricare il meteo (la versione di debug lo ha già).
+
 ### 4.6 `test/` — Test automatici
 Una suite per componente, descritte nel `registro_dei_test_automatici.md`:
-`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`, `spot_state_test.dart`, `modulo_pescata_test.dart` e `modulo_spot_test.dart` (stato dell'interfaccia), `elenco_spot_screen_test.dart`, `registra_pescata_screen_test.dart` e `modulo_spot_screen_test.dart` (schermate).
+`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`, `spot_state_test.dart`, `pescate_state_test.dart`, `modulo_pescata_test.dart` e `modulo_spot_test.dart` (stato dell'interfaccia), `elenco_spot_screen_test.dart`, `elenco_pescate_screen_test.dart`, `registra_pescata_screen_test.dart` e `modulo_spot_screen_test.dart` (schermate). La risposta finta di Open-Meteo usata da più suite sta in `test/supporto/`.
 
 ---
 

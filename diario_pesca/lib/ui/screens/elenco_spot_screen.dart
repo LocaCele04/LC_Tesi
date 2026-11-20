@@ -5,10 +5,10 @@ import '../../models/territorio/spot.dart';
 import '../state/spot_state.dart';
 import '../widgets/vista_asincrona.dart';
 import 'modulo_spot_screen.dart';
-import 'registra_pescata_screen.dart';
 
-/// Elenco degli spot. Prima schermata realizzata con Riverpod: osserva
-/// [elencoSpotProvider] e si ridisegna da sola quando gli spot cambiano.
+/// Elenco degli spot (scheda "Spot" della schermata principale). Osserva
+/// [elencoSpotProvider] e si ridisegna da sola quando gli spot cambiano;
+/// toccando uno spot lo si modifica.
 class ElencoSpotScreen extends ConsumerWidget {
   const ElencoSpotScreen({super.key});
 
@@ -17,22 +17,11 @@ class ElencoSpotScreen extends ConsumerWidget {
     final elenco = ref.watch(elencoSpotProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Spot'),
-        actions: [
-          IconButton(
-            tooltip: 'Nuovo spot',
-            onPressed: () => _nuovoSpot(context),
-            icon: const Icon(Icons.add_location_alt_outlined),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Spot')),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const RegistraPescataScreen()),
-        ),
-        icon: const Icon(Icons.add),
-        label: const Text('Nuova pescata'),
+        onPressed: () => _nuovoSpot(context),
+        icon: const Icon(Icons.add_location_alt_outlined),
+        label: const Text('Nuovo spot'),
       ),
       body: VistaAsincrona<List<Spot>>(
         valore: elenco,

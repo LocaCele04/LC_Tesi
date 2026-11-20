@@ -51,6 +51,9 @@ class BozzaCattura {
 /// temperature restano testo finché non si salva, così un valore scritto a
 /// metà ("12,") non viene perso né trasformato.
 class BozzaPescata {
+  /// Pescata che si sta modificando, `null` per una pescata nuova. Da qui
+  /// vengono id, foto e catture memorabili, che il modulo non modifica.
+  final Pescata? originale;
   final String? spotNome;
 
   /// Ambiente dello spot scelto: decide quali condizioni compilare.
@@ -67,6 +70,7 @@ class BozzaPescata {
   final String note;
 
   const BozzaPescata({
+    this.originale,
     this.spotNome,
     this.ambiente,
     required this.data,
@@ -78,6 +82,37 @@ class BozzaPescata {
     this.tempAria = '',
     this.note = '',
   });
+
+  /// Bozza per modificare [pescata], salvata in uno spot di [ambiente]
+  /// (`null` se la pescata non ha più uno spot).
+  factory BozzaPescata.da(Pescata pescata, String? ambiente) => BozzaPescata(
+        originale: pescata,
+        spotNome: pescata.spotNome,
+        ambiente: ambiente,
+        data: pescata.data,
+        fasciaOraria: pescata.fasciaOraria,
+        valori: {
+          for (final v in pescata.valoriCondizioni)
+            if (v.condizioneId != null) v.condizioneId!: v,
+        },
+        esche: pescata.esche,
+        catture: [
+          for (var i = 0; i < pescata.riepiloghiSpecie.length; i++)
+            BozzaCattura(
+              chiave: i,
+              specieNome: pescata.riepiloghiSpecie[i].specieNome,
+              totale: pescata.riepiloghiSpecie[i].quantita,
+              dettagli: {
+                for (final d in pescata.riepiloghiSpecie[i].dettagli) d.caratteristica: d.quantita,
+              },
+            ),
+        ],
+        tempAcqua: _testo(pescata.tempAcqua),
+        tempAria: _testo(pescata.tempAria),
+        note: pescata.note ?? '',
+      );
+
+  bool get isNuova => originale == null;
 
   BozzaPescata copyWith({
     String? spotNome,
@@ -92,6 +127,7 @@ class BozzaPescata {
     String? note,
   }) {
     return BozzaPescata(
+      originale: originale,
       spotNome: spotNome ?? this.spotNome,
       ambiente: ambiente ?? this.ambiente,
       data: data ?? this.data,
@@ -114,7 +150,8 @@ class BozzaPescata {
   /// Vuoto se la bozza si può salvare.
   List<String> errori({DateTime? oggi}) {
     final problemi = <String>[];
-    if (spotNome == null) problemi.add('Scegli lo spot.');
+    // Una pescata già salvata può non avere più lo spot (spot eliminato).
+    if (spotNome == null && isNuova) problemi.add('Scegli lo spot.');
     if (fasciaOraria == null) problemi.add('Scegli la fascia oraria.');
 
     final adesso = oggi ?? DateTime.now();
@@ -152,6 +189,9 @@ class BozzaPescata {
   Pescata inPescata() {
     final noteTrim = note.trim();
     return Pescata(
+      id: originale?.id,
+      foto: originale?.foto ?? const [],
+      cattureMemorabili: originale?.cattureMemorabili ?? const [],
       data: data,
       fasciaOraria: fasciaOraria!,
       spotNome: spotNome,
@@ -193,6 +233,11 @@ class BozzaPescata {
     }
   }
 
+  static String _testo(double? valore) {
+    if (valore == null) return '';
+    return valore == valore.roundToDouble() ? '${valore.round()}' : '$valore';
+  }
+
   /// Numero scritto dall'utente, con la virgola o con il punto.
   static double? _numero(String testo) {
     final pulito = testo.trim().replaceAll(',', '.');
@@ -204,17 +249,33 @@ bool _stessaEsca(Esca a, Esca b) => a.id != null && b.id != null
     ? a.id == b.id
     : a.nome.trim().toLowerCase() == b.nome.trim().toLowerCase();
 
-/// Stato del modulo "Registra pescata". È `autoDispose`: chiudendo la
-/// schermata la bozza viene scartata e la prossima apertura riparte vuota.
-final moduloPescataProvider = NotifierProvider.autoDispose<ModuloPescataNotifier, BozzaPescata>(
+/// Pescata da modificare con l'ambiente del suo spot (`null` se la pescata
+/// non ha più uno spot). Il modulo di una pescata nuova si apre con `null`.
+typedef AperturaPescata = ({Pescata pescata, String? ambiente});
+
+/// Stato del modulo della pescata: `moduloPescataProvider(null)` per una
+/// pescata nuova, `moduloPescataProvider((pescata: p, ambiente: a))` per
+/// modificarne una. È `autoDispose`: chiudendo la schermata la bozza viene
+/// scartata e la prossima apertura riparte dai dati salvati.
+final moduloPescataProvider =
+    NotifierProvider.autoDispose.family<ModuloPescataNotifier, BozzaPescata, AperturaPescata?>(
   ModuloPescataNotifier.new,
 );
 
 class ModuloPescataNotifier extends Notifier<BozzaPescata> {
+  ModuloPescataNotifier(this.apertura);
+
+  final AperturaPescata? apertura;
   int _prossimaChiave = 0;
 
   @override
   BozzaPescata build() {
+    final daModificare = apertura;
+    if (daModificare != null) {
+      final bozza = BozzaPescata.da(daModificare.pescata, daModificare.ambiente);
+      _prossimaChiave = bozza.catture.length;
+      return bozza;
+    }
     final oggi = ref.read(orologioProvider)();
     return BozzaPescata(data: DateTime(oggi.year, oggi.month, oggi.day));
   }

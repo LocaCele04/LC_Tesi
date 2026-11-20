@@ -329,7 +329,7 @@ class ModuloSpotNotifier extends Notifier<BozzaSpot> {
         for (final c in previste) c.id!,
         for (final c in collega) c.id!,
       ]);
-      ref.invalidate(condizioniPerAmbienteProvider);
+      ref.invalidate(condizioniPerFormProvider);
     }
     await ref.read(elencoSpotProvider.notifier).salva(spot, nomeOriginale: state.nomeOriginale);
     return spot;

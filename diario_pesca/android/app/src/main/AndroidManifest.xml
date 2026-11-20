@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Scaricamento del meteo da Open-Meteo: senza questo permesso la
+         versione di rilascio non può usare la rete (quella di debug sì). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="diario_pesca"
         android:name="${applicationName}"

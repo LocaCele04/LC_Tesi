@@ -22,7 +22,10 @@ import 'modulo_spot_screen.dart';
 /// lo mostra e inoltra le modifiche. Le foto e le catture memorabili si
 /// aggiungeranno quando sarà pronto il `FotoService`.
 class RegistraPescataScreen extends ConsumerStatefulWidget {
-  const RegistraPescataScreen({super.key});
+  const RegistraPescataScreen({super.key, this.apertura});
+
+  /// Pescata da modificare; `null` per registrarne una nuova.
+  final AperturaPescata? apertura;
 
   @override
   ConsumerState<RegistraPescataScreen> createState() => _RegistraPescataScreenState();
@@ -37,7 +40,7 @@ class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
     List<String>? problemi;
     setState(() => _salvataggioInCorso = true);
     try {
-      await ref.read(moduloPescataProvider.notifier).salva();
+      await ref.read(moduloPescataProvider(widget.apertura).notifier).salva();
       messaggi.showSnackBar(const SnackBar(content: Text('Pescata salvata')));
       navigatore.pop();
     } on BozzaNonValida catch (e) {
@@ -54,17 +57,19 @@ class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bozza = ref.watch(moduloPescataProvider);
-    final modulo = ref.read(moduloPescataProvider.notifier);
+    final bozza = ref.watch(moduloPescataProvider(widget.apertura));
+    final modulo = ref.read(moduloPescataProvider(widget.apertura).notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nuova pescata')),
+      appBar: AppBar(
+        title: Text(widget.apertura == null ? 'Nuova pescata' : 'Modifica pescata'),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          const _SceltaSpot(),
+          _SceltaSpot(widget.apertura),
           const SizedBox(height: 8),
-          const _CampoData(),
+          _CampoData(widget.apertura),
           const _Titolo('Fascia oraria'),
           Wrap(
             spacing: 8,
@@ -79,7 +84,7 @@ class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
             ],
           ),
           const _Titolo('Condizioni'),
-          const _Condizioni(),
+          _Condizioni(widget.apertura),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -112,9 +117,10 @@ class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
             ],
           ),
           const _Titolo('Esche usate'),
-          const _Esche(),
+          _Esche(widget.apertura),
           const _Titolo('Catture'),
-          for (final c in bozza.catture) _SchedaCattura(key: ValueKey(c.chiave), chiave: c.chiave),
+          for (final c in bozza.catture)
+            _SchedaCattura(key: ValueKey(c.chiave), chiave: c.chiave, apertura: widget.apertura),
           OutlinedButton.icon(
             onPressed: modulo.aggiungiCattura,
             icon: const Icon(Icons.add),
@@ -168,11 +174,13 @@ class _Titolo extends StatelessWidget {
 }
 
 class _SceltaSpot extends ConsumerWidget {
-  const _SceltaSpot();
+  const _SceltaSpot(this.apertura);
+
+  final AperturaPescata? apertura;
 
   /// Crea uno spot al momento ([REQ-FUN-06]) e lo sceglie per la pescata.
   Future<void> _nuovoSpot(BuildContext context, WidgetRef ref) async {
-    final modulo = ref.read(moduloPescataProvider.notifier);
+    final modulo = ref.read(moduloPescataProvider(apertura).notifier);
     final nuovo = await Navigator.of(context).push<Spot>(
       MaterialPageRoute(builder: (_) => const ModuloSpotScreen()),
     );
@@ -181,7 +189,7 @@ class _SceltaSpot extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final spotNome = ref.watch(moduloPescataProvider.select((b) => b.spotNome));
+    final spotNome = ref.watch(moduloPescataProvider(apertura).select((b) => b.spotNome));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -207,7 +215,7 @@ class _SceltaSpot extends ConsumerWidget {
               for (final s in spot) DropdownMenuEntry(value: s, label: s.nome),
             ],
             onSelected: (s) {
-              if (s != null) ref.read(moduloPescataProvider.notifier).impostaSpot(s.nome, s.ambiente);
+              if (s != null) ref.read(moduloPescataProvider(apertura).notifier).impostaSpot(s.nome, s.ambiente);
             },
           );
         }),
@@ -225,11 +233,13 @@ class _SceltaSpot extends ConsumerWidget {
 }
 
 class _CampoData extends ConsumerWidget {
-  const _CampoData();
+  const _CampoData(this.apertura);
+
+  final AperturaPescata? apertura;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final data = ref.watch(moduloPescataProvider.select((b) => b.data));
+    final data = ref.watch(moduloPescataProvider(apertura).select((b) => b.data));
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: const Icon(Icons.event),
@@ -244,23 +254,27 @@ class _CampoData extends ConsumerWidget {
           firstDate: DateTime(2000),
           lastDate: oggi,
         );
-        if (scelta != null) ref.read(moduloPescataProvider.notifier).impostaData(scelta);
+        if (scelta != null) ref.read(moduloPescataProvider(apertura).notifier).impostaData(scelta);
       },
     );
   }
 }
 
 class _Condizioni extends ConsumerWidget {
-  const _Condizioni();
+  const _Condizioni(this.apertura);
+
+  final AperturaPescata? apertura;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bozza = ref.watch(moduloPescataProvider);
+    final bozza = ref.watch(moduloPescataProvider(apertura));
     final ambiente = bozza.ambiente;
     if (ambiente == null) {
       return const Text('Scegli lo spot per vedere le condizioni del suo ambiente.');
     }
-    return sezioneAsincrona(ref.watch(condizioniPerAmbienteProvider(ambiente)), (condizioni) {
+    return sezioneAsincrona(ref.watch(
+      condizioniPerFormProvider((ambiente: ambiente, pescataId: bozza.originale?.id)),
+    ), (condizioni) {
       if (condizioni.isEmpty) {
         return Text('Nessuna condizione prevista per l\'ambiente $ambiente.');
       }
@@ -279,7 +293,7 @@ class _Condizioni extends ConsumerWidget {
                     label: Text(v.nome),
                     selected: bozza.valori[c.id]?.id == v.id,
                     onSelected: (_) =>
-                        ref.read(moduloPescataProvider.notifier).impostaValore(c, v),
+                        ref.read(moduloPescataProvider(apertura).notifier).impostaValore(c, v),
                   ),
               ],
             ),
@@ -292,7 +306,9 @@ class _Condizioni extends ConsumerWidget {
 }
 
 class _Esche extends ConsumerStatefulWidget {
-  const _Esche();
+  const _Esche(this.apertura);
+
+  final AperturaPescata? apertura;
 
   @override
   ConsumerState<_Esche> createState() => _EscheState();
@@ -304,13 +320,13 @@ class _EscheState extends ConsumerState<_Esche> {
   Future<void> _nuovaEsca(List<Esca> catalogo) async {
     final nome = await chiediNome(context, titolo: 'Nuova esca', etichetta: 'Nome dell\'esca');
     if (nome != null) {
-      ref.read(moduloPescataProvider.notifier).aggiungiEscaNuova(nome, catalogo);
+      ref.read(moduloPescataProvider(widget.apertura).notifier).aggiungiEscaNuova(nome, catalogo);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final bozza = ref.watch(moduloPescataProvider);
+    final bozza = ref.watch(moduloPescataProvider(widget.apertura));
     return sezioneAsincrona<List<Esca>>(ref.watch(escheProvider), (catalogo) {
       // Le esche scritte ora (non ancora nel catalogo) compaiono per prime.
       final tutte = [
@@ -363,7 +379,7 @@ class _EscheState extends ConsumerState<_Esche> {
                         title: Text(e.nome),
                         subtitle: e.isNuovo ? const Text('nuova') : null,
                         onChanged: (_) =>
-                            ref.read(moduloPescataProvider.notifier).alternaEsca(e),
+                            ref.read(moduloPescataProvider(widget.apertura).notifier).alternaEsca(e),
                       ),
                   ],
                 ),
@@ -382,9 +398,10 @@ class _EscheState extends ConsumerState<_Esche> {
 }
 
 class _SchedaCattura extends ConsumerWidget {
-  const _SchedaCattura({super.key, required this.chiave});
+  const _SchedaCattura({super.key, required this.chiave, required this.apertura});
 
   final int chiave;
+  final AperturaPescata? apertura;
 
   Future<void> _nuovaSpecie(BuildContext context, WidgetRef ref) async {
     final messaggi = ScaffoldMessenger.of(context);
@@ -392,7 +409,7 @@ class _SchedaCattura extends ConsumerWidget {
     if (nome == null) return;
     try {
       final salvata = await ref.read(specieProvider.notifier).aggiungi(nome);
-      ref.read(moduloPescataProvider.notifier).impostaSpecie(chiave, salvata);
+      ref.read(moduloPescataProvider(apertura).notifier).impostaSpecie(chiave, salvata);
     } catch (e) {
       messaggi.showSnackBar(SnackBar(content: Text('Specie non aggiunta: $e')));
     }
@@ -401,11 +418,11 @@ class _SchedaCattura extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cattura = ref.watch(
-      moduloPescataProvider.select((b) => _trova(b.catture, chiave)),
+      moduloPescataProvider(apertura).select((b) => _trova(b.catture, chiave)),
     );
     // La riga è appena stata tolta: la scheda sta per sparire.
     if (cattura == null) return const SizedBox.shrink();
-    final modulo = ref.read(moduloPescataProvider.notifier);
+    final modulo = ref.read(moduloPescataProvider(apertura).notifier);
     final specieNome = cattura.specieNome;
 
     return Card(

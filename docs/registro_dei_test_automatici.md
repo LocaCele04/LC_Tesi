@@ -1,6 +1,6 @@
 # Registro dei Test Automatici
 
-La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 14 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate.
+La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate.
 
 ## 1. `test/database_integrita_test.dart` (20 test)
 
@@ -141,3 +141,17 @@ Questa suite verifica la schermata `ModuloSpotScreen` senza database (spot, cate
 
 * per uno spot nuovo non c'è il pulsante di eliminazione e salvando il modulo vuoto compare il dialogo con nome, categoria e ambiente mancanti;
 * un testo che non è un punto mostra l'errore sotto il campo, mentre un punto valido viene aggiunto all'elenco come primo punto, quello del meteo.
+
+## 15. `test/pescate_state_test.dart` (4 test)
+
+Questa suite verifica lo stato delle pescate (`pescate_state.dart`) e il modulo della pescata in modifica, sul database in memoria, con una data di "oggi" fissa e un Open-Meteo finto (`test/supporto/open_meteo_finto.dart`, condiviso con `meteo_service_test.dart`): nessuna richiesta esce dal test.
+
+* **Elenco:** verifica che l'elenco sia dalla più recente e che i totali delle catture e le pescate con il meteo da scaricare si aggiornino da soli dopo un salvataggio e un'eliminazione; che scaricare il meteo faccia una sola richiesta, porti la pescata a *scaricato*, renda disponibile la pioggia dei giorni precedenti, svuoti l'elenco del meteo mancante e produca il messaggio per l'utente, e che un secondo aggiornamento non faccia richieste e dica che è già tutto scaricato.
+* **Modifica:** verifica che il modulo aperto su una pescata salvata parta dai suoi dati (spot, fascia, temperatura, note, valore della condizione, esca, catture con caratteristiche), che le condizioni del modulo includano quelle usate, che una riga aggiunta riceva una chiave nuova e che il salvataggio aggiorni la stessa pescata (stesso id, nessuna pescata in più, dettagli e totali aggiornati); che una pescata rimasta senza spot si possa modificare senza sceglierne uno.
+
+## 16. `test/elenco_pescate_screen_test.dart` (2 test)
+
+Questa suite verifica la schermata `ElencoPescateScreen` senza database (pescate, totali e meteo mancante preparati nel test):
+
+* le pescate compaiono divise per mese, con data e fascia, spot (o *Spot eliminato*), totale delle catture al singolare o al plurale e l'icona del meteo da scaricare solo dove serve;
+* senza pescate compare l'invito a registrarne una.

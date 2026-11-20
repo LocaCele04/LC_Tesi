@@ -41,9 +41,21 @@ final caratteristicheProvider = FutureProvider.family<List<Caratteristica>, Stri
       ref.watch(catalogoRepositoryProvider).getCaratteristiche(specieNome: specieNome),
 );
 
-/// Condizioni da compilare in una nuova pescata in uno spot dell'ambiente
-/// indicato, con i loro valori attivi.
-final condizioniPerAmbienteProvider = FutureProvider.autoDispose.family<List<Condizione>, String>(
-  (ref, ambiente) =>
-      ref.watch(catalogoRepositoryProvider).getCondizioniPerForm(ambienteNome: ambiente),
+/// Condizioni da compilare nel modulo di una pescata in uno spot di
+/// `ambiente`, con i loro valori attivi. Per una pescata già salvata
+/// (`pescataId`) ci sono anche le condizioni e i valori che usa, se nel
+/// frattempo sono stati disattivati o scollegati dall'ambiente.
+final condizioniPerFormProvider = FutureProvider.autoDispose
+    .family<List<Condizione>, ({String ambiente, int? pescataId})>(
+  (ref, richiesta) => ref.watch(catalogoRepositoryProvider).getCondizioniPerForm(
+        ambienteNome: richiesta.ambiente,
+        pescataId: richiesta.pescataId,
+      ),
 );
+
+/// Nome di ogni condizione, per id: serve a mostrare "Livello: Morbida"
+/// partendo dal solo valore salvato nella pescata.
+final nomiCondizioniProvider = FutureProvider<Map<int, String>>((ref) async {
+  final condizioni = await ref.watch(catalogoRepositoryProvider).getCondizioni();
+  return {for (final c in condizioni) c.id!: c.nome};
+});
