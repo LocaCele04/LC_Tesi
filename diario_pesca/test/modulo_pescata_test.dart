@@ -81,7 +81,6 @@ void main() {
       m.impostaFascia(FasciaOraria.alba);
       m.impostaData(DateTime(2026, 2, 21));
       m.impostaTempAcqua('40');
-      m.impostaTempAria('freddo');
       m.aggiungiCattura(); // senza specie e senza totale
       m.aggiungiCattura();
       m.aggiungiCattura();
@@ -95,7 +94,6 @@ void main() {
       expect(bozza().errori(oggi: oggi), [
         'La data non può essere nel futuro.',
         'La temperatura dell\'acqua deve essere tra 0 e 35 °C.',
-        'La temperatura dell\'aria non è un numero.',
         'Scegli la specie della riga 1 delle catture.',
         'Indica quante catture di specie n. 1 (o togli la riga).',
         '"Over 30" (Trota): 3 è più del totale (2).',
@@ -105,14 +103,12 @@ void main() {
       // Corretti i dati la bozza è valida; la virgola decimale è accettata
       m.impostaData(DateTime(2026, 2, 19));
       m.impostaTempAcqua('8,5');
-      m.impostaTempAria('');
       m.rimuoviCattura(righe[0].chiave);
       m.rimuoviCattura(righe[2].chiave);
       m.impostaTotale(righe[1].chiave, 7);
       expect(bozza().errori(oggi: oggi), isEmpty);
       expect(bozza().totaleCatture, 7);
       expect(bozza().inPescata().tempAcqua, 8.5);
-      expect(bozza().inPescata().tempAria, isNull);
     });
   });
 
@@ -169,6 +165,43 @@ void main() {
       expect(bozza().catture.single.dettagli, isEmpty);
       expect(bozza().catture.single.totale, 4);
     });
+
+    test('specie scritte al momento: esistenti, nuove e scartate solo con conferma', () async {
+      final m = modulo();
+      final catalogo = await container.read(specieProvider.future);
+      m.aggiungiCattura();
+      m.aggiungiCattura();
+      final prima = bozza().catture[0].chiave;
+      final seconda = bozza().catture[1].chiave;
+
+      // Corrisponde a una del catalogo: nessuna specie nuova
+      expect(m.aggiungiSpecieNuova(prima, ' TROTA ', catalogo), 'Trota');
+      expect(bozza().nuoveSpecie, isEmpty);
+
+      // Una nuova, poi riscritta in un'altra riga: non si duplica
+      expect(m.aggiungiSpecieNuova(prima, 'Salmerino', catalogo), 'Salmerino');
+      expect(m.aggiungiSpecieNuova(seconda, ' salmerino', catalogo), 'Salmerino');
+      expect(bozza().nuoveSpecie, ['Salmerino']);
+      // Usata da due righe: cambiarne una non la scarta
+      expect(m.specieScartata(prima, altra: 'Trota'), isNull);
+      m.impostaSpecie(prima, 'Trota');
+      expect(bozza().nuoveSpecie, ['Salmerino']);
+
+      // Ora la usa solo una riga: cambiarla o toglierla la scarterebbe
+      expect(m.specieScartata(seconda, altra: 'Temolo'), 'Salmerino');
+      expect(m.specieScartata(seconda), 'Salmerino');
+      expect(m.specieScartata(seconda, altra: 'Salmerino'), isNull);
+      expect(m.specieScartata(prima), isNull);
+      m.rimuoviCattura(seconda);
+      expect(bozza().nuoveSpecie, isEmpty);
+
+      // Nulla è entrato nel catalogo: la specie nasce solo salvando
+      expect(
+        (await container.read(catalogoRepositoryProvider).getSpecie()).map((s) => s.nome),
+        containsAll(['Trota', 'Temolo']),
+      );
+      expect(await container.read(catalogoRepositoryProvider).getSpecie(), hasLength(2));
+    });
   });
 
   group('Modulo pescata - Salvataggio', () {
@@ -221,6 +254,28 @@ void main() {
       expect(
         (await container.read(escheProvider.future)).map((e) => e.nome),
         ['Gomma verde 7 cm', 'Streamer nero'],
+      );
+    });
+
+    test('una specie nuova entra nel catalogo solo salvando la pescata', () async {
+      container.listen(specieProvider, (_, _) {});
+      final m = modulo();
+      m.impostaSpot('Valsecca', 'Torrente');
+      m.impostaData(DateTime(2026, 2, 18));
+      m.impostaFascia(FasciaOraria.alba);
+      m.aggiungiCattura();
+      final chiave = bozza().catture.single.chiave;
+      m.aggiungiSpecieNuova(chiave, '  Salmerino ', await container.read(specieProvider.future));
+      m.impostaTotale(chiave, 1);
+      expect(await container.read(catalogoRepositoryProvider).getSpecie(), hasLength(2));
+
+      final salvata = await m.salva();
+      final completa = await container.read(pescateRepositoryProvider).getPescataCompleta(salvata.id!);
+      expect(completa!.riepiloghiSpecie.single.specieNome, 'Salmerino');
+      // Il provider delle specie è già aggiornato
+      expect(
+        (await container.read(specieProvider.future)).map((s) => s.nome),
+        containsAll(['Trota', 'Temolo', 'Salmerino']),
       );
     });
   });

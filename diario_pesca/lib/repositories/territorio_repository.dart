@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:sqflite/sqflite.dart';
+
 import '../data/database_helper.dart';
 import '../data/db_mappers.dart';
 import '../data/query_condivise.dart';
@@ -229,32 +231,51 @@ class TerritorioRepository {
     final spotDaSalvare = spot.copyWith(lunghezzaMetri: lunghezzaEffettiva);
 
     await db.transaction((txn) async {
+      // Una categoria scritta al momento nel modulo dello spot nasce qui,
+      // con lo spot; se esiste già (anche con maiuscole diverse) si usa quella.
+      final categoria = await _assicuraCategoria(txn, spotDaSalvare.categoriaNome);
+      final salvato = spotDaSalvare.copyWith(categoriaNome: categoria);
+
       if (nomeOriginale == null) {
-        await txn.insert('Spot', DbMappers.spotToMap(spotDaSalvare));
+        await txn.insert('Spot', DbMappers.spotToMap(salvato));
       } else {
         await txn.update(
           'Spot',
-          DbMappers.spotToMap(spotDaSalvare),
+          DbMappers.spotToMap(salvato),
           where: 'nome = ?',
           whereArgs: [nomeOriginale],
         );
         await txn.delete(
           'Coordinata',
           where: 'spot_nome = ?',
-          whereArgs: [spotDaSalvare.nome],
+          whereArgs: [salvato.nome],
         );
       }
 
-      for (var i = 0; i < spotDaSalvare.coordinate.length; i++) {
-        final coord = spotDaSalvare.coordinate[i].copyWith(
-          spotNome: spotDaSalvare.nome,
+      for (var i = 0; i < salvato.coordinate.length; i++) {
+        final coord = salvato.coordinate[i].copyWith(
+          spotNome: salvato.nome,
           ordine: i,
         );
         await txn.insert('Coordinata', DbMappers.coordinataToMap(coord));
       }
 
-      await QueryCondivise.aggiornaStatoBattutoSpot(txn, spotDaSalvare.nome);
+      await QueryCondivise.aggiornaStatoBattutoSpot(txn, salvato.nome);
     });
+  }
+
+  Future<String> _assicuraCategoria(DatabaseExecutor txn, String nome) async {
+    final esistente = await txn.query(
+      'Categoria',
+      columns: ['nome'],
+      where: 'LOWER(TRIM(nome)) = LOWER(TRIM(?))',
+      whereArgs: [nome],
+      limit: 1,
+    );
+    if (esistente.isNotEmpty) return esistente.first['nome'] as String;
+    final pulito = nome.trim();
+    await txn.insert('Categoria', {'nome': pulito});
+    return pulito;
   }
 
   /// Condizioni compilate in almeno una pescata dello spot [spotNome] ma non

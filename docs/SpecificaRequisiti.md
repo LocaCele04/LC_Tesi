@@ -25,7 +25,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **Valore di condizione**: uno dei valori ammessi di una condizione, con una posizione nella scala della condizione (es. *Morbida* viene dopo *Normale* nel Livello).
 * **Spot**: luogo di pesca identificato da un nome, appartenente a una categoria, caratterizzato da un ambiente e da un tracciato geografico (tratto) che ne delimita l'estensione lungo il corso d'acqua.
 * **Tratto**: sequenza ordinata di coordinate geografiche (polilinea) che rappresenta il percorso fisico di uno spot lungo il torrente, analoga ai tracciati salvati in Google Earth.
-* **Pescata**: attività di pesca svolta in un singolo spot in una certa data e fascia oraria, con le condizioni registrate (es. meteo, livello dell'acqua), le temperature, il riepilogo delle catture, le esche utilizzate, le foto ed eventuali note. Un'uscita in cui si visitano più spot si registra come più pescate, una per spot.
+* **Pescata**: attività di pesca svolta in un singolo spot in una certa data e fascia oraria, con le condizioni registrate (es. meteo, livello dell'acqua), la temperatura dell'acqua, il riepilogo delle catture, le esche utilizzate, le foto ed eventuali note. Un'uscita in cui si visitano più spot si registra come più pescate, una per spot.
 * **Riepilogo specie**: numero di esemplari di una specie catturati in una pescata, eventualmente suddiviso per caratteristica (es. 12 trote, di cui 3 "over 30"). L'app non registra i singoli pesci catturati ma solo questi totali.
 * **Caratteristica**: aspetto che il pescatore vuole evidenziare per una specie, definito da lui nelle impostazioni (es. un colore, una misura come "over 35", un peso). Ogni caratteristica appartiene a una sola specie.
 * **Cattura memorabile**: singola cattura che il pescatore vuole ricordare, associata a una pescata, con specie, una o più foto, esca usata e caratteristiche soddisfatte. È già conteggiata nel riepilogo specie della pescata.
@@ -49,7 +49,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 ### 2.2 Funzionalità Principali del Prodotto
 * Gestione degli spot di pesca, organizzati in categorie, con relativo tracciato geografico (tratto) disegnabile manualmente sulla mappa dell'app.
-* Registrazione delle pescate, con data, fascia oraria, spot, condizioni personalizzabili (meteo, livello, trasparenza…), temperature, riepilogo delle catture per specie ed esche utilizzate.
+* Registrazione delle pescate, con data, fascia oraria, spot, condizioni personalizzabili (meteo, livello, trasparenza…), temperatura dell'acqua, riepilogo delle catture per specie ed esche utilizzate.
 * Allegato di fotografie alle pescate, alle catture memorabili e alle esche, con compressione automatica per contenere lo spazio occupato.
 * Registrazione delle catture memorabili, consultabili in un'apposita sezione.
 * Definizione di caratteristiche personalizzate per ciascuna specie di pesce.
@@ -119,7 +119,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Output / Risposta**: Nuovo spot salvato e visualizzato sulla mappa; messaggio di conferma del salvataggio.
 
 * **[REQ-FUN-02]** - *Should have*
-  * **Descrizione**: Il sistema dovrebbe permettere la modifica dei dati descrittivi di uno spot esistente (nome, categoria, ambiente, difficoltà, esposizione al sole, accessibilità, ostacoli, link parcheggio, note, voto) e del suo tratto.
+  * **Descrizione**: Il sistema dovrebbe permettere la modifica dei dati descrittivi di uno spot esistente (nome, categoria, ambiente, difficoltà, accessibilità, ostacoli, link parcheggio, note, voto) e del suo tratto.
   * **Input**: Selezione di uno spot esistente e nuovi valori per i campi modificabili.
   * **Output**: Scheda dello spot aggiornata con i nuovi valori; la rinomina dello spot si propaga a pescate, pianificazioni e coordinate collegate.
 
@@ -142,7 +142,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 #### 3.2.2 Gestione Pescate e Catture
 
 * **[REQ-FUN-06]** - *Must have*
-  * **Descrizione**: Il sistema deve permettere la registrazione di una nuova pescata, comprensiva di data, fascia oraria e spot frequentato; facoltativamente le condizioni previste per l'ambiente dello spot (es. meteo, livello, trasparenza, fondo, vedi [REQ-FUN-16]), la temperatura dell'acqua e dell'aria e note libere.
+  * **Descrizione**: Il sistema deve permettere la registrazione di una nuova pescata, comprensiva di data, fascia oraria e spot frequentato; facoltativamente le condizioni previste per l'ambiente dello spot (es. meteo, livello, trasparenza, fondo, vedi [REQ-FUN-16]), la temperatura dell'acqua e note libere. La temperatura dell'aria non si inserisce: la fornisce il meteo scaricato ([REQ-FUN-17]).
   * **Input**: Data, fascia oraria, spot selezionato dall'elenco degli spot esistenti (con possibilità di crearne uno al momento), un valore per ciascuna condizione che si vuole compilare, dati facoltativi e note testuali.
   * **Elaborazione**: Lo spot è obbligatorio: una pescata nuova non può essere salvata senza spot, e a una pescata esistente non si può togliere lo spot. Fa eccezione solo una pescata il cui spot è stato eliminato (vedi [REQ-DES-07]), che resta modificabile anche senza spot.
   * **Output**: Nuova pescata salvata e consultabile nello storico; lo spot risulta visitato (battuto).

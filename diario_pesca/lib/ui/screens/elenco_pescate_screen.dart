@@ -21,10 +21,10 @@ class ElencoPescateScreen extends ConsumerWidget {
     try {
       final esito = await ref.read(aggiornamentoMeteoProvider.notifier).aggiorna();
       if (esito != null) {
-        messaggi.showSnackBar(SnackBar(content: Text(descriviEsitoMeteo(esito))));
+        messaggi..clearSnackBars()..showSnackBar(SnackBar(content: Text(descriviEsitoMeteo(esito))));
       }
     } catch (e) {
-      messaggi.showSnackBar(SnackBar(content: Text('Meteo non scaricato: $e')));
+      messaggi..clearSnackBars()..showSnackBar(SnackBar(content: Text('Meteo non scaricato: $e')));
     }
   }
 

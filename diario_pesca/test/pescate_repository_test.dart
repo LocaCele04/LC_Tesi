@@ -123,7 +123,6 @@ void main() {
           data: DateTime(2026, 11, 10),
           fasciaOraria: FasciaOraria.alba,
           tempAcqua: 11.5,
-          tempAria: 8.0,
           spotNome: 'Ponte Vecchio',
           valoriCondizioni: [velato, velata, fondoNormale, morbida],
           esche: [esca1, esca2],
@@ -589,6 +588,32 @@ void main() {
       expect(aggiornato.dettagli.single.quantita, 3);
       expect(aggiornato.dettagli.single.caratteristica.nome, 'Livrea marmorata');
       expect(await db.query('DettaglioRiepilogo'), hasLength(1));
+    });
+
+    test('salvaPescata crea nella stessa transazione le specie scritte al momento', () async {
+      await inserisciSpotDiProva('Ponte Vecchio');
+      await catalogoRepo.inserisciSpecie(const Specie(nome: 'Trota'));
+
+      final salvata = await pescateRepo.salvaPescata(
+        Pescata(
+          data: DateTime(2026, 11, 13),
+          fasciaOraria: FasciaOraria.mattina,
+          spotNome: 'Ponte Vecchio',
+          riepiloghiSpecie: const [
+            // Esistente scritta con maiuscole e spazi diversi: usa quella
+            RiepilogoSpecie(specieNome: ' trota ', quantita: 2),
+            // Nuova: nasce con la pescata
+            RiepilogoSpecie(specieNome: '  Salmerino ', quantita: 1),
+          ],
+        ),
+      );
+
+      expect((await catalogoRepo.getSpecie()).map((s) => s.nome), ['Salmerino', 'Trota']);
+      final completa = await pescateRepo.getPescataCompleta(salvata.id!);
+      expect(
+        completa!.riepiloghiSpecie.map((r) => r.specieNome),
+        containsAll(['Trota', 'Salmerino']),
+      );
     });
 
     test('salvaPescata valida dettaglio <= totale e blocca caratteristiche o specie incoerenti', () async {

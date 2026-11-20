@@ -35,3 +35,9 @@ String formattaNumero(double valore, {int decimali = 1}) {
   final senzaZeri = testo.contains('.') ? testo.replaceFirst(RegExp(r'\.?0+$'), '') : testo;
   return senzaZeri.replaceAll('.', ',');
 }
+
+const _puntiCardinali = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+
+/// Punto cardinale (in italiano) da cui arriva il vento, dai gradi
+/// meteorologici: 0 = nord, 90 = est, 180 = sud, 270 = ovest.
+String puntoCardinale(int gradi) => _puntiCardinali[((gradi % 360) / 45).round() % 8];

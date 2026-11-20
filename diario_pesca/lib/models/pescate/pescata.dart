@@ -16,7 +16,6 @@ class Pescata {
   final DateTime data;
   final FasciaOraria fasciaOraria;
   final double? tempAcqua;
-  final double? tempAria;
   final String? note;
   final String? spotNome;
   final List<ValoreCondizione> valoriCondizioni;
@@ -30,7 +29,6 @@ class Pescata {
     required this.data,
     required this.fasciaOraria,
     this.tempAcqua,
-    this.tempAria,
     this.note,
     this.spotNome,
     this.valoriCondizioni = const [],
@@ -58,7 +56,6 @@ class Pescata {
     DateTime? data,
     FasciaOraria? fasciaOraria,
     double? tempAcqua,
-    double? tempAria,
     String? note,
     String? spotNome,
     List<ValoreCondizione>? valoriCondizioni,
@@ -72,7 +69,6 @@ class Pescata {
       data: data ?? this.data,
       fasciaOraria: fasciaOraria ?? this.fasciaOraria,
       tempAcqua: tempAcqua ?? this.tempAcqua,
-      tempAria: tempAria ?? this.tempAria,
       note: note ?? this.note,
       spotNome: spotNome ?? this.spotNome,
       valoriCondizioni: valoriCondizioni ?? this.valoriCondizioni,
@@ -95,7 +91,6 @@ class Pescata {
         other.data == data &&
         other.fasciaOraria == fasciaOraria &&
         other.tempAcqua == tempAcqua &&
-        other.tempAria == tempAria &&
         other.note == note &&
         other.spotNome == spotNome &&
         listeUguali(other.valoriCondizioni, valoriCondizioni) &&
@@ -111,7 +106,6 @@ class Pescata {
         data,
         fasciaOraria,
         tempAcqua,
-        tempAria,
         note,
         spotNome,
         Object.hashAll(valoriCondizioni),

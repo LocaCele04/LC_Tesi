@@ -538,6 +538,25 @@ class CatalogoRepository {
     return mappa;
   }
 
+  /// Restituisce il nome della specie [nome] come è salvato, creandola se
+  /// non esiste, dentro la transazione [txn]: è il caso di una specie scritta
+  /// al momento nel modulo di una pescata, che nasce solo se la pescata viene
+  /// salvata. Se esiste già con maiuscole o spazi diversi viene riusata
+  /// quella, senza creare un doppione.
+  Future<String> assicuraSpecieSalvata(DatabaseExecutor txn, String nome) async {
+    final esistente = await txn.query(
+      'Specie',
+      columns: ['nome'],
+      where: 'LOWER(TRIM(nome)) = LOWER(TRIM(?))',
+      whereArgs: [nome],
+      limit: 1,
+    );
+    if (esistente.isNotEmpty) return esistente.first['nome'] as String;
+    final pulito = nome.trim();
+    await txn.insert('Specie', {'nome': pulito});
+    return pulito;
+  }
+
   /// Restituisce l'esca con il suo id, creandola se è nuova, dentro la
   /// transazione [txn].
   ///

@@ -15,8 +15,9 @@ final escheProvider = FutureProvider<List<Esca>>(
   (ref) => ref.watch(catalogoRepositoryProvider).getEsche(),
 );
 
-/// Tutte le specie in ordine alfabetico, con l'aggiunta di una specie nuova
-/// direttamente dal modulo della pescata.
+/// Tutte le specie in ordine alfabetico. Una specie scritta al momento nel
+/// modulo della pescata non passa da qui: nasce con la pescata (vedi
+/// `ModuloPescataNotifier.aggiungiSpecieNuova`).
 final specieProvider = AsyncNotifierProvider<SpecieNotifier, List<Specie>>(
   SpecieNotifier.new,
 );
@@ -24,15 +25,6 @@ final specieProvider = AsyncNotifierProvider<SpecieNotifier, List<Specie>>(
 class SpecieNotifier extends AsyncNotifier<List<Specie>> {
   @override
   Future<List<Specie>> build() => ref.watch(catalogoRepositoryProvider).getSpecie();
-
-  /// Aggiunge la specie [nome] al catalogo e restituisce il nome salvato.
-  Future<String> aggiungi(String nome) async {
-    final pulito = nome.trim();
-    await ref.read(catalogoRepositoryProvider).inserisciSpecie(Specie(nome: pulito));
-    ref.invalidateSelf();
-    await future;
-    return pulito;
-  }
 }
 
 /// Caratteristiche di una specie (es. "Over 30" per la trota).

@@ -32,10 +32,21 @@ Widget _app() => ProviderScope(
 /// Lista principale del modulo (la prima tra quelle scorrevoli).
 final _lista = find.byType(Scrollable).first;
 
-/// Scorre fino a [cercato] e disegna il fotogramma, così il tocco successivo
-/// cade sull'elemento.
+/// Scorre il modulo finché [cercato] è sullo schermo, spostando direttamente
+/// la lista principale. Non si usa `scrollUntilVisible`: trascina dal centro
+/// della lista, e se lì capita un elemento scorrevole interno (l'elenco
+/// delle esche, un campo di testo) è quello a ricevere il trascinamento,
+/// la lista non si muove e l'elemento cercato non viene mai trovato.
+/// Il `pumpAndSettle` finale disegna il fotogramma, così un tocco subito
+/// dopo cade sull'elemento.
 Future<void> _scorriFino(WidgetTester tester, Finder cercato) async {
-  await tester.scrollUntilVisible(cercato, 300, scrollable: _lista);
+  final posizione = tester.state<ScrollableState>(_lista).position;
+  while (cercato.evaluate().isEmpty && posizione.pixels < posizione.maxScrollExtent) {
+    final prossima = posizione.pixels + 300;
+    posizione.jumpTo(prossima > posizione.maxScrollExtent ? posizione.maxScrollExtent : prossima);
+    await tester.pump();
+  }
+  await tester.ensureVisible(cercato);
   await tester.pumpAndSettle();
 }
 
@@ -70,7 +81,7 @@ void main() {
       // non arrivarci.
       Future<void> incolla(String testo) async {
         tester.widget<TextField>(campo).controller!.text = testo;
-        await tester.tap(find.byTooltip('Aggiungi punto'));
+        await tester.tap(find.text('Aggiungi punto'));
         await tester.pumpAndSettle();
       }
 

@@ -34,7 +34,7 @@ Questa suite verifica la traduzione tra righe SQLite e modelli immutabili Dart, 
 
 * **Condizioni al cambio di ambiente:** verifica che `getCondizioniNonPreviste` segnali le condizioni usate dalle pescate di uno spot e non previste dal nuovo ambiente (e nessuna se il nuovo ambiente le prevede tutte), e che il cambio di ambiente non tocchi i valori già salvati.
 
-## 3. `test/pescate_repository_test.dart` (10 test)
+## 3. `test/pescate_repository_test.dart` (11 test)
 
 Questa suite valida le operazioni, i filtri e le transazioni multi-tabella gestite da `PescateRepository`, l'unico componente che scrive pescate, riepiloghi, catture memorabili e pianificazioni:
 
@@ -46,7 +46,7 @@ Questa suite valida le operazioni, i filtri e le transazioni multi-tabella gesti
 
 * **Catture Memorabili e Dettaglio Completo:** verifica il salvataggio e il filtraggio delle catture con caratteristiche e foto, il cambio di specie in modifica, il blocco dell'associazione di caratteristiche appartenenti a una specie diversa, la creazione al volo di esche e caratteristiche nella stessa transazione della pescata (tramite `CatalogoRepository`) e la ricostruzione dell'intero aggregato `Pescata` tramite `getPescataCompleta`.
 
-* **Riepiloghi Specie e Dettagli:** testa il salvataggio e l'aggiornamento dei riepiloghi con i dettagli per caratteristica attraverso `salvaPescata`, il rifiuto di un dettaglio superiore al totale, di una caratteristica di un'altra specie e della stessa specie ripetuta nella pescata, l'assenza di dati parziali dopo una transazione fallita e la rimozione dei riepiloghi.
+* **Riepiloghi Specie e Dettagli:** testa il salvataggio e l'aggiornamento dei riepiloghi con i dettagli per caratteristica attraverso `salvaPescata`, il rifiuto di un dettaglio superiore al totale, di una caratteristica di un'altra specie e della stessa specie ripetuta nella pescata, l'assenza di dati parziali dopo una transazione fallita e la rimozione dei riepiloghi; la creazione, nella stessa transazione, di una specie scritta al momento e il riuso di una esistente scritta con maiuscole e spazi diversi.
 
 ## 4. `test/catalogo_repository_test.dart` (10 test)
 
@@ -102,7 +102,7 @@ Questa suite verifica `StatisticheService`, il servizio di sola lettura per le s
 Questa suite verifica lo stato degli spot gestito con Riverpod (`lib/ui/state/spot_state.dart`) sul database reale in memoria: nel contenitore dei provider (`ProviderContainer.test`) viene sostituito solo `databaseHelperProvider`, quindi è provata tutta la catena notifier → repository → SQLite. I nuovi tentativi automatici sono disattivati.
 
 * **Lettura:** verifica che l'elenco degli spot si carichi in ordine alfabetico e che ambienti e categorie siano disponibili; che, se il repository non riesce a leggere, lo stato sia un errore senza nuovi tentativi automatici e che invalidare il provider (pulsante *Riprova*) rilegga il database.
-* **Scrittura:** verifica che salvare uno spot aggiorni da solo sia l'elenco sia il dettaglio già osservati (coordinate e lunghezza calcolata); che rinominare ed eliminare uno spot aggiornino l'elenco; che un errore di salvataggio (categoria inesistente) arrivi a chi salva lasciando l'elenco com'era.
+* **Scrittura:** verifica che salvare uno spot aggiorni da solo sia l'elenco sia il dettaglio già osservati (coordinate e lunghezza calcolata); che rinominare ed eliminare uno spot aggiornino l'elenco; che un errore di salvataggio (ambiente inesistente) arrivi a chi salva lasciando l'elenco com'era.
 
 ## 10. `test/elenco_spot_screen_test.dart` (3 test)
 
@@ -112,35 +112,36 @@ Questa suite verifica la schermata `ElencoSpotScreen` senza database: il provide
 * che durante il caricamento compaia l'indicatore e, a dati arrivati, il messaggio per l'elenco vuoto;
 * che in caso di errore compaiano il messaggio e il pulsante *Riprova*, e che premerlo ricarichi i dati e li mostri.
 
-## 11. `test/modulo_pescata_test.dart` (6 test)
+## 11. `test/modulo_pescata_test.dart` (8 test)
 
 Questa suite verifica le regole del modulo *Registra pescata* (`ModuloPescataNotifier` e `BozzaPescata`) senza interfaccia, sul database in memoria e con una data di "oggi" fissa (`orologioProvider`).
 
-* **Controlli:** verifica che la bozza parta dalla data di oggi e che senza spot e fascia oraria non si possa salvare; che vengano segnalati, con messaggi per l'utente, la data futura, la temperatura dell'acqua fuori intervallo, quella dell'aria non numerica, la riga di catture senza specie o senza totale, la caratteristica che supera il totale e la specie ripetuta (anche con maiuscole diverse); che, corretti i dati, la bozza sia valida e accetti la virgola decimale.
-* **Compilazione:** verifica che le condizioni proposte dipendano dall'ambiente dello spot (tutte per il torrente, solo il meteo per il lago), che toccare di nuovo un valore lo tolga e che passare a uno spot di un altro ambiente tolga i valori scelti; che un'esca nuova con il nome di una esistente (maiuscole e spazi diversi) selezioni quella e che la stessa esca nuova non si duplichi; che cambiare la specie di una riga ne tolga le caratteristiche.
-* **Salvataggio:** verifica che il salvataggio registri la pescata completa (spot, data, fascia, temperatura, note ripulite, valore della condizione, esca esistente ed esca nuova, riepiloghi con dettagli) e che subito dopo l'elenco delle pescate, lo stato *battuto* dello spot e il catalogo delle esche risultino aggiornati.
+* **Controlli:** verifica che la bozza parta dalla data di oggi e che senza spot e fascia oraria non si possa salvare; che vengano segnalati, con messaggi per l'utente, la data futura, la temperatura dell'acqua fuori intervallo, la riga di catture senza specie o senza totale, la caratteristica che supera il totale e la specie ripetuta (anche con maiuscole diverse); che, corretti i dati, la bozza sia valida e accetti la virgola decimale.
+* **Compilazione:** verifica che le condizioni proposte dipendano dall'ambiente dello spot (tutte per il torrente, solo il meteo per il lago), che toccare di nuovo un valore lo tolga e che passare a uno spot di un altro ambiente tolga i valori scelti; che un'esca nuova con il nome di una esistente (maiuscole e spazi diversi) selezioni quella e che la stessa esca nuova non si duplichi; che cambiare la specie di una riga ne tolga le caratteristiche; che una specie scritta al momento scelga quella del catalogo o una già scritta (senza duplicarla), resti in sospeso finché una riga la usa, venga segnalata da `specieScartata` solo quando togliere o cambiare la riga la scarterebbe, e non entri nel catalogo prima del salvataggio.
+* **Salvataggio:** verifica che il salvataggio registri la pescata completa (spot, data, fascia, temperatura, note ripulite, valore della condizione, esca esistente ed esca nuova, riepiloghi con dettagli) e che subito dopo l'elenco delle pescate, lo stato *battuto* dello spot e il catalogo delle esche risultino aggiornati; che una specie nuova entri nel catalogo (e nel provider delle specie) solo salvando la pescata.
 
-## 12. `test/registra_pescata_screen_test.dart` (2 test)
+## 12. `test/registra_pescata_screen_test.dart` (3 test)
 
 Questa suite verifica la schermata `RegistraPescataScreen` senza database: spot, specie ed esche sono sostituiti da dati preparati nel test.
 
 * salvando il modulo vuoto il pulsante smette di mostrare il salvataggio in corso e compare il dialogo con i problemi (spot e fascia oraria mancanti);
-* scegliere una fascia oraria la evidenzia, selezionare un'esca aggiorna il conteggio delle selezionate e aggiungere una specie con il suo totale aggiorna il totale della pescata.
+* scegliere una fascia oraria la evidenzia, selezionare un'esca aggiorna il conteggio delle selezionate e aggiungere una specie con il suo totale aggiorna il totale della pescata;
+* un'esca nuova compare selezionata e segnata come *nuova*; toglierla apre la richiesta di conferma (annullando resta, confermando viene scartata), mentre un'esca del catalogo si toglie senza domande.
 
-## 13. `test/modulo_spot_test.dart` (6 test)
+## 13. `test/modulo_spot_test.dart` (7 test)
 
 Questa suite verifica il modulo dello spot (`ModuloSpotNotifier`, `BozzaSpot` e `leggiCoordinata`) senza interfaccia, sul database in memoria.
 
 * **Lettura dei punti:** verifica che `leggiCoordinata` riconosca i formati copiati da Google Maps (due numeri con punto o virgola decimale, separati da virgola, spazio o punto e virgola; gradi-primi-secondi; link completo con il punto o con la vista) e rifiuti testo qualsiasi, un numero solo, coordinate fuori intervallo e i link brevi senza coordinate.
 * **Compilazione:** verifica i messaggi per nome mancante o già usato (anche con maiuscole diverse), categoria e ambiente mancanti, voto e lunghezza non validi, e che la virgola decimale sia accettata; che i punti si aggiungano, spostino e tolgano, e che con due punti la lunghezza scritta a mano sia ignorata a favore di quella calcolata; che la difficoltà si tolga toccandola di nuovo.
-* **Salvataggio:** verifica che uno spot nuovo, con una categoria creata dal modulo, si salvi con i punti, la lunghezza calcolata, l'accessibilità e le note ripulite; che rinominando lo spot e passando dal torrente al lago venga proposto di collegare il solo *Livello* usato nelle pescate (il meteo è già previsto per il lago), che dopo il collegamento il lago preveda entrambe e che la pescata segua il nuovo nome; che eliminando lo spot le sue pescate restino senza spot.
+* **Salvataggio:** verifica che uno spot nuovo, con una categoria scritta nel modulo (che entra nel catalogo solo salvando), si salvi con i punti, la lunghezza calcolata, l'accessibilità e le note ripulite; che rinominando lo spot e passando dal torrente al lago venga proposto di collegare il solo *Livello* usato nelle pescate (il meteo è già previsto per il lago), che dopo il collegamento il lago preveda entrambe e che la pescata segua il nuovo nome; che eliminando lo spot le sue pescate restino senza spot; che una categoria scritta al momento scelga quella esistente con lo stesso nome (maiuscole e spazi diversi), che `categoriaScartata` segnali quando sceglierne un'altra scarterebbe quella nuova e che un modulo abbandonato non lasci categorie nel catalogo.
 
 ## 14. `test/modulo_spot_screen_test.dart` (2 test)
 
 Questa suite verifica la schermata `ModuloSpotScreen` senza database (spot, categorie e ambienti preparati nel test):
 
 * per uno spot nuovo non c'è il pulsante di eliminazione e salvando il modulo vuoto compare il dialogo con nome, categoria e ambiente mancanti;
-* un testo che non è un punto mostra l'errore sotto il campo, mentre un punto valido viene aggiunto all'elenco come primo punto, quello del meteo.
+* un testo che non è un punto mostra l'errore sotto il campo, mentre un punto valido, confermato con il pulsante *Aggiungi punto*, viene aggiunto all'elenco come primo punto, quello del meteo.
 
 ## 15. `test/pescate_state_test.dart` (4 test)
 

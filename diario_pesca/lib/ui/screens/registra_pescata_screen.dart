@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/catalogo/esca.dart';
+import '../../models/catalogo/specie.dart';
 import '../../models/enums.dart';
 import '../../models/territorio/spot.dart';
 import '../state/catalogo_state.dart';
@@ -41,12 +42,12 @@ class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
     setState(() => _salvataggioInCorso = true);
     try {
       await ref.read(moduloPescataProvider(widget.apertura).notifier).salva();
-      messaggi.showSnackBar(const SnackBar(content: Text('Pescata salvata')));
+      messaggi..clearSnackBars()..showSnackBar(const SnackBar(content: Text('Pescata salvata')));
       navigatore.pop();
     } on BozzaNonValida catch (e) {
       problemi = e.problemi;
     } catch (e) {
-      messaggi.showSnackBar(SnackBar(content: Text('Salvataggio non riuscito: $e')));
+      messaggi..clearSnackBars()..showSnackBar(SnackBar(content: Text('Salvataggio non riuscito: $e')));
     } finally {
       if (mounted) setState(() => _salvataggioInCorso = false);
     }
@@ -67,13 +68,14 @@ class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          _SceltaSpot(widget.apertura),
           const SizedBox(height: 8),
+          _SceltaSpot(widget.apertura),
+          const SizedBox(height: 12),
           _CampoData(widget.apertura),
           const _Titolo('Fascia oraria'),
           Wrap(
-            spacing: 8,
-            runSpacing: 4,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               for (final f in FasciaOraria.values)
                 ChoiceChip(
@@ -85,36 +87,16 @@ class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
           ),
           const _Titolo('Condizioni'),
           _Condizioni(widget.apertura),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  initialValue: bozza.tempAcqua,
-                  decoration: const InputDecoration(
-                    labelText: 'Temp. acqua (°C)',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  onChanged: modulo.impostaTempAcqua,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
-                  initialValue: bozza.tempAria,
-                  decoration: const InputDecoration(
-                    labelText: 'Temp. aria (°C)',
-                    border: OutlineInputBorder(),
-                  ),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                    signed: true,
-                  ),
-                  onChanged: modulo.impostaTempAria,
-                ),
-              ),
-            ],
+          const _Titolo('Temperatura dell\'acqua'),
+          TextFormField(
+            initialValue: bozza.tempAcqua,
+            decoration: const InputDecoration(
+              labelText: 'Gradi (°C), facoltativa',
+              helperText: 'L\'aria la ricava il meteo scaricato.',
+              border: OutlineInputBorder(),
+            ),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            onChanged: modulo.impostaTempAcqua,
           ),
           const _Titolo('Esche usate'),
           _Esche(widget.apertura),
@@ -126,13 +108,13 @@ class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
             icon: const Icon(Icons.add),
             label: const Text('Aggiungi specie'),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 20),
           Text(
             'Totale pescata: ${bozza.totaleCatture} '
             '${bozza.totaleCatture == 1 ? 'cattura' : 'catture'}',
             style: Theme.of(context).textTheme.titleMedium,
           ),
-          const SizedBox(height: 16),
+          const _Titolo('Note'),
           TextFormField(
             initialValue: bozza.note,
             decoration: const InputDecoration(
@@ -144,7 +126,7 @@ class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
             textCapitalization: TextCapitalization.sentences,
             onChanged: modulo.impostaNote,
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 32),
           FilledButton.icon(
             onPressed: _salvataggioInCorso ? null : _salva,
             icon: _salvataggioInCorso
@@ -168,7 +150,7 @@ class _Titolo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 20, bottom: 8),
+        padding: const EdgeInsets.only(top: 32, bottom: 12),
         child: Text(testo, style: Theme.of(context).textTheme.titleMedium),
       );
 }
@@ -283,10 +265,10 @@ class _Condizioni extends ConsumerWidget {
         children: [
           for (final c in condizioni) ...[
             Text(c.nome),
-            const SizedBox(height: 4),
+            const SizedBox(height: 8),
             Wrap(
-              spacing: 8,
-              runSpacing: 4,
+              spacing: 12,
+              runSpacing: 8,
               children: [
                 for (final v in c.valori)
                   ChoiceChip(
@@ -297,7 +279,7 @@ class _Condizioni extends ConsumerWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 20),
           ],
         ],
       );
@@ -322,6 +304,22 @@ class _EscheState extends ConsumerState<_Esche> {
     if (nome != null) {
       ref.read(moduloPescataProvider(widget.apertura).notifier).aggiungiEscaNuova(nome, catalogo);
     }
+  }
+
+  /// Seleziona o toglie un'esca. Togliere un'esca nuova, non ancora nel
+  /// catalogo, la scarta: prima si chiede conferma.
+  Future<void> _alterna(Esca esca, bool selezionata) async {
+    if (esca.isNuovo && selezionata) {
+      final conferma = await chiediConferma(
+        context,
+        titolo: 'Scartare l\'esca "${esca.nome}"?',
+        messaggio: 'L\'esca "${esca.nome}" è nuova: entra nel catalogo solo salvando la pescata. '
+            'Togliendola dalla selezione viene scartata.',
+        conferma: 'Scarta',
+      );
+      if (!conferma) return;
+    }
+    ref.read(moduloPescataProvider(widget.apertura).notifier).alternaEsca(esca);
   }
 
   @override
@@ -350,7 +348,7 @@ class _EscheState extends ConsumerState<_Esche> {
             onChanged: (testo) => setState(() => _filtro = testo),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: 10),
             child: Text(
               '${bozza.esche.length} selezionate su ${tutte.length}',
               style: Theme.of(context).textTheme.bodySmall,
@@ -371,6 +369,9 @@ class _EscheState extends ConsumerState<_Esche> {
                 ),
                 child: ListView(
                   shrinkWrap: true,
+                  // Non è la lista principale: scorre solo se le esche non
+                  // ci stanno, altrimenti il trascinamento passa al modulo.
+                  primary: false,
                   children: [
                     for (final e in visibili)
                       CheckboxListTile(
@@ -378,14 +379,13 @@ class _EscheState extends ConsumerState<_Esche> {
                         value: bozza.contieneEsca(e),
                         title: Text(e.nome),
                         subtitle: e.isNuovo ? const Text('nuova') : null,
-                        onChanged: (_) =>
-                            ref.read(moduloPescataProvider(widget.apertura).notifier).alternaEsca(e),
+                        onChanged: (_) => _alterna(e, bozza.contieneEsca(e)),
                       ),
                   ],
                 ),
               ),
             ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           OutlinedButton.icon(
             onPressed: () => _nuovaEsca(catalogo),
             icon: const Icon(Icons.add),
@@ -397,38 +397,76 @@ class _EscheState extends ConsumerState<_Esche> {
   }
 }
 
-class _SchedaCattura extends ConsumerWidget {
+class _SchedaCattura extends ConsumerStatefulWidget {
   const _SchedaCattura({super.key, required this.chiave, required this.apertura});
 
   final int chiave;
   final AperturaPescata? apertura;
 
-  Future<void> _nuovaSpecie(BuildContext context, WidgetRef ref) async {
-    final messaggi = ScaffoldMessenger.of(context);
+  @override
+  ConsumerState<_SchedaCattura> createState() => _SchedaCatturaState();
+}
+
+class _SchedaCatturaState extends ConsumerState<_SchedaCattura> {
+  /// Cambia quando l'utente annulla la scelta di un'altra specie, per
+  /// ridisegnare il menu con la specie di prima.
+  int _versioneMenu = 0;
+
+  int get chiave => widget.chiave;
+  ModuloPescataNotifier get _modulo => ref.read(moduloPescataProvider(widget.apertura).notifier);
+
+  /// Se l'azione scarta una specie nuova non ancora salvata, chiede conferma.
+  Future<bool> _confermaScarto(String? scartata, String azione) async {
+    if (scartata == null) return true;
+    return chiediConferma(
+      context,
+      titolo: 'Scartare la specie "$scartata"?',
+      messaggio: 'La specie "$scartata" è nuova: entra nel catalogo solo salvando la pescata '
+          'con una sua cattura. $azione la specie viene scartata.',
+      conferma: 'Scarta',
+    );
+  }
+
+  Future<void> _scegliSpecie(String nome) async {
+    final scartata = _modulo.specieScartata(chiave, altra: nome);
+    if (await _confermaScarto(scartata, 'Scegliendo un\'altra specie')) {
+      _modulo.impostaSpecie(chiave, nome);
+    } else if (mounted) {
+      setState(() => _versioneMenu++);
+    }
+  }
+
+  Future<void> _rimuovi() async {
+    final scartata = _modulo.specieScartata(chiave);
+    if (await _confermaScarto(scartata, 'Togliendo la riga')) _modulo.rimuoviCattura(chiave);
+  }
+
+  Future<void> _nuovaSpecie(List<Specie> catalogo) async {
     final nome = await chiediNome(context, titolo: 'Nuova specie', etichetta: 'Nome della specie');
-    if (nome == null) return;
-    try {
-      final salvata = await ref.read(specieProvider.notifier).aggiungi(nome);
-      ref.read(moduloPescataProvider(apertura).notifier).impostaSpecie(chiave, salvata);
-    } catch (e) {
-      messaggi.showSnackBar(SnackBar(content: Text('Specie non aggiunta: $e')));
+    if (nome == null || !mounted) return;
+    final scartata = _modulo.specieScartata(chiave, altra: nome);
+    if (await _confermaScarto(scartata, 'Scegliendo un\'altra specie')) {
+      _modulo.aggiungiSpecieNuova(chiave, nome, catalogo);
     }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final apertura = widget.apertura;
     final cattura = ref.watch(
       moduloPescataProvider(apertura).select((b) => _trova(b.catture, chiave)),
     );
     // La riga è appena stata tolta: la scheda sta per sparire.
     if (cattura == null) return const SizedBox.shrink();
-    final modulo = ref.read(moduloPescataProvider(apertura).notifier);
+    final nuoveSpecie = ref.watch(moduloPescataProvider(apertura).select((b) => b.nuoveSpecie));
+    final modulo = _modulo;
     final specieNome = cattura.specieNome;
+    final catalogo = ref.watch(specieProvider).value ?? const <Specie>[];
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -437,23 +475,25 @@ class _SchedaCattura extends ConsumerWidget {
                 Expanded(
                   child: sezioneAsincrona(ref.watch(specieProvider), (specie) {
                     return DropdownMenu<String>(
-                      // Ricostruito quando la specie cambia (es. specie nuova).
-                      key: ValueKey('specie-$chiave-$specieNome'),
+                      // Ricostruito quando la specie cambia (es. specie nuova)
+                      // o quando l'utente annulla un cambio.
+                      key: ValueKey('specie-$chiave-$specieNome-$_versioneMenu'),
                       expandedInsets: EdgeInsets.zero,
                       label: const Text('Specie'),
                       initialSelection: specieNome,
                       dropdownMenuEntries: [
+                        for (final n in nuoveSpecie) DropdownMenuEntry(value: n, label: '$n (nuova)'),
                         for (final s in specie) DropdownMenuEntry(value: s.nome, label: s.nome),
                       ],
                       onSelected: (nome) {
-                        if (nome != null) modulo.impostaSpecie(chiave, nome);
+                        if (nome != null && nome != specieNome) _scegliSpecie(nome);
                       },
                     );
                   }),
                 ),
                 IconButton(
                   tooltip: 'Togli questa specie',
-                  onPressed: () => modulo.rimuoviCattura(chiave),
+                  onPressed: _rimuovi,
                   icon: const Icon(Icons.delete_outline),
                 ),
               ],
@@ -461,7 +501,7 @@ class _SchedaCattura extends ConsumerWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: () => _nuovaSpecie(context, ref),
+                onPressed: () => _nuovaSpecie(catalogo),
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Nuova specie'),
               ),
@@ -487,7 +527,7 @@ class _SchedaCattura extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Padding(
-                      padding: const EdgeInsets.only(top: 12, bottom: 4),
+                      padding: const EdgeInsets.only(top: 16, bottom: 8),
                       child: Text(
                         'Caratteristiche (facoltative): nessun valore può superare il totale.',
                         style: Theme.of(context).textTheme.bodySmall,
@@ -495,7 +535,7 @@ class _SchedaCattura extends ConsumerWidget {
                     ),
                     for (final car in caratteristiche)
                       Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.only(bottom: 12),
                         child: Row(
                           children: [
                             Expanded(child: Text(car.nome)),

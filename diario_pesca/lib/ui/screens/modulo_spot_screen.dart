@@ -76,7 +76,16 @@ class ModuloSpotScreen extends ConsumerStatefulWidget {
 class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
   final _punto = TextEditingController();
   String? _errorePunto;
+
+  /// Punto riconosciuto nel campo mentre l'utente scrive, prima di aggiungerlo.
+  Coordinata? _anteprima;
   bool _salvataggioInCorso = false;
+
+  /// Cambia quando l'utente annulla la scelta di un'altra categoria, per
+  /// ridisegnare il menu con la categoria di prima.
+  int _versioneCategoria = 0;
+
+  ModuloSpotNotifier get _modulo => ref.read(moduloSpotProvider(widget.spot).notifier);
 
   @override
   void dispose() {
@@ -84,22 +93,46 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
     super.dispose();
   }
 
-  void _aggiungiPunto() {
-    final ok = ref.read(moduloSpotProvider(widget.spot).notifier).aggiungiPunto(_punto.text);
-    setState(() => _errorePunto = ok ? null : 'Punto non riconosciuto: incolla due coordinate.');
+  /// Aggiunge il punto scritto nel campo. Restituisce `false` (e mostra
+  /// l'errore sotto il campo) se il testo non è un punto.
+  bool _aggiungiPunto() {
+    final ok = _modulo.aggiungiPunto(_punto.text);
+    setState(() {
+      _errorePunto = ok ? null : 'Punto non riconosciuto: incolla due coordinate.';
+      if (ok) _anteprima = null;
+    });
     if (ok) _punto.clear();
+    return ok;
+  }
+
+  /// Se scegliendo [altra] si scarta una categoria nuova non ancora salvata,
+  /// chiede conferma.
+  Future<bool> _confermaScarto(String altra) async {
+    final scartata = _modulo.categoriaScartata(altra);
+    if (scartata == null) return true;
+    return chiediConferma(
+      context,
+      titolo: 'Scartare la categoria "$scartata"?',
+      messaggio: 'La categoria "$scartata" è nuova: viene creata solo salvando lo spot. '
+          'Scegliendone un\'altra viene scartata.',
+      conferma: 'Scarta',
+    );
+  }
+
+  Future<void> _scegliCategoria(String nome) async {
+    if (await _confermaScarto(nome)) {
+      _modulo.impostaCategoria(nome);
+    } else if (mounted) {
+      setState(() => _versioneCategoria++);
+    }
   }
 
   Future<void> _nuovaCategoria() async {
-    final messaggi = ScaffoldMessenger.of(context);
     final nome = await chiediNome(context, titolo: 'Nuova categoria', etichetta: 'Nome della categoria');
-    if (nome == null) return;
-    try {
-      final salvata = await ref.read(categorieProvider.notifier).aggiungi(nome);
-      ref.read(moduloSpotProvider(widget.spot).notifier).impostaCategoria(salvata);
-    } catch (e) {
-      messaggi.showSnackBar(SnackBar(content: Text('Categoria non aggiunta: $e')));
-    }
+    if (nome == null || !mounted) return;
+    if (!await _confermaScarto(nome)) return;
+    final catalogo = ref.read(categorieProvider).value ?? const [];
+    _modulo.aggiungiCategoriaNuova(nome, catalogo);
   }
 
   /// Chiede se collegare al nuovo ambiente le condizioni già usate nelle
@@ -132,6 +165,15 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
     final messaggi = ScaffoldMessenger.of(context);
     final navigatore = Navigator.of(context);
 
+    // Un punto scritto nel campo ma non ancora aggiunto viene aggiunto ora,
+    // così non si perde.
+    if (_punto.text.trim().isNotEmpty && !_aggiungiPunto()) {
+      await mostraProblemi(context, [
+        'Il testo nel campo "Nuovo punto" non è un punto: correggilo o cancellalo.',
+      ]);
+      return;
+    }
+
     var collega = const <Condizione>[];
     try {
       final daCollegare = await modulo.condizioniDaCollegare();
@@ -145,7 +187,7 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
         if (scelta) collega = daCollegare;
       }
     } catch (e) {
-      messaggi.showSnackBar(SnackBar(content: Text('Salvataggio non riuscito: $e')));
+      messaggi..clearSnackBars()..showSnackBar(SnackBar(content: Text('Salvataggio non riuscito: $e')));
       return;
     }
 
@@ -154,12 +196,12 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
     setState(() => _salvataggioInCorso = true);
     try {
       final salvato = await modulo.salva(collega: collega);
-      messaggi.showSnackBar(const SnackBar(content: Text('Spot salvato')));
+      messaggi..clearSnackBars()..showSnackBar(const SnackBar(content: Text('Spot salvato')));
       navigatore.pop(salvato);
     } on BozzaNonValida catch (e) {
       problemi = e.problemi;
     } catch (e) {
-      messaggi.showSnackBar(SnackBar(content: Text('Salvataggio non riuscito: $e')));
+      messaggi..clearSnackBars()..showSnackBar(SnackBar(content: Text('Salvataggio non riuscito: $e')));
     } finally {
       if (mounted) setState(() => _salvataggioInCorso = false);
     }
@@ -181,10 +223,10 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
     if (!conferma) return;
     try {
       await modulo.elimina();
-      messaggi.showSnackBar(const SnackBar(content: Text('Spot eliminato')));
+      messaggi..clearSnackBars()..showSnackBar(const SnackBar(content: Text('Spot eliminato')));
       navigatore.pop();
     } catch (e) {
-      messaggi.showSnackBar(SnackBar(content: Text('Eliminazione non riuscita: $e')));
+      messaggi..clearSnackBars()..showSnackBar(SnackBar(content: Text('Eliminazione non riuscita: $e')));
     }
   }
 
@@ -200,23 +242,29 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
+          const SizedBox(height: 8),
           TextFormField(
             initialValue: bozza.nome,
             decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder()),
             textCapitalization: TextCapitalization.sentences,
             onChanged: modulo.impostaNome,
           ),
-          const SizedBox(height: 16),
+          _spazio,
           sezioneAsincrona(ref.watch(categorieProvider), (categorie) => DropdownMenu<String>(
-                key: ValueKey('categoria-${bozza.categoriaNome}'),
+                key: ValueKey('categoria-${bozza.categoriaNome}-$_versioneCategoria'),
                 expandedInsets: EdgeInsets.zero,
                 label: const Text('Categoria'),
                 initialSelection: bozza.categoriaNome,
                 dropdownMenuEntries: [
+                  if (bozza.nuovaCategoria != null)
+                    DropdownMenuEntry(
+                      value: bozza.nuovaCategoria!,
+                      label: '${bozza.nuovaCategoria} (nuova)',
+                    ),
                   for (final c in categorie) DropdownMenuEntry(value: c.nome, label: c.nome),
                 ],
                 onSelected: (nome) {
-                  if (nome != null) modulo.impostaCategoria(nome);
+                  if (nome != null && nome != bozza.categoriaNome) _scegliCategoria(nome);
                 },
               )),
           Align(
@@ -227,7 +275,7 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
               label: const Text('Nuova categoria'),
             ),
           ),
-          const SizedBox(height: 8),
+          _spazio,
           sezioneAsincrona(ref.watch(ambientiProvider), (ambienti) => DropdownMenu<String>(
                 expandedInsets: EdgeInsets.zero,
                 label: const Text('Ambiente'),
@@ -241,7 +289,8 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
               )),
           const _Titolo('Difficoltà'),
           Wrap(
-            spacing: 8,
+            spacing: 12,
+            runSpacing: 8,
             children: [
               for (final (d, etichetta) in const [
                 (Difficolta.bassa, 'Bassa'),
@@ -255,6 +304,7 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
                 ),
             ],
           ),
+          _spazio,
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Accessibile'),
@@ -262,6 +312,7 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
             value: bozza.accessibilita == Accessibilita.accessibile,
             onChanged: modulo.impostaAccessibile,
           ),
+          _spazio,
           TextFormField(
             initialValue: bozza.voto,
             decoration: const InputDecoration(
@@ -274,11 +325,12 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
           const _Titolo('Punti del tratto'),
           Text(
             'Incolla le coordinate da Google Maps (tieni premuto sul punto e '
-            'copia i numeri, oppure incolla il link completo). Il primo punto è '
-            'quello usato per il meteo; con due o più punti la lunghezza si calcola da sola.',
+            'copia i numeri, oppure incolla il link completo), poi premi "Aggiungi punto". '
+            'Il primo punto è quello usato per il meteo; con due o più punti la lunghezza '
+            'si calcola da sola.',
             style: testo.bodySmall,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           for (var i = 0; i < bozza.coordinate.length; i++)
             _RigaPunto(
               indice: i,
@@ -287,31 +339,36 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
               sposta: (verso) => modulo.spostaPunto(i, verso),
               rimuovi: () => modulo.rimuoviPunto(i),
             ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _punto,
-                  decoration: InputDecoration(
-                    labelText: 'Nuovo punto',
-                    hintText: '45.7612, 9.6401',
-                    errorText: _errorePunto,
-                    errorMaxLines: 2,
-                    border: const OutlineInputBorder(),
-                  ),
-                  onSubmitted: (_) => _aggiungiPunto(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                tooltip: 'Aggiungi punto',
-                onPressed: _aggiungiPunto,
-                icon: const Icon(Icons.add_location_alt),
-              ),
-            ],
+          const SizedBox(height: 8),
+          TextField(
+            controller: _punto,
+            decoration: InputDecoration(
+              labelText: 'Nuovo punto',
+              hintText: '45.7612, 9.6401',
+              errorText: _errorePunto,
+              errorMaxLines: 2,
+              helperText: _anteprima == null
+                  ? null
+                  : 'Riconosciuto: ${_anteprima!.latitudine.toStringAsFixed(5)}, '
+                      '${_anteprima!.longitudine.toStringAsFixed(5)}',
+              border: const OutlineInputBorder(),
+            ),
+            onChanged: (testo) => setState(() {
+              _anteprima = leggiCoordinata(testo);
+              _errorePunto = null;
+            }),
+            onSubmitted: (_) => _aggiungiPunto(),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.tonalIcon(
+              onPressed: _aggiungiPunto,
+              icon: const Icon(Icons.add_location_alt),
+              label: const Text('Aggiungi punto'),
+            ),
+          ),
+          _spazio,
           if (bozza.coordinate.length >= 2)
             Text(
               'Lunghezza calcolata: ${bozza.lunghezzaCalcolata?.round() ?? 0} m',
@@ -328,7 +385,6 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
               onChanged: modulo.impostaLunghezza,
             ),
           const _Titolo('Altre informazioni'),
-          _CampoTesto('Esposizione al sole', bozza.esposizioneSole, modulo.impostaEsposizioneSole),
           _CampoTesto('Punti complicati', bozza.noteOstacoli, modulo.impostaNoteOstacoli, righe: 2),
           _CampoTesto('Note', bozza.note, modulo.impostaNote, righe: 3),
           _CampoTesto(
@@ -365,6 +421,9 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
   }
 }
 
+/// Spazio tra un campo e il successivo.
+const _spazio = SizedBox(height: 20);
+
 class _Titolo extends StatelessWidget {
   const _Titolo(this.testo);
 
@@ -372,7 +431,7 @@ class _Titolo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 20, bottom: 8),
+        padding: const EdgeInsets.only(top: 32, bottom: 12),
         child: Text(testo, style: Theme.of(context).textTheme.titleMedium),
       );
 }
@@ -394,7 +453,7 @@ class _CampoTesto extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.only(bottom: 20),
         child: TextFormField(
           initialValue: valore,
           decoration: InputDecoration(labelText: etichetta, border: const OutlineInputBorder()),

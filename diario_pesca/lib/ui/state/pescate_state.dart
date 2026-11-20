@@ -43,6 +43,7 @@ class ElencoPescateNotifier extends AsyncNotifier<List<Pescata>> {
     ref.invalidate(elencoSpotProvider);
     ref.invalidate(dettaglioSpotProvider);
     ref.invalidate(escheProvider);
+    ref.invalidate(specieProvider);
     ref.invalidate(dettaglioPescataProvider);
     ref.invalidate(meteoPescataProvider);
     ref.invalidate(pioggiaCumulataProvider);

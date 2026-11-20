@@ -137,9 +137,9 @@ void main() {
       final notifier = container.read(elencoSpotProvider.notifier);
       await notifier.salva(valsecca);
 
-      // Categoria inesistente: il database rifiuta lo spot
+      // Ambiente inesistente: il database rifiuta lo spot
       await expectLater(
-        notifier.salva(valsecca.copyWith(nome: 'Altro', categoriaNome: 'Inesistente')),
+        notifier.salva(valsecca.copyWith(nome: 'Altro', ambiente: 'Inesistente')),
         throwsA(isA<DatabaseException>()),
       );
       expect(nomi(container.read(elencoSpotProvider).requireValue), ['Valsecca']);

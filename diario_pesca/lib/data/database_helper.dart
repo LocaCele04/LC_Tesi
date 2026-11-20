@@ -157,7 +157,6 @@ class DatabaseHelper {
         lunghezzaMetri REAL,
         voto REAL,
         difficolta TEXT,
-        esposizioneSole TEXT,
         noteOstacoli TEXT,
         note TEXT,
         battuto INTEGER NOT NULL DEFAULT 0,
@@ -212,14 +211,12 @@ class DatabaseHelper {
         data TEXT NOT NULL,
         fasciaOraria TEXT NOT NULL,
         temp_acqua REAL,
-        temp_aria REAL,
         note TEXT,
         spot_nome TEXT,
         FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE SET NULL ON UPDATE CASCADE,
         CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),
         CHECK (fasciaOraria IN ('alba','mattina', 'pomeriggio', 'tramonto', 'sera', 'notte')),
-        CHECK (temp_acqua BETWEEN 0 AND 35),
-        CHECK (temp_aria BETWEEN -30 AND 45)
+        CHECK (temp_acqua BETWEEN 0 AND 35)
       );
     ''');
 

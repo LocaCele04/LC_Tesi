@@ -389,9 +389,12 @@ class PescateRepository {
         percorsiFotoDaRimuovere.remove(f.percorsoThumbnail);
       }
 
-      // 3. Riepiloghi specie con dettagli per caratteristica
+      // 3. Riepiloghi specie con dettagli per caratteristica. Una specie
+      // scritta al momento nel modulo nasce qui, con la pescata.
       final riepiloghiSalvati = <RiepilogoSpecie>[];
-      for (final r in pescata.riepiloghiSpecie) {
+      for (final daSalvare in pescata.riepiloghiSpecie) {
+        final specieNome = await _catalogo.assicuraSpecieSalvata(txn, daSalvare.specieNome);
+        final r = daSalvare.copyWith(specieNome: specieNome);
         final riepilogoAllineato = r.copyWith(pescataId: pescataId);
         final riepilogoId = await txn.insert(
           'RiepilogoSpecie',

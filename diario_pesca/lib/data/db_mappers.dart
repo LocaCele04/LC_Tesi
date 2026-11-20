@@ -121,7 +121,6 @@ class DbMappers {
       difficolta: difficoltaRaw != null
           ? Difficolta.values.byName(difficoltaRaw)
           : null,
-      esposizioneSole: map['esposizioneSole'] as String?,
       noteOstacoli: map['noteOstacoli'] as String?,
       note: map['note'] as String?,
       battuto: (map['battuto'] as int) == 1,
@@ -139,7 +138,6 @@ class DbMappers {
         'lunghezzaMetri': s.lunghezzaMetri,
         'voto': s.voto,
         'difficolta': s.difficolta?.name,
-        'esposizioneSole': s.esposizioneSole,
         'noteOstacoli': s.noteOstacoli,
         'note': s.note,
         'battuto': s.battuto ? 1 : 0,
@@ -249,7 +247,6 @@ class DbMappers {
       fasciaOraria:
           FasciaOraria.values.byName(map['fasciaOraria'] as String),
       tempAcqua: (map['temp_acqua'] as num?)?.toDouble(),
-      tempAria: (map['temp_aria'] as num?)?.toDouble(),
       note: map['note'] as String?,
       spotNome: map['spot_nome'] as String?,
       esche: esche,
@@ -265,7 +262,6 @@ class DbMappers {
         'data': formatData(p.data),
         'fasciaOraria': p.fasciaOraria.name,
         'temp_acqua': p.tempAcqua,
-        'temp_aria': p.tempAria,
         'note': p.note,
         'spot_nome': p.spotNome,
       };

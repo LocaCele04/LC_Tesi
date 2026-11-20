@@ -52,10 +52,10 @@ class SchedaPescataScreen extends ConsumerWidget {
     if (!conferma) return;
     try {
       await ref.read(elencoPescateProvider.notifier).elimina(id);
-      messaggi.showSnackBar(const SnackBar(content: Text('Pescata eliminata')));
+      messaggi..clearSnackBars()..showSnackBar(const SnackBar(content: Text('Pescata eliminata')));
       navigatore.pop();
     } catch (e) {
-      messaggi.showSnackBar(SnackBar(content: Text('Eliminazione non riuscita: $e')));
+      messaggi..clearSnackBars()..showSnackBar(SnackBar(content: Text('Eliminazione non riuscita: $e')));
     }
   }
 
@@ -145,12 +145,9 @@ class _Contenuto extends ConsumerWidget {
             ],
           ),
         ],
-        if (pescata.tempAcqua != null || pescata.tempAria != null) ...[
-          const _Titolo('Temperature'),
-          Text([
-            if (pescata.tempAcqua != null) 'Acqua ${formattaNumero(pescata.tempAcqua!)} °C',
-            if (pescata.tempAria != null) 'Aria ${formattaNumero(pescata.tempAria!)} °C',
-          ].join(' · ')),
+        if (pescata.tempAcqua != null) ...[
+          const _Titolo('Temperatura dell\'acqua'),
+          Text('${formattaNumero(pescata.tempAcqua!)} °C'),
         ],
         if (pescata.esche.isNotEmpty) ...[
           const _Titolo('Esche'),
@@ -215,9 +212,9 @@ class _MeteoDaScaricare extends ConsumerWidget {
     final messaggi = ScaffoldMessenger.of(context);
     try {
       final esito = await ref.read(aggiornamentoMeteoProvider.notifier).aggiorna();
-      if (esito != null) messaggi.showSnackBar(SnackBar(content: Text(descriviEsitoMeteo(esito))));
+      if (esito != null) messaggi..clearSnackBars()..showSnackBar(SnackBar(content: Text(descriviEsitoMeteo(esito))));
     } catch (e) {
-      messaggi.showSnackBar(SnackBar(content: Text('Meteo non scaricato: $e')));
+      messaggi..clearSnackBars()..showSnackBar(SnackBar(content: Text('Meteo non scaricato: $e')));
     }
   }
 
@@ -273,7 +270,16 @@ class _MeteoScaricato extends ConsumerWidget {
       ('Pioggia nei 3 giorni prima', pioggia(3)),
       ('Pioggia nei 7 giorni prima', pioggia(7)),
       ('Pioggia nei 14 giorni prima', pioggia(14)),
-      if (giorno?.ventoMax != null) ('Vento massimo', '${formattaNumero(giorno!.ventoMax!)} km/h'),
+      // Valori massimi dell'intera giornata (a 10 m dal suolo), non solo
+      // delle ore di pesca.
+      if (giorno?.ventoMax != null)
+        (
+          'Vento, massimo del giorno',
+          '${formattaNumero(giorno!.ventoMax!, decimali: 0)} km/h'
+              '${giorno.direzioneVento == null ? '' : ' da ${puntoCardinale(giorno.direzioneVento!)}'}',
+        ),
+      if (giorno?.rafficaMax != null)
+        ('Raffiche, massimo del giorno', '${formattaNumero(giorno!.rafficaMax!, decimali: 0)} km/h'),
       if (giorno?.pressioneMedia != null)
         ('Pressione media', '${formattaNumero(giorno!.pressioneMedia!, decimali: 0)} hPa'),
     ];

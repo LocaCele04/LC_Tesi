@@ -38,12 +38,21 @@ Widget _app() => ProviderScope(
 /// sono anche l'elenco delle esche e i campi di testo).
 final _lista = find.byType(Scrollable).first;
 
-/// Scorre il modulo finché [cercato] è sullo schermo. `scrollUntilVisible`
-/// porta l'elemento in vista ma senza disegnare un nuovo fotogramma: senza
-/// il `pumpAndSettle` le posizioni restano quelle vecchie e un tocco subito
-/// dopo cadrebbe fuori dall'elemento.
+/// Scorre il modulo finché [cercato] è sullo schermo, spostando direttamente
+/// la lista principale. Non si usa `scrollUntilVisible`: trascina dal centro
+/// della lista, e se lì capita un elemento scorrevole interno (l'elenco
+/// delle esche, un campo di testo) è quello a ricevere il trascinamento,
+/// la lista non si muove e l'elemento cercato non viene mai trovato.
+/// Il `pumpAndSettle` finale disegna il fotogramma, così un tocco subito
+/// dopo cade sull'elemento.
 Future<void> _scorriFino(WidgetTester tester, Finder cercato) async {
-  await tester.scrollUntilVisible(cercato, 300, scrollable: _lista);
+  final posizione = tester.state<ScrollableState>(_lista).position;
+  while (cercato.evaluate().isEmpty && posizione.pixels < posizione.maxScrollExtent) {
+    final prossima = posizione.pixels + 300;
+    posizione.jumpTo(prossima > posizione.maxScrollExtent ? posizione.maxScrollExtent : prossima);
+    await tester.pump();
+  }
+  await tester.ensureVisible(cercato);
   await tester.pumpAndSettle();
 }
 
@@ -95,6 +104,46 @@ void main() {
 
       await _scorriFino(tester, find.text('Totale pescata: 3 catture'));
       expect(find.text('Totale pescata: 3 catture'), findsOneWidget);
+    });
+
+    testWidgets('togliere un\'esca nuova chiede conferma prima di scartarla', (tester) async {
+      await tester.pumpWidget(_app());
+      await tester.pumpAndSettle();
+
+      await _scorriFino(tester, find.text('Nuova esca'));
+      await tester.tap(find.text('Nuova esca'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextField, 'Nome dell\'esca'), 'Streamer nero');
+      await tester.tap(find.text('Aggiungi'));
+      await tester.pumpAndSettle();
+      // L'esca nuova è selezionata e compare in cima, segnata come nuova
+      expect(find.text('Streamer nero'), findsOneWidget);
+      expect(find.text('nuova'), findsOneWidget);
+      expect(find.text('1 selezionate su 2'), findsOneWidget);
+
+      // Annullando, resta selezionata
+      await tester.tap(find.text('Streamer nero'));
+      await tester.pumpAndSettle();
+      expect(find.text('Scartare l\'esca "Streamer nero"?'), findsOneWidget);
+      await tester.tap(find.text('Annulla'));
+      await tester.pumpAndSettle();
+      expect(find.text('1 selezionate su 2'), findsOneWidget);
+
+      // Confermando, viene scartata
+      await tester.tap(find.text('Streamer nero'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Scarta'));
+      await tester.pumpAndSettle();
+      expect(find.text('Streamer nero'), findsNothing);
+      expect(find.text('0 selezionate su 1'), findsOneWidget);
+
+      // Un'esca del catalogo si toglie senza domande
+      await tester.tap(find.text('Gomma verde'));
+      await tester.pump();
+      await tester.tap(find.text('Gomma verde'));
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.text('0 selezionate su 1'), findsOneWidget);
     });
   });
 }

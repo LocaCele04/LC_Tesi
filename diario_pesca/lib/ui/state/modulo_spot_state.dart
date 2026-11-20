@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/catalogo/condizione.dart';
 import '../../models/enums.dart';
+import '../../models/territorio/categoria.dart';
 import '../../models/territorio/coordinata.dart';
 import '../../models/territorio/spot.dart';
 import '../../repositories/territorio_repository.dart';
@@ -26,6 +27,10 @@ class BozzaSpot {
   final String nome;
   final String? ambiente;
   final String? categoriaNome;
+
+  /// Categoria scritta al momento e non ancora salvata: nasce solo salvando
+  /// lo spot, come le esche e le specie nuove nel modulo della pescata.
+  final String? nuovaCategoria;
   final Difficolta? difficolta;
   final Accessibilita accessibilita;
   final String voto;
@@ -33,7 +38,6 @@ class BozzaSpot {
   /// Lunghezza scritta a mano: vale solo con meno di due punti, altrimenti
   /// la calcola il repository dalle coordinate.
   final String lunghezza;
-  final String esposizioneSole;
   final String noteOstacoli;
   final String note;
   final String linkParcheggio;
@@ -47,11 +51,11 @@ class BozzaSpot {
     this.nome = '',
     this.ambiente,
     this.categoriaNome,
+    this.nuovaCategoria,
     this.difficolta,
     this.accessibilita = Accessibilita.accessibile,
     this.voto = '',
     this.lunghezza = '',
-    this.esposizioneSole = '',
     this.noteOstacoli = '',
     this.note = '',
     this.linkParcheggio = '',
@@ -69,7 +73,6 @@ class BozzaSpot {
         accessibilita: spot.accessibilita,
         voto: _testo(spot.voto),
         lunghezza: spot.coordinate.length >= 2 ? '' : _testo(spot.lunghezzaMetri),
-        esposizioneSole: spot.esposizioneSole ?? '',
         noteOstacoli: spot.noteOstacoli ?? '',
         note: spot.note ?? '',
         linkParcheggio: spot.linkParcheggio ?? '',
@@ -91,12 +94,13 @@ class BozzaSpot {
     String? nome,
     String? ambiente,
     String? categoriaNome,
+    String? nuovaCategoria,
+    bool togliNuovaCategoria = false,
     Difficolta? difficolta,
     bool togliDifficolta = false,
     Accessibilita? accessibilita,
     String? voto,
     String? lunghezza,
-    String? esposizioneSole,
     String? noteOstacoli,
     String? note,
     String? linkParcheggio,
@@ -108,11 +112,11 @@ class BozzaSpot {
       nome: nome ?? this.nome,
       ambiente: ambiente ?? this.ambiente,
       categoriaNome: categoriaNome ?? this.categoriaNome,
+      nuovaCategoria: togliNuovaCategoria ? null : (nuovaCategoria ?? this.nuovaCategoria),
       difficolta: togliDifficolta ? null : (difficolta ?? this.difficolta),
       accessibilita: accessibilita ?? this.accessibilita,
       voto: voto ?? this.voto,
       lunghezza: lunghezza ?? this.lunghezza,
-      esposizioneSole: esposizioneSole ?? this.esposizioneSole,
       noteOstacoli: noteOstacoli ?? this.noteOstacoli,
       note: note ?? this.note,
       linkParcheggio: linkParcheggio ?? this.linkParcheggio,
@@ -157,7 +161,6 @@ class BozzaSpot {
       accessibilita: accessibilita,
       voto: _numero(voto),
       lunghezzaMetri: coordinate.length >= 2 ? null : _numero(lunghezza),
-      esposizioneSole: facoltativo(esposizioneSole),
       noteOstacoli: facoltativo(noteOstacoli),
       note: facoltativo(note),
       linkParcheggio: facoltativo(linkParcheggio),
@@ -260,7 +263,35 @@ class ModuloSpotNotifier extends Notifier<BozzaSpot> {
 
   void impostaNome(String testo) => state = state.copyWith(nome: testo);
   void impostaAmbiente(String ambiente) => state = state.copyWith(ambiente: ambiente);
-  void impostaCategoria(String categoria) => state = state.copyWith(categoriaNome: categoria);
+  /// Sceglie una categoria; se era stata scritta una categoria nuova e se ne
+  /// sceglie un'altra, quella nuova viene scartata.
+  void impostaCategoria(String categoria) => state = state.copyWith(
+        categoriaNome: categoria,
+        togliNuovaCategoria: categoria != state.nuovaCategoria,
+      );
+
+  /// Categoria scritta al momento. Se corrisponde a una del [catalogo]
+  /// (senza distinzione di maiuscole e spazi) sceglie quella; altrimenti la
+  /// categoria è *nuova* e nasce solo salvando lo spot. Restituisce il nome
+  /// scelto.
+  String aggiungiCategoriaNuova(String nome, List<Categoria> catalogo) {
+    final pulito = nome.trim();
+    for (final c in catalogo) {
+      if (c.nome.toLowerCase() == pulito.toLowerCase()) {
+        impostaCategoria(c.nome);
+        return c.nome;
+      }
+    }
+    state = state.copyWith(categoriaNome: pulito, nuovaCategoria: pulito);
+    return pulito;
+  }
+
+  /// Categoria nuova (non ancora salvata) che verrebbe scartata scegliendo
+  /// [altra]; `null` se non si scarta nulla. Serve a chiedere conferma.
+  String? categoriaScartata(String altra) {
+    final nuova = state.nuovaCategoria;
+    return nuova != null && nuova != altra ? nuova : null;
+  }
 
   /// Sceglie la difficoltà; scegliere di nuovo la stessa la toglie.
   void impostaDifficolta(Difficolta difficolta) => state = state.difficolta == difficolta
@@ -273,7 +304,6 @@ class ModuloSpotNotifier extends Notifier<BozzaSpot> {
 
   void impostaVoto(String testo) => state = state.copyWith(voto: testo);
   void impostaLunghezza(String testo) => state = state.copyWith(lunghezza: testo);
-  void impostaEsposizioneSole(String testo) => state = state.copyWith(esposizioneSole: testo);
   void impostaNoteOstacoli(String testo) => state = state.copyWith(noteOstacoli: testo);
   void impostaNote(String testo) => state = state.copyWith(note: testo);
   void impostaLinkParcheggio(String testo) => state = state.copyWith(linkParcheggio: testo);

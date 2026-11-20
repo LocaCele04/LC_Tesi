@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/catalogo/caratteristica.dart';
 import '../../models/catalogo/condizione.dart';
 import '../../models/catalogo/esca.dart';
+import '../../models/catalogo/specie.dart';
 import '../../models/catalogo/valore_condizione.dart';
 import '../../models/enums.dart';
 import '../../models/pescate/pescata.dart';
@@ -65,8 +66,12 @@ class BozzaPescata {
   final Map<int, ValoreCondizione> valori;
   final List<Esca> esche;
   final List<BozzaCattura> catture;
+
+  /// Specie scritte al momento e non ancora nel catalogo: nascono solo
+  /// salvando la pescata, come le esche nuove. Restano qui finché almeno una
+  /// riga delle catture le usa.
+  final List<String> nuoveSpecie;
   final String tempAcqua;
-  final String tempAria;
   final String note;
 
   const BozzaPescata({
@@ -78,8 +83,8 @@ class BozzaPescata {
     this.valori = const {},
     this.esche = const [],
     this.catture = const [],
+    this.nuoveSpecie = const [],
     this.tempAcqua = '',
-    this.tempAria = '',
     this.note = '',
   });
 
@@ -108,7 +113,6 @@ class BozzaPescata {
             ),
         ],
         tempAcqua: _testo(pescata.tempAcqua),
-        tempAria: _testo(pescata.tempAria),
         note: pescata.note ?? '',
       );
 
@@ -122,8 +126,8 @@ class BozzaPescata {
     Map<int, ValoreCondizione>? valori,
     List<Esca>? esche,
     List<BozzaCattura>? catture,
+    List<String>? nuoveSpecie,
     String? tempAcqua,
-    String? tempAria,
     String? note,
   }) {
     return BozzaPescata(
@@ -135,8 +139,8 @@ class BozzaPescata {
       valori: valori ?? this.valori,
       esche: esche ?? this.esche,
       catture: catture ?? this.catture,
+      nuoveSpecie: nuoveSpecie ?? this.nuoveSpecie,
       tempAcqua: tempAcqua ?? this.tempAcqua,
-      tempAria: tempAria ?? this.tempAria,
       note: note ?? this.note,
     );
   }
@@ -160,7 +164,6 @@ class BozzaPescata {
     }
 
     _controllaTemperatura(problemi, tempAcqua, 'dell\'acqua', 0, 35);
-    _controllaTemperatura(problemi, tempAria, 'dell\'aria', -30, 45);
 
     final specieViste = <String>{};
     for (var i = 0; i < catture.length; i++) {
@@ -196,7 +199,6 @@ class BozzaPescata {
       fasciaOraria: fasciaOraria!,
       spotNome: spotNome,
       tempAcqua: _numero(tempAcqua),
-      tempAria: _numero(tempAria),
       note: noteTrim.isEmpty ? null : noteTrim,
       valoriCondizioni: valori.values.toList(),
       esche: esche,
@@ -343,16 +345,61 @@ class ModuloPescataNotifier extends Notifier<BozzaPescata> {
     state = state.copyWith(
       catture: state.catture.where((c) => c.chiave != chiave).toList(),
     );
+    _pulisciNuoveSpecie();
+  }
+
+  /// Specie scritta al momento per la riga [chiave]. Se corrisponde a una
+  /// specie del [catalogo] o a una già scritta (senza distinzione di
+  /// maiuscole e spazi) sceglie quella; altrimenti la specie è *nuova*:
+  /// compare tra le specie del modulo e nasce nel catalogo solo salvando la
+  /// pescata. Restituisce il nome scelto.
+  String aggiungiSpecieNuova(int chiave, String nome, List<Specie> catalogo) {
+    final pulito = nome.trim();
+    String? esistente;
+    for (final s in [...catalogo.map((s) => s.nome), ...state.nuoveSpecie]) {
+      if (s.toLowerCase() == pulito.toLowerCase()) esistente = s;
+    }
+    if (esistente == null) {
+      state = state.copyWith(nuoveSpecie: [...state.nuoveSpecie, pulito]);
+    }
+    impostaSpecie(chiave, esistente ?? pulito);
+    return esistente ?? pulito;
+  }
+
+  /// Specie nuova (non ancora nel catalogo) che verrebbe scartata togliendo
+  /// la riga [chiave] o cambiandone la specie in [altra], perché nessun'altra
+  /// riga la usa. `null` se non si scarta nulla: serve a chiedere conferma
+  /// prima di farlo.
+  String? specieScartata(int chiave, {String? altra}) {
+    String? attuale;
+    for (final c in state.catture) {
+      if (c.chiave == chiave) attuale = c.specieNome;
+    }
+    if (attuale == null || attuale == altra || !state.nuoveSpecie.contains(attuale)) return null;
+    final usataAltrove =
+        state.catture.any((c) => c.chiave != chiave && c.specieNome == attuale);
+    return usataAltrove ? null : attuale;
+  }
+
+  void _pulisciNuoveSpecie() {
+    final usate = state.catture.map((c) => c.specieNome).toSet();
+    final rimaste = state.nuoveSpecie.where(usate.contains).toList();
+    if (rimaste.length != state.nuoveSpecie.length) {
+      state = state.copyWith(nuoveSpecie: rimaste);
+    }
   }
 
   /// Cambia la specie di una riga: le caratteristiche sono della specie,
   /// quindi quelle già compilate vengono tolte.
-  void impostaSpecie(int chiave, String specieNome) => _modificaCattura(
-        chiave,
-        (c) => c.specieNome == specieNome
-            ? c
-            : BozzaCattura(chiave: c.chiave, specieNome: specieNome, totale: c.totale),
-      );
+  void impostaSpecie(int chiave, String specieNome) {
+    _modificaCattura(
+      chiave,
+      (c) => c.specieNome == specieNome
+          ? c
+          : BozzaCattura(chiave: c.chiave, specieNome: specieNome, totale: c.totale),
+    );
+    _pulisciNuoveSpecie();
+  }
 
   void impostaTotale(int chiave, int totale) =>
       _modificaCattura(chiave, (c) => c.copyWith(totale: totale));
@@ -371,7 +418,6 @@ class ModuloPescataNotifier extends Notifier<BozzaPescata> {
 
   void impostaTempAcqua(String testo) => state = state.copyWith(tempAcqua: testo);
 
-  void impostaTempAria(String testo) => state = state.copyWith(tempAria: testo);
 
   void impostaNote(String testo) => state = state.copyWith(note: testo);
 

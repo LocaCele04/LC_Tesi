@@ -144,12 +144,20 @@ void main() {
 
   group('Modulo spot - Salvataggio', () {
     test('uno spot nuovo con una categoria nuova si salva con i suoi punti', () async {
-      final categoria = await container.read(categorieProvider.notifier).aggiungi('  Val Serina ');
-      expect(categoria, 'Val Serina');
+      container.listen(categorieProvider, (_, _) {});
+      final catalogo = await container.read(categorieProvider.future);
 
       final m = apri();
       m.impostaNome('Ambriola');
-      m.impostaCategoria(categoria);
+      final categoria = m.aggiungiCategoriaNuova('  Val Serina ', catalogo);
+      expect(categoria, 'Val Serina');
+      expect(bozza().categoriaNome, 'Val Serina');
+      expect(bozza().nuovaCategoria, 'Val Serina');
+      // La categoria nasce solo salvando lo spot
+      expect(
+        (await container.read(territorioRepositoryProvider).getCategorie()).map((c) => c.nome),
+        ['Brembo di Carona'],
+      );
       m.impostaAmbiente('Torrente');
       m.impostaAccessibile(false);
       m.impostaNote('  Bella pozza sotto il ponte ');
@@ -168,6 +176,37 @@ void main() {
       expect(dettaglio.accessibilita, Accessibilita.inaccessibile);
       expect(dettaglio.note, 'Bella pozza sotto il ponte');
       expect(dettaglio.categoriaNome, 'Val Serina');
+      // Dopo il salvataggio la categoria è nel catalogo (e nel provider)
+      expect(
+        (await container.read(categorieProvider.future)).map((c) => c.nome),
+        containsAll(['Brembo di Carona', 'Val Serina']),
+      );
+    });
+
+    test('una categoria scritta al momento: esistente, scartata o abbandonata', () async {
+      final catalogo = await container.read(territorioRepositoryProvider).getCategorie();
+      final m = apri();
+
+      // Corrisponde a una esistente (maiuscole e spazi non contano): nessuna nuova
+      expect(m.aggiungiCategoriaNuova(' brembo DI carona', catalogo), 'Brembo di Carona');
+      expect(bozza().nuovaCategoria, isNull);
+      expect(m.categoriaScartata('Brembo di Carona'), isNull);
+
+      // Una nuova: sceglierne un'altra la scarterebbe, quindi va confermato
+      m.aggiungiCategoriaNuova('Val Serina', catalogo);
+      expect(m.categoriaScartata('Val Serina'), isNull);
+      expect(m.categoriaScartata('Brembo di Carona'), 'Val Serina');
+      m.impostaCategoria('Brembo di Carona');
+      expect(bozza().nuovaCategoria, isNull);
+      expect(bozza().categoriaNome, 'Brembo di Carona');
+
+      // Un modulo abbandonato non lascia nulla nel catalogo
+      m.aggiungiCategoriaNuova('Val Taleggio', catalogo);
+      container.invalidate(moduloSpotProvider(null));
+      expect(
+        (await container.read(territorioRepositoryProvider).getCategorie()).map((c) => c.nome),
+        ['Brembo di Carona'],
+      );
     });
 
     test('rinominare e cambiare ambiente: le condizioni usate si possono collegare', () async {

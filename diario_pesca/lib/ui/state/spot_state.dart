@@ -46,6 +46,7 @@ class ElencoSpotNotifier extends AsyncNotifier<List<Spot>> {
   /// Anche le pescate si ricaricano: rinominare o eliminare uno spot cambia
   /// le pescate collegate.
   Future<void> _ricarica() async {
+    ref.invalidate(categorieProvider);
     ref.invalidate(dettaglioSpotProvider);
     ref.invalidate(elencoPescateProvider);
     ref.invalidateSelf();
@@ -59,8 +60,9 @@ final dettaglioSpotProvider = FutureProvider.autoDispose.family<Spot?, String>(
   (ref, nome) => ref.watch(territorioRepositoryProvider).getSpotConCoordinate(nome),
 );
 
-/// Categorie per i filtri e per il modulo dello spot, con l'aggiunta di una
-/// categoria nuova direttamente dal modulo.
+/// Categorie per i filtri e per il modulo dello spot. Una categoria scritta
+/// al momento nel modulo dello spot nasce con lo spot (vedi
+/// `ModuloSpotNotifier.aggiungiCategoriaNuova`).
 final categorieProvider = AsyncNotifierProvider<CategorieNotifier, List<Categoria>>(
   CategorieNotifier.new,
 );
@@ -68,15 +70,6 @@ final categorieProvider = AsyncNotifierProvider<CategorieNotifier, List<Categori
 class CategorieNotifier extends AsyncNotifier<List<Categoria>> {
   @override
   Future<List<Categoria>> build() => ref.watch(territorioRepositoryProvider).getCategorie();
-
-  /// Aggiunge la categoria [nome] e restituisce il nome salvato.
-  Future<String> aggiungi(String nome) async {
-    final pulito = nome.trim();
-    await ref.read(territorioRepositoryProvider).inserisciCategoria(Categoria(nome: pulito));
-    ref.invalidateSelf();
-    await future;
-    return pulito;
-  }
 }
 
 /// Ambienti per i filtri e per il modulo dello spot.
