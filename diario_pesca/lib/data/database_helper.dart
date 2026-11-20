@@ -238,6 +238,78 @@ class DatabaseHelper {
       );
     ''');
 
+    // 5-ter. Archivio meteo (dati scaricati da Open-Meteo).
+    // I dati sono organizzati per cella della griglia del modello meteo
+    // (~2 km) e per giorno/ora: spot vicini e pescate ravvicinate
+    // condividono le stesse righe invece di duplicarle. La quota fa parte
+    // della cella perché Open-Meteo corregge le temperature in base alla
+    // quota del punto richiesto: due spot nella stessa cella della griglia
+    // ma a quote diverse hanno temperature diverse.
+    await db.execute('''
+      CREATE TABLE CellaMeteo (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        latitudine REAL NOT NULL,
+        longitudine REAL NOT NULL,
+        elevazione REAL NOT NULL,
+        UNIQUE (latitudine, longitudine, elevazione),
+        CHECK (latitudine BETWEEN -90 AND 90),
+        CHECK (longitudine BETWEEN -180 AND 180)
+      );
+    ''');
+    await db.execute('''
+      CREATE TABLE MeteoGiornaliero (
+        cella_id INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        pioggia_mm REAL,
+        temp_min REAL,
+        temp_max REAL,
+        pressione_media REAL,
+        vento_max REAL,
+        raffica_max REAL,
+        direzione_vento INTEGER,
+        PRIMARY KEY (cella_id, data),
+        FOREIGN KEY (cella_id) REFERENCES CellaMeteo (id) ON DELETE CASCADE,
+        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),
+        CHECK (pioggia_mm >= 0),
+        CHECK (direzione_vento BETWEEN 0 AND 360)
+      );
+    ''');
+    // `data_ora` è in UTC: in ora locale il cambio dell'ora legale
+    // produrrebbe ore ripetute o mancanti.
+    await db.execute('''
+      CREATE TABLE MeteoOrario (
+        cella_id INTEGER NOT NULL,
+        data_ora TEXT NOT NULL,
+        pioggia_mm REAL,
+        temperatura REAL,
+        pressione REAL,
+        vento REAL,
+        raffica REAL,
+        direzione_vento INTEGER,
+        PRIMARY KEY (cella_id, data_ora),
+        FOREIGN KEY (cella_id) REFERENCES CellaMeteo (id) ON DELETE CASCADE,
+        CHECK (data_ora GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-2][0-9]:00'),
+        CHECK (pioggia_mm >= 0),
+        CHECK (direzione_vento BETWEEN 0 AND 360)
+      );
+    ''');
+    // Per ogni pescata scaricata: la cella usata e i dati della richiesta
+    // (data della pescata e punto dello spot). Se la pescata cambia data o
+    // lo spot cambia il punto di riferimento, la riga non corrisponde più e
+    // la pescata torna "da scaricare" (lo stato è calcolato, non salvato).
+    await db.execute('''
+      CREATE TABLE PescataMeteo (
+        pescata_id INTEGER PRIMARY KEY,
+        cella_id INTEGER NOT NULL,
+        data TEXT NOT NULL,
+        latitudine REAL NOT NULL,
+        longitudine REAL NOT NULL,
+        FOREIGN KEY (pescata_id) REFERENCES Pescata (id) ON DELETE CASCADE,
+        FOREIGN KEY (cella_id) REFERENCES CellaMeteo (id) ON DELETE CASCADE,
+        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data)
+      );
+    ''');
+
     // 6. Esca
     await db.execute('''
       CREATE TABLE Esca (
@@ -399,6 +471,7 @@ class DatabaseHelper {
     await db.execute('CREATE INDEX idx_obiettivo_anno ON Obiettivo (anno);');
     await db.execute('CREATE INDEX idx_ambcond_condizione ON Ambiente_Condizione (condizione_id);');
     await db.execute('CREATE INDEX idx_pescond_valore ON Pescata_Condizione (valore_id, condizione_id);');
+    await db.execute('CREATE INDEX idx_pescatameteo_cella ON PescataMeteo (cella_id);');
   }
 
   /// Inserisce le condizioni di base con i loro valori e i collegamenti agli
