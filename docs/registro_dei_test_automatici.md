@@ -1,6 +1,6 @@
 # Registro dei Test Automatici
 
-La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio.
+La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite 9 e 10 verificano invece lo stato dell'interfaccia (Riverpod) e una schermata.
 
 ## 1. `test/database_integrita_test.dart` (20 test)
 
@@ -96,3 +96,18 @@ Questa suite verifica `MeteoService` senza accedere alla rete: un client HTTP si
 ## 8. `test/statistiche_service_test.dart` (1 test)
 
 Questa suite verifica `StatisticheService`, il servizio di sola lettura per le statistiche: la lettura dei riepiloghi filtrati per pescata o per specie su più pescate, completi dei dettagli per caratteristica, e il risultato vuoto per una specie mai catturata.
+
+## 9. `test/spot_state_test.dart` (5 test)
+
+Questa suite verifica lo stato degli spot gestito con Riverpod (`lib/ui/state/spot_state.dart`) sul database reale in memoria: nel contenitore dei provider (`ProviderContainer.test`) viene sostituito solo `databaseHelperProvider`, quindi è provata tutta la catena notifier → repository → SQLite. I nuovi tentativi automatici sono disattivati.
+
+* **Lettura:** verifica che l'elenco degli spot si carichi in ordine alfabetico e che ambienti e categorie siano disponibili; che, se il repository non riesce a leggere, lo stato sia un errore senza nuovi tentativi automatici e che invalidare il provider (pulsante *Riprova*) rilegga il database.
+* **Scrittura:** verifica che salvare uno spot aggiorni da solo sia l'elenco sia il dettaglio già osservati (coordinate e lunghezza calcolata); che rinominare ed eliminare uno spot aggiornino l'elenco; che un errore di salvataggio (categoria inesistente) arrivi a chi salva lasciando l'elenco com'era.
+
+## 10. `test/elenco_spot_screen_test.dart` (3 test)
+
+Questa suite verifica la schermata `ElencoSpotScreen` senza database: il provider dell'elenco viene sostituito con uno finto che restituisce dati preparati nel test.
+
+* verifica che la schermata mostri gli spot con ambiente, categoria e l'icona degli spot battuti;
+* che durante il caricamento compaia l'indicatore e, a dati arrivati, il messaggio per l'elenco vuoto;
+* che in caso di errore compaiano il messaggio e il pulsante *Riprova*, e che premerlo ricarichi i dati e li mostri.

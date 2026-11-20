@@ -8,8 +8,8 @@ Per mantenere il codice ordinato, leggibile e facilmente estendibile, il progett
 
 ```
 +-----------------------------------------------------------------------+
-|  PRESENTAZIONE (UI)                                        [previsto]  |
-|  lib/ui/   screens/ · widgets/ · state/                                |
+|  PRESENTAZIONE (UI)                                        [in corso]  |
+|  lib/ui/   screens/ · widgets/ · state/ (Riverpod)                     |
 +-----------------------------------------------------------------------+
             |                                   |
             | operazioni semplici               | operazioni composte
@@ -34,10 +34,10 @@ Per mantenere il codice ordinato, leggibile e facilmente estendibile, il progett
 * **Dominio (`models`)**: entità dell'applicazione come classi Dart immutabili, indipendenti dal database e da Flutter.
 * **Repository (`repositories`)**: lettura, salvataggio ed eliminazione degli aggregati del dominio, con le relative transazioni.
 * **Servizi (`services`)**: logica che coinvolge più sorgenti o più aggregati (database + file, database + rete, aggregazioni statistiche).
-* **Presentazione (`ui`)**: schermate, componenti grafici e gestione dello stato dell'interfaccia (non ancora implementata).
+* **Presentazione (`ui`)**: schermate, componenti grafici e gestione dello stato dell'interfaccia con **Riverpod** (in corso; vedi `scelta_architetturale_gestione_dello_stato.md`).
 
 ### 1.1 Regola d'uso: repository o servizi?
-* Per le **operazioni semplici** di lettura e salvataggio (creare uno spot, modificare un'esca, elencare le pescate) l'interfaccia chiama **direttamente il repository**.
+* Per le **operazioni semplici** di lettura e salvataggio (creare uno spot, modificare un'esca, elencare le pescate) l'interfaccia usa **direttamente il repository**, attraverso i provider di Riverpod (`lib/ui/state/`), che dopo una modifica aggiornano tutte le schermate interessate.
 * I **servizi** esistono solo dove la logica tocca più cose insieme e non appartiene a un singolo aggregato: acquisizione e compressione di una foto prima del salvataggio (file system + repository), backup su Google Drive (database + file + rete), previsioni meteo (rete), statistiche (query di aggregazione su più tabelle).
 * Un servizio può usare i repository e il livello dati; un repository non usa mai un servizio.
 
@@ -82,6 +82,7 @@ Il progetto utilizza l'SDK **Dart `^3.11.1`** e integra un insieme essenziale di
 | **`path`** | `^1.9.1` | Libreria per comporre in modo sicuro i percorsi dei file su disco (database e immagini). |
 | **`sqflite_common_ffi`** | `^2.4.0` | Driver SQLite basato su FFI che consente di eseguire il motore relazionale su desktop durante i test automatici. |
 | **`http`** | `^1.2.2` | Client HTTP per le richieste a Open-Meteo (dati meteo storici e previsioni); nei test viene sostituito da un client simulato (`MockClient`). |
+| **`flutter_riverpod`** | `^3.4.1` | Gestione dello stato dell'interfaccia: rende disponibili repository e servizi alle schermate e le aggiorna quando i dati cambiano (vedi `scelta_architetturale_gestione_dello_stato.md`). |
 | **`cupertino_icons`** | `^1.0.8` | Raccolta standard di icone in stile iOS affiancata alle Material Icons di Flutter. |
 | **`flutter_test`** | SDK | Framework ufficiale per l'esecuzione dei test automatizzati. |
 | **`flutter_lints`** | `^6.0.0` | Regole di analisi statica per mantenere coerenza stilistica e qualità del codice Dart. |
@@ -141,15 +142,24 @@ diario_pesca/
 │   │   ├── foto_service.dart          # [previsto]
 │   │   ├── backup_service.dart        # [previsto]
 │   │   └── meteo_service.dart         # Open-Meteo: storico e previsioni
-│   ├── ui/                            # [previsto] screens/ · widgets/ · state/
+│   ├── ui/
+│   │   ├── state/
+│   │   │   ├── dipendenze.dart        # Provider di database, repository e servizi
+│   │   │   └── spot_state.dart        # Stato degli spot (schema di riferimento)
+│   │   ├── screens/
+│   │   │   └── elenco_spot_screen.dart
+│   │   └── widgets/
+│   │       └── vista_asincrona.dart   # Caricamento / errore / dati
 │   └── main.dart                      # Punto di ingresso dell'applicazione
 ├── test/
 │   ├── catalogo_repository_test.dart
 │   ├── database_integrita_test.dart
+│   ├── elenco_spot_screen_test.dart
 │   ├── meteo_repository_test.dart
 │   ├── meteo_service_test.dart
 │   ├── obiettivi_repository_test.dart
 │   ├── pescate_repository_test.dart
+│   ├── spot_state_test.dart
 │   ├── statistiche_service_test.dart
 │   └── territorio_repository_test.dart
 ├── scriptCopiaDB.bat                  # Copia il database dal telefono al PC (per DBeaver)
@@ -243,13 +253,19 @@ Tutti i repository ricevono il `DatabaseHelper` (e, dove serve, gli altri reposi
 
   **Limiti noti:** la cella di un punto è quella della prima risposta; l'archivio delle previsioni passate è completo dalla metà del 2021: per date più vecchie mancano alcune variabili, e i giorni senza nessun valore restano mancanti (la pescata resta incompleta e viene ritentata).
 
-### 4.5 `lib/ui/` — Presentazione *(previsto)*
-* **`screens/`** e **`widgets/`**: schermate principali e componenti grafici riutilizzabili.
-* **`state/`**: gestione dello stato dell'interfaccia (soluzione da definire, es. Provider). È l'unico punto in cui lo stato è mutabile: i modelli restano immutabili e ogni modifica confermata dall'utente passa da un repository o da un servizio.
+### 4.5 `lib/ui/` — Presentazione *(in corso)*
+La gestione dello stato usa **Riverpod 3**; motivazioni, alternative e regole d'uso sono in `scelta_architetturale_gestione_dello_stato.md`.
+* **`state/`**: i provider. È l'unico punto in cui lo stato è mutabile: i modelli restano immutabili e ogni modifica confermata dall'utente passa da un repository o da un servizio.
+  * `dipendenze.dart`: un provider per il database, ogni repository e ogni servizio, creati una sola volta. Nei test basta sostituire `databaseHelperProvider` con un database in memoria.
+  * `spot_state.dart`: stato degli spot ed **esempio di riferimento** per le altre aree. `elencoSpotProvider` (elenco con i metodi `salva` ed `elimina`, che chiamano il repository e invalidano elenco e dettagli), `dettaglioSpotProvider` (spot con coordinate, `autoDispose`), `categorieProvider` e `ambientiProvider`.
+* **`widgets/`**: componenti riutilizzabili. `VistaAsincrona` mostra un dato asincrono nei suoi tre stati: caricamento, errore con pulsante *Riprova*, dati.
+* **`screens/`**: le schermate. `ElencoSpotScreen` mostra gli spot con ambiente, categoria e stato *battuto*, e si aggiorna trascinando verso il basso. Oggi è la schermata iniziale dell'app.
+
+Nell'app e nei test i nuovi tentativi automatici di Riverpod sono disattivati: un errore viene mostrato subito e l'utente può riprovare.
 
 ### 4.6 `test/` — Test automatici
 Una suite per componente, descritte nel `registro_dei_test_automatici.md`:
-`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`.
+`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`, `spot_state_test.dart` (stato dell'interfaccia), `elenco_spot_screen_test.dart` (schermata).
 
 ---
 
