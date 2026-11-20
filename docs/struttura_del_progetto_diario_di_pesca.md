@@ -82,6 +82,7 @@ Il progetto utilizza l'SDK **Dart `^3.11.1`** e integra un insieme essenziale di
 | **`path`** | `^1.9.1` | Libreria per comporre in modo sicuro i percorsi dei file su disco (database e immagini). |
 | **`sqflite_common_ffi`** | `^2.4.0` | Driver SQLite basato su FFI che consente di eseguire il motore relazionale su desktop durante i test automatici. |
 | **`http`** | `^1.2.2` | Client HTTP per le richieste a Open-Meteo (dati meteo storici e previsioni); nei test viene sostituito da un client simulato (`MockClient`). |
+| **`flutter_localizations`** | SDK | Traduzioni italiane dei componenti di Flutter (calendario, dialoghi, menu). |
 | **`flutter_riverpod`** | `^3.4.1` | Gestione dello stato dell'interfaccia: rende disponibili repository e servizi alle schermate e le aggiorna quando i dati cambiano (vedi `scelta_architetturale_gestione_dello_stato.md`). |
 | **`cupertino_icons`** | `^1.0.8` | Raccolta standard di icone in stile iOS affiancata alle Material Icons di Flutter. |
 | **`flutter_test`** | SDK | Framework ufficiale per l'esecuzione dei test automatizzati. |
@@ -144,21 +145,29 @@ diario_pesca/
 │   │   └── meteo_service.dart         # Open-Meteo: storico e previsioni
 │   ├── ui/
 │   │   ├── state/
-│   │   │   ├── dipendenze.dart        # Provider di database, repository e servizi
-│   │   │   └── spot_state.dart        # Stato degli spot (schema di riferimento)
+│   │   │   ├── dipendenze.dart        # Provider di database, repository, servizi, orologio
+│   │   │   ├── spot_state.dart        # Stato degli spot (schema di riferimento)
+│   │   │   ├── pescate_state.dart     # Elenco delle pescate
+│   │   │   ├── catalogo_state.dart    # Esche, specie, caratteristiche, condizioni
+│   │   │   └── modulo_pescata_state.dart  # Bozza del modulo "Registra pescata"
 │   │   ├── screens/
-│   │   │   └── elenco_spot_screen.dart
+│   │   │   ├── elenco_spot_screen.dart
+│   │   │   └── registra_pescata_screen.dart
 │   │   └── widgets/
-│   │       └── vista_asincrona.dart   # Caricamento / errore / dati
+│   │       ├── vista_asincrona.dart   # Caricamento / errore / dati
+│   │       ├── dialogo_nome.dart
+│   │       └── etichette.dart
 │   └── main.dart                      # Punto di ingresso dell'applicazione
 ├── test/
 │   ├── catalogo_repository_test.dart
 │   ├── database_integrita_test.dart
 │   ├── elenco_spot_screen_test.dart
+│   ├── modulo_pescata_test.dart
 │   ├── meteo_repository_test.dart
 │   ├── meteo_service_test.dart
 │   ├── obiettivi_repository_test.dart
 │   ├── pescate_repository_test.dart
+│   ├── registra_pescata_screen_test.dart
 │   ├── spot_state_test.dart
 │   ├── statistiche_service_test.dart
 │   └── territorio_repository_test.dart
@@ -257,15 +266,22 @@ Tutti i repository ricevono il `DatabaseHelper` (e, dove serve, gli altri reposi
 La gestione dello stato usa **Riverpod 3**; motivazioni, alternative e regole d'uso sono in `scelta_architetturale_gestione_dello_stato.md`.
 * **`state/`**: i provider. È l'unico punto in cui lo stato è mutabile: i modelli restano immutabili e ogni modifica confermata dall'utente passa da un repository o da un servizio.
   * `dipendenze.dart`: un provider per il database, ogni repository e ogni servizio, creati una sola volta. Nei test basta sostituire `databaseHelperProvider` con un database in memoria.
-  * `spot_state.dart`: stato degli spot ed **esempio di riferimento** per le altre aree. `elencoSpotProvider` (elenco con i metodi `salva` ed `elimina`, che chiamano il repository e invalidano elenco e dettagli), `dettaglioSpotProvider` (spot con coordinate, `autoDispose`), `categorieProvider` e `ambientiProvider`.
-* **`widgets/`**: componenti riutilizzabili. `VistaAsincrona` mostra un dato asincrono nei suoi tre stati: caricamento, errore con pulsante *Riprova*, dati.
-* **`screens/`**: le schermate. `ElencoSpotScreen` mostra gli spot con ambiente, categoria e stato *battuto*, e si aggiorna trascinando verso il basso. Oggi è la schermata iniziale dell'app.
+  * `spot_state.dart`: stato degli spot ed **esempio di riferimento** per le altre aree. `elencoSpotProvider` (elenco con i metodi `salva` ed `elimina`, che chiamano il repository e invalidano elenco, dettagli e pescate), `dettaglioSpotProvider` (spot con coordinate, `autoDispose`), `categorieProvider` e `ambientiProvider`.
+  * `pescate_state.dart`: `elencoPescateProvider`, con `salva` ed `elimina`. Salvare una pescata ricarica anche gli spot (lo spot diventa *battuto*) e le esche (un'esca scritta al momento entra nel catalogo).
+  * `catalogo_state.dart`: esche, specie (con l'aggiunta di una specie dal modulo), caratteristiche di una specie e condizioni previste per un ambiente.
+  * `modulo_pescata_state.dart`: il modulo *Registra pescata*. `BozzaPescata` è la bozza immutabile (spot e ambiente, data, fascia oraria, valori delle condizioni, esche, catture per specie con le caratteristiche, temperature e note); `errori()` restituisce i problemi in parole per l'utente, `inPescata()` la pescata da salvare. `ModuloPescataNotifier` (`autoDispose`) ha un metodo per ogni modifica e `salva()`. Cambiando lo spot verso un altro ambiente i valori delle condizioni si tolgono; cambiando la specie di una riga si tolgono le sue caratteristiche; un'esca nuova con il nome di una esistente seleziona quella.
+* **`widgets/`**: componenti riutilizzabili. `VistaAsincrona` mostra un dato asincrono nei suoi tre stati: caricamento, errore con pulsante *Riprova*, dati. `chiediNome` chiede un nome in un dialogo; `etichette.dart` contiene i testi per l'utente (fasce orarie, date in italiano).
+* **`screens/`**: le schermate.
+  * `ElencoSpotScreen` mostra gli spot con ambiente, categoria e stato *battuto*, e si aggiorna trascinando verso il basso. Oggi è la schermata iniziale dell'app; il pulsante *Nuova pescata* apre il modulo.
+  * `RegistraPescataScreen` ([REQ-FUN-06], [REQ-FUN-07]): spot con ricerca per nome, data (non futura), fascia oraria, condizioni dell'ambiente dello spot, temperature, esche (con ricerca e aggiunta di un'esca nuova), catture per specie con totale e caratteristiche, totale della pescata e note. Salvando, i problemi vengono elencati in un dialogo. Mancano ancora le foto e le catture memorabili (servono il `FotoService`) e la creazione di uno spot dal modulo.
+
+L'interfaccia è in italiano anche nei componenti di Flutter (calendario, dialoghi) grazie a `flutter_localizations`.
 
 Nell'app e nei test i nuovi tentativi automatici di Riverpod sono disattivati: un errore viene mostrato subito e l'utente può riprovare.
 
 ### 4.6 `test/` — Test automatici
 Una suite per componente, descritte nel `registro_dei_test_automatici.md`:
-`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`, `spot_state_test.dart` (stato dell'interfaccia), `elenco_spot_screen_test.dart` (schermata).
+`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`, `spot_state_test.dart` e `modulo_pescata_test.dart` (stato dell'interfaccia), `elenco_spot_screen_test.dart` e `registra_pescata_screen_test.dart` (schermate).
 
 ---
 

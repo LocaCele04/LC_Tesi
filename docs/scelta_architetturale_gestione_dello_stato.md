@@ -88,12 +88,18 @@ I provider di dettaglio (es. la scheda di uno spot) sono dichiarati `autoDispose
 ```
 lib/ui/
 ├── state/
-│   ├── dipendenze.dart        # Provider di database, repository e servizi
-│   └── spot_state.dart        # Stato degli spot (esempio di riferimento)
+│   ├── dipendenze.dart            # Provider di database, repository, servizi e orologio
+│   ├── spot_state.dart            # Stato degli spot (esempio di riferimento)
+│   ├── pescate_state.dart         # Elenco delle pescate con salva / elimina
+│   ├── catalogo_state.dart        # Esche, specie, caratteristiche, condizioni
+│   └── modulo_pescata_state.dart  # Bozza del modulo "Registra pescata"
 ├── screens/
-│   └── elenco_spot_screen.dart
+│   ├── elenco_spot_screen.dart
+│   └── registra_pescata_screen.dart
 └── widgets/
-    └── vista_asincrona.dart   # Caricamento / errore / dati per ogni AsyncValue
+    ├── vista_asincrona.dart       # Caricamento / errore / dati per ogni AsyncValue
+    ├── dialogo_nome.dart          # Richiesta di un nome (nuova esca, nuova specie)
+    └── etichette.dart             # Testi per l'utente (fasce orarie, date)
 ```
 
 ### 5.1 Regole d'uso
@@ -102,7 +108,9 @@ lib/ui/
 * **Errori di scrittura**: vengono rilanciati a chi ha chiamato il metodo (di solito un modulo, che mostra il messaggio all'utente). Lo stato già caricato resta invariato.
 * **Errori di lettura**: diventano lo stato di errore del provider. La schermata mostra il messaggio e il pulsante *Riprova*, che invalida il provider.
 * **Nelle schermate**: `ref.watch` per i dati da mostrare (la schermata si ridisegna quando cambiano), `ref.read` per le azioni (es. il pulsante *Salva* chiama `ref.read(elencoSpotProvider.notifier).salva(...)`).
-* **Stato locale**: lo stato che riguarda un solo widget (il testo digitato in un campo, una scheda aperta) resta in un `StatefulWidget` con `setState`. Riverpod serve per lo stato condiviso e per i dati che vengono dal database.
+* **Stato locale**: lo stato puramente visivo di un widget (il testo di un campo di ricerca, una scheda aperta, il pulsante disattivato durante un salvataggio) resta in un `StatefulWidget` con `setState`. Riverpod serve per lo stato condiviso e per i dati che vengono dal database.
+* **Moduli complessi**: il contenuto di un modulo con regole (es. *Registra pescata*) sta in un `Notifier` `autoDispose` che tiene una **bozza immutabile** (`BozzaPescata`). Il notifier espone un metodo per ogni modifica (`impostaSpot`, `aggiungiCattura`…); la bozza calcola i propri errori in parole per l'utente e si trasforma nel modello da salvare. Così le regole del modulo si provano con test senza interfaccia (`test/modulo_pescata_test.dart`), e chiudendo la schermata la bozza viene scartata.
+* **Data di oggi**: chi ha bisogno di "oggi" lo chiede a `orologioProvider`, che nei test si sostituisce con una data fissa.
 * Le operazioni composte continuano a passare dai **servizi** (es. `MeteoService`), esposti anch'essi da un provider.
 
 ### 5.2 Esempio

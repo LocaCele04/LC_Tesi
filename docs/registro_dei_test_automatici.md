@@ -1,6 +1,6 @@
 # Registro dei Test Automatici
 
-La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite 9 e 10 verificano invece lo stato dell'interfaccia (Riverpod) e una schermata.
+La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 12 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate.
 
 ## 1. `test/database_integrita_test.dart` (20 test)
 
@@ -111,3 +111,18 @@ Questa suite verifica la schermata `ElencoSpotScreen` senza database: il provide
 * verifica che la schermata mostri gli spot con ambiente, categoria e l'icona degli spot battuti;
 * che durante il caricamento compaia l'indicatore e, a dati arrivati, il messaggio per l'elenco vuoto;
 * che in caso di errore compaiano il messaggio e il pulsante *Riprova*, e che premerlo ricarichi i dati e li mostri.
+
+## 11. `test/modulo_pescata_test.dart` (6 test)
+
+Questa suite verifica le regole del modulo *Registra pescata* (`ModuloPescataNotifier` e `BozzaPescata`) senza interfaccia, sul database in memoria e con una data di "oggi" fissa (`orologioProvider`).
+
+* **Controlli:** verifica che la bozza parta dalla data di oggi e che senza spot e fascia oraria non si possa salvare; che vengano segnalati, con messaggi per l'utente, la data futura, la temperatura dell'acqua fuori intervallo, quella dell'aria non numerica, la riga di catture senza specie o senza totale, la caratteristica che supera il totale e la specie ripetuta (anche con maiuscole diverse); che, corretti i dati, la bozza sia valida e accetti la virgola decimale.
+* **Compilazione:** verifica che le condizioni proposte dipendano dall'ambiente dello spot (tutte per il torrente, solo il meteo per il lago), che toccare di nuovo un valore lo tolga e che passare a uno spot di un altro ambiente tolga i valori scelti; che un'esca nuova con il nome di una esistente (maiuscole e spazi diversi) selezioni quella e che la stessa esca nuova non si duplichi; che cambiare la specie di una riga ne tolga le caratteristiche.
+* **Salvataggio:** verifica che il salvataggio registri la pescata completa (spot, data, fascia, temperatura, note ripulite, valore della condizione, esca esistente ed esca nuova, riepiloghi con dettagli) e che subito dopo l'elenco delle pescate, lo stato *battuto* dello spot e il catalogo delle esche risultino aggiornati.
+
+## 12. `test/registra_pescata_screen_test.dart` (2 test)
+
+Questa suite verifica la schermata `RegistraPescataScreen` senza database: spot, specie ed esche sono sostituiti da dati preparati nel test.
+
+* salvando il modulo vuoto compare il dialogo con i problemi (spot e fascia oraria mancanti);
+* scegliere una fascia oraria la evidenzia, selezionare un'esca aggiorna il conteggio delle selezionate e aggiungere una specie con il suo totale aggiorna il totale della pescata.

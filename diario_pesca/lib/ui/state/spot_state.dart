@@ -4,6 +4,7 @@ import '../../models/territorio/ambiente.dart';
 import '../../models/territorio/categoria.dart';
 import '../../models/territorio/spot.dart';
 import 'dipendenze.dart';
+import 'pescate_state.dart';
 
 // Stato dell'interfaccia per gli spot. È l'esempio di riferimento per le
 // altre aree (pescate, catalogo, obiettivi), che seguono lo stesso schema:
@@ -42,10 +43,11 @@ class ElencoSpotNotifier extends AsyncNotifier<List<Spot>> {
   }
 
   /// Invalida i provider che dipendono dagli spot e attende il nuovo elenco.
-  /// Quando esisteranno i provider delle pescate andranno invalidati anche
-  /// quelli (rinominare o eliminare uno spot cambia le pescate collegate).
+  /// Anche le pescate si ricaricano: rinominare o eliminare uno spot cambia
+  /// le pescate collegate.
   Future<void> _ricarica() async {
     ref.invalidate(dettaglioSpotProvider);
+    ref.invalidate(elencoPescateProvider);
     ref.invalidateSelf();
     await future;
   }

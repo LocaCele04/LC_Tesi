@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -36,6 +37,15 @@ class DiarioPescaApp extends StatelessWidget {
     return MaterialApp(
       title: 'Diario di Pesca',
       debugShowCheckedModeBanner: false,
+      // Interfaccia in italiano, anche per i componenti di Flutter
+      // (calendario, pulsanti dei dialoghi, menu).
+      locale: const Locale('it'),
+      supportedLocales: const [Locale('it')],
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: ThemeData(
         colorSchemeSeed: Colors.teal,
         useMaterial3: true,

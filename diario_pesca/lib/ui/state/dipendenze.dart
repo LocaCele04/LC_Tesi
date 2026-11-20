@@ -19,6 +19,9 @@ import '../../services/statistiche_service.dart';
 // una versione finta) e tutto il resto lo userà, senza modificare il codice.
 // Vedi `docs/scelta_architetturale_gestione_dello_stato.md`.
 
+/// Data e ora attuali. Nei test si sostituisce con un "oggi" fisso.
+final orologioProvider = Provider<DateTime Function()>((ref) => DateTime.now);
+
 /// Database dell'app. Nei test si sostituisce con `DatabaseHelper.inMemory()`.
 final databaseHelperProvider = Provider<DatabaseHelper>(
   (ref) => DatabaseHelper.instance,

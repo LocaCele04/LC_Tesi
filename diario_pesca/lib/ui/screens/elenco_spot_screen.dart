@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/territorio/spot.dart';
 import '../state/spot_state.dart';
 import '../widgets/vista_asincrona.dart';
+import 'registra_pescata_screen.dart';
 
 /// Elenco degli spot. Prima schermata realizzata con Riverpod: osserva
 /// [elencoSpotProvider] e si ridisegna da sola quando gli spot cambiano.
@@ -16,6 +17,13 @@ class ElencoSpotScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('Spot')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const RegistraPescataScreen()),
+        ),
+        icon: const Icon(Icons.add),
+        label: const Text('Nuova pescata'),
+      ),
       body: VistaAsincrona<List<Spot>>(
         valore: elenco,
         riprova: () => ref.invalidate(elencoSpotProvider),
