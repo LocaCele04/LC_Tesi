@@ -59,11 +59,27 @@ final dettaglioSpotProvider = FutureProvider.autoDispose.family<Spot?, String>(
   (ref, nome) => ref.watch(territorioRepositoryProvider).getSpotConCoordinate(nome),
 );
 
-/// Categorie e ambienti per i filtri e per il modulo dello spot.
-final categorieProvider = FutureProvider<List<Categoria>>(
-  (ref) => ref.watch(territorioRepositoryProvider).getCategorie(),
+/// Categorie per i filtri e per il modulo dello spot, con l'aggiunta di una
+/// categoria nuova direttamente dal modulo.
+final categorieProvider = AsyncNotifierProvider<CategorieNotifier, List<Categoria>>(
+  CategorieNotifier.new,
 );
 
+class CategorieNotifier extends AsyncNotifier<List<Categoria>> {
+  @override
+  Future<List<Categoria>> build() => ref.watch(territorioRepositoryProvider).getCategorie();
+
+  /// Aggiunge la categoria [nome] e restituisce il nome salvato.
+  Future<String> aggiungi(String nome) async {
+    final pulito = nome.trim();
+    await ref.read(territorioRepositoryProvider).inserisciCategoria(Categoria(nome: pulito));
+    ref.invalidateSelf();
+    await future;
+    return pulito;
+  }
+}
+
+/// Ambienti per i filtri e per il modulo dello spot.
 final ambientiProvider = FutureProvider<List<Ambiente>>(
   (ref) => ref.watch(territorioRepositoryProvider).getAmbienti(),
 );

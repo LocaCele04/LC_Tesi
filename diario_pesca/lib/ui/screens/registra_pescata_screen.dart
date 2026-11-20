@@ -8,8 +8,11 @@ import '../state/catalogo_state.dart';
 import '../state/dipendenze.dart';
 import '../state/modulo_pescata_state.dart';
 import '../state/spot_state.dart';
+import '../widgets/dialoghi.dart';
 import '../widgets/dialogo_nome.dart';
 import '../widgets/etichette.dart';
+import '../widgets/vista_asincrona.dart';
+import 'modulo_spot_screen.dart';
 
 /// Modulo per registrare una nuova pescata ([REQ-FUN-06] e [REQ-FUN-07]):
 /// spot, data, fascia oraria, condizioni dell'ambiente dello spot,
@@ -17,8 +20,7 @@ import '../widgets/etichette.dart';
 ///
 /// Il contenuto del modulo sta in [moduloPescataProvider]; questa schermata
 /// lo mostra e inoltra le modifiche. Le foto e le catture memorabili si
-/// aggiungeranno quando sarà pronto il `FotoService`, la creazione di uno
-/// spot al momento quando ci sarà il modulo dello spot.
+/// aggiungeranno quando sarà pronto il `FotoService`.
 class RegistraPescataScreen extends ConsumerStatefulWidget {
   const RegistraPescataScreen({super.key});
 
@@ -47,32 +49,8 @@ class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
     }
     // Il dialogo si apre dopo aver tolto l'indicatore di salvataggio, che
     // altrimenti resterebbe a girare dietro al dialogo.
-    if (problemi != null && mounted) await _mostraProblemi(problemi);
+    if (problemi != null && mounted) await mostraProblemi(context, problemi);
   }
-
-  Future<void> _mostraProblemi(List<String> problemi) => showDialog<void>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Controlla la pescata'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final p in problemi)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text('• $p'),
-                ),
-            ],
-          ),
-          actions: [
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
 
   @override
   Widget build(BuildContext context) {
@@ -189,47 +167,60 @@ class _Titolo extends StatelessWidget {
       );
 }
 
-/// Dato asincrono dentro una sezione del modulo: una barra durante il
-/// caricamento, un messaggio in caso di errore.
-Widget _inSezione<T>(AsyncValue<T> valore, Widget Function(T) dati) => valore.when(
-      data: dati,
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 12),
-        child: LinearProgressIndicator(),
-      ),
-      error: (e, _) => Text('Dati non disponibili: $e'),
-    );
-
 class _SceltaSpot extends ConsumerWidget {
   const _SceltaSpot();
+
+  /// Crea uno spot al momento ([REQ-FUN-06]) e lo sceglie per la pescata.
+  Future<void> _nuovoSpot(BuildContext context, WidgetRef ref) async {
+    final modulo = ref.read(moduloPescataProvider.notifier);
+    final nuovo = await Navigator.of(context).push<Spot>(
+      MaterialPageRoute(builder: (_) => const ModuloSpotScreen()),
+    );
+    if (nuovo != null) modulo.impostaSpot(nuovo.nome, nuovo.ambiente);
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final spotNome = ref.watch(moduloPescataProvider.select((b) => b.spotNome));
-    return _inSezione<List<Spot>>(ref.watch(elencoSpotProvider), (spot) {
-      if (spot.isEmpty) {
-        return const Text('Nessuno spot salvato: aggiungine uno prima di registrare una pescata.');
-      }
-      Spot? scelto;
-      for (final s in spot) {
-        if (s.nome == spotNome) scelto = s;
-      }
-      return DropdownMenu<Spot>(
-        expandedInsets: EdgeInsets.zero,
-        label: const Text('Spot'),
-        hintText: 'Scrivi per cercare',
-        enableFilter: true,
-        requestFocusOnTap: true,
-        menuHeight: 320,
-        initialSelection: scelto,
-        dropdownMenuEntries: [
-          for (final s in spot) DropdownMenuEntry(value: s, label: s.nome),
-        ],
-        onSelected: (s) {
-          if (s != null) ref.read(moduloPescataProvider.notifier).impostaSpot(s.nome, s.ambiente);
-        },
-      );
-    });
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        sezioneAsincrona<List<Spot>>(ref.watch(elencoSpotProvider), (spot) {
+          if (spot.isEmpty) {
+            return const Text('Nessuno spot salvato: creane uno con il pulsante qui sotto.');
+          }
+          Spot? scelto;
+          for (final s in spot) {
+            if (s.nome == spotNome) scelto = s;
+          }
+          return DropdownMenu<Spot>(
+            // Ricostruito quando lo spot viene scelto da fuori (spot nuovo).
+            key: ValueKey('spot-$spotNome'),
+            expandedInsets: EdgeInsets.zero,
+            label: const Text('Spot'),
+            hintText: 'Scrivi per cercare',
+            enableFilter: true,
+            requestFocusOnTap: true,
+            menuHeight: 320,
+            initialSelection: scelto,
+            dropdownMenuEntries: [
+              for (final s in spot) DropdownMenuEntry(value: s, label: s.nome),
+            ],
+            onSelected: (s) {
+              if (s != null) ref.read(moduloPescataProvider.notifier).impostaSpot(s.nome, s.ambiente);
+            },
+          );
+        }),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => _nuovoSpot(context, ref),
+            icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+            label: const Text('Nuovo spot'),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -269,7 +260,7 @@ class _Condizioni extends ConsumerWidget {
     if (ambiente == null) {
       return const Text('Scegli lo spot per vedere le condizioni del suo ambiente.');
     }
-    return _inSezione(ref.watch(condizioniPerAmbienteProvider(ambiente)), (condizioni) {
+    return sezioneAsincrona(ref.watch(condizioniPerAmbienteProvider(ambiente)), (condizioni) {
       if (condizioni.isEmpty) {
         return Text('Nessuna condizione prevista per l\'ambiente $ambiente.');
       }
@@ -320,7 +311,7 @@ class _EscheState extends ConsumerState<_Esche> {
   @override
   Widget build(BuildContext context) {
     final bozza = ref.watch(moduloPescataProvider);
-    return _inSezione<List<Esca>>(ref.watch(escheProvider), (catalogo) {
+    return sezioneAsincrona<List<Esca>>(ref.watch(escheProvider), (catalogo) {
       // Le esche scritte ora (non ancora nel catalogo) compaiono per prime.
       final tutte = [
         ...bozza.esche.where((e) => e.isNuovo),
@@ -427,7 +418,7 @@ class _SchedaCattura extends ConsumerWidget {
             Row(
               children: [
                 Expanded(
-                  child: _inSezione(ref.watch(specieProvider), (specie) {
+                  child: sezioneAsincrona(ref.watch(specieProvider), (specie) {
                     return DropdownMenu<String>(
                       // Ricostruito quando la specie cambia (es. specie nuova).
                       key: ValueKey('specie-$chiave-$specieNome'),
@@ -468,7 +459,7 @@ class _SchedaCattura extends ConsumerWidget {
               onChanged: (testo) => modulo.impostaTotale(chiave, int.tryParse(testo.trim()) ?? 0),
             ),
             if (specieNome != null)
-              _inSezione(ref.watch(caratteristicheProvider(specieNome)), (caratteristiche) {
+              sezioneAsincrona(ref.watch(caratteristicheProvider(specieNome)), (caratteristiche) {
                 if (caratteristiche.isEmpty) {
                   return const Padding(
                     padding: EdgeInsets.only(top: 8),

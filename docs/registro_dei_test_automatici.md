@@ -1,6 +1,6 @@
 # Registro dei Test Automatici
 
-La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 12 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate.
+La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 14 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate.
 
 ## 1. `test/database_integrita_test.dart` (20 test)
 
@@ -124,5 +124,20 @@ Questa suite verifica le regole del modulo *Registra pescata* (`ModuloPescataNot
 
 Questa suite verifica la schermata `RegistraPescataScreen` senza database: spot, specie ed esche sono sostituiti da dati preparati nel test.
 
-* salvando il modulo vuoto compare il dialogo con i problemi (spot e fascia oraria mancanti);
+* salvando il modulo vuoto il pulsante smette di mostrare il salvataggio in corso e compare il dialogo con i problemi (spot e fascia oraria mancanti);
 * scegliere una fascia oraria la evidenzia, selezionare un'esca aggiorna il conteggio delle selezionate e aggiungere una specie con il suo totale aggiorna il totale della pescata.
+
+## 13. `test/modulo_spot_test.dart` (6 test)
+
+Questa suite verifica il modulo dello spot (`ModuloSpotNotifier`, `BozzaSpot` e `leggiCoordinata`) senza interfaccia, sul database in memoria.
+
+* **Lettura dei punti:** verifica che `leggiCoordinata` riconosca i formati copiati da Google Maps (due numeri con punto o virgola decimale, separati da virgola, spazio o punto e virgola; gradi-primi-secondi; link completo con il punto o con la vista) e rifiuti testo qualsiasi, un numero solo, coordinate fuori intervallo e i link brevi senza coordinate.
+* **Compilazione:** verifica i messaggi per nome mancante o già usato (anche con maiuscole diverse), categoria e ambiente mancanti, voto e lunghezza non validi, e che la virgola decimale sia accettata; che i punti si aggiungano, spostino e tolgano, e che con due punti la lunghezza scritta a mano sia ignorata a favore di quella calcolata; che la difficoltà si tolga toccandola di nuovo.
+* **Salvataggio:** verifica che uno spot nuovo, con una categoria creata dal modulo, si salvi con i punti, la lunghezza calcolata, l'accessibilità e le note ripulite; che rinominando lo spot e passando dal torrente al lago venga proposto di collegare il solo *Livello* usato nelle pescate (il meteo è già previsto per il lago), che dopo il collegamento il lago preveda entrambe e che la pescata segua il nuovo nome; che eliminando lo spot le sue pescate restino senza spot.
+
+## 14. `test/modulo_spot_screen_test.dart` (2 test)
+
+Questa suite verifica la schermata `ModuloSpotScreen` senza database (spot, categorie e ambienti preparati nel test):
+
+* per uno spot nuovo non c'è il pulsante di eliminazione e salvando il modulo vuoto compare il dialogo con nome, categoria e ambiente mancanti;
+* un testo che non è un punto mostra l'errore sotto il campo, mentre un punto valido viene aggiunto all'elenco come primo punto, quello del meteo.

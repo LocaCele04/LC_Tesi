@@ -8,7 +8,10 @@ import '../../models/enums.dart';
 import '../../models/pescate/pescata.dart';
 import '../../models/pescate/riepilogo_caratteristica.dart';
 import '../../models/pescate/riepilogo_specie.dart';
+import 'bozza_non_valida.dart';
 import 'dipendenze.dart';
+
+export 'bozza_non_valida.dart';
 import 'pescate_state.dart';
 
 /// Catture di una specie nel modulo: specie, totale e quante catture hanno
@@ -326,13 +329,4 @@ class ModuloPescataNotifier extends Notifier<BozzaPescata> {
       ],
     );
   }
-}
-
-/// La bozza ha dei problemi ([problemi]) che impediscono il salvataggio.
-class BozzaNonValida implements Exception {
-  final List<String> problemi;
-  const BozzaNonValida(this.problemi);
-
-  @override
-  String toString() => 'BozzaNonValida: ${problemi.join(' ')}';
 }

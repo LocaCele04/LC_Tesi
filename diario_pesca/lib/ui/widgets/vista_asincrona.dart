@@ -58,3 +58,14 @@ class VistaAsincrona<T> extends StatelessWidget {
     );
   }
 }
+
+/// Versione compatta di [VistaAsincrona] per una sezione dentro un modulo:
+/// una barra durante il caricamento e un messaggio in caso di errore.
+Widget sezioneAsincrona<T>(AsyncValue<T> valore, Widget Function(T dati) dati) => valore.when(
+      data: dati,
+      loading: () => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: LinearProgressIndicator(),
+      ),
+      error: (e, _) => Text('Dati non disponibili: $e'),
+    );

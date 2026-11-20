@@ -149,12 +149,16 @@ diario_pesca/
 │   │   │   ├── spot_state.dart        # Stato degli spot (schema di riferimento)
 │   │   │   ├── pescate_state.dart     # Elenco delle pescate
 │   │   │   ├── catalogo_state.dart    # Esche, specie, caratteristiche, condizioni
-│   │   │   └── modulo_pescata_state.dart  # Bozza del modulo "Registra pescata"
+│   │   │   ├── modulo_pescata_state.dart  # Bozza del modulo "Registra pescata"
+│   │   │   ├── modulo_spot_state.dart # Bozza del modulo dello spot, lettura dei punti
+│   │   │   └── bozza_non_valida.dart  # Errore comune dei moduli
 │   │   ├── screens/
 │   │   │   ├── elenco_spot_screen.dart
+│   │   │   ├── modulo_spot_screen.dart
 │   │   │   └── registra_pescata_screen.dart
 │   │   └── widgets/
 │   │       ├── vista_asincrona.dart   # Caricamento / errore / dati
+│   │       ├── dialoghi.dart          # Problemi del modulo, conferma
 │   │       ├── dialogo_nome.dart
 │   │       └── etichette.dart
 │   └── main.dart                      # Punto di ingresso dell'applicazione
@@ -163,6 +167,8 @@ diario_pesca/
 │   ├── database_integrita_test.dart
 │   ├── elenco_spot_screen_test.dart
 │   ├── modulo_pescata_test.dart
+│   ├── modulo_spot_screen_test.dart
+│   ├── modulo_spot_test.dart
 │   ├── meteo_repository_test.dart
 │   ├── meteo_service_test.dart
 │   ├── obiettivi_repository_test.dart
@@ -269,11 +275,14 @@ La gestione dello stato usa **Riverpod 3**; motivazioni, alternative e regole d'
   * `spot_state.dart`: stato degli spot ed **esempio di riferimento** per le altre aree. `elencoSpotProvider` (elenco con i metodi `salva` ed `elimina`, che chiamano il repository e invalidano elenco, dettagli e pescate), `dettaglioSpotProvider` (spot con coordinate, `autoDispose`), `categorieProvider` e `ambientiProvider`.
   * `pescate_state.dart`: `elencoPescateProvider`, con `salva` ed `elimina`. Salvare una pescata ricarica anche gli spot (lo spot diventa *battuto*) e le esche (un'esca scritta al momento entra nel catalogo).
   * `catalogo_state.dart`: esche, specie (con l'aggiunta di una specie dal modulo), caratteristiche di una specie e condizioni previste per un ambiente.
+  * `modulo_spot_state.dart`: il modulo dello spot, nuovo o da modificare. `BozzaSpot` (nome, categoria, ambiente, difficoltà, accessibilità, voto, punti del tratto, lunghezza scritta a mano usata solo con meno di due punti, note e link del parcheggio) con `errori()` e `inSpot()`; `ModuloSpotNotifier` (`autoDispose`, una bozza per spot) con un metodo per ogni modifica, `salva()` ed `elimina()`. Se cambia l'ambiente di uno spot, `condizioniDaCollegare()` restituisce le condizioni già usate nelle sue pescate ma non previste per il nuovo ambiente, che l'utente può collegare al salvataggio. `leggiCoordinata()` riconosce un punto incollato da Google Maps: due numeri (con punto o virgola decimale), gradi-primi-secondi o un link completo; i link brevi `maps.app.goo.gl` non contengono le coordinate.
+  * `bozza_non_valida.dart`: l'errore `BozzaNonValida`, comune ai moduli, con i problemi in parole per l'utente.
   * `modulo_pescata_state.dart`: il modulo *Registra pescata*. `BozzaPescata` è la bozza immutabile (spot e ambiente, data, fascia oraria, valori delle condizioni, esche, catture per specie con le caratteristiche, temperature e note); `errori()` restituisce i problemi in parole per l'utente, `inPescata()` la pescata da salvare. `ModuloPescataNotifier` (`autoDispose`) ha un metodo per ogni modifica e `salva()`. Cambiando lo spot verso un altro ambiente i valori delle condizioni si tolgono; cambiando la specie di una riga si tolgono le sue caratteristiche; un'esca nuova con il nome di una esistente seleziona quella.
-* **`widgets/`**: componenti riutilizzabili. `VistaAsincrona` mostra un dato asincrono nei suoi tre stati: caricamento, errore con pulsante *Riprova*, dati. `chiediNome` chiede un nome in un dialogo; `etichette.dart` contiene i testi per l'utente (fasce orarie, date in italiano).
+* **`widgets/`**: componenti riutilizzabili. `VistaAsincrona` mostra un dato asincrono nei suoi tre stati: caricamento, errore con pulsante *Riprova*, dati; `sezioneAsincrona` è la versione compatta per una sezione di un modulo. `mostraProblemi` e `chiediConferma` sono i dialoghi comuni; `chiediNome` chiede un nome in un dialogo; `etichette.dart` contiene i testi per l'utente (fasce orarie, date in italiano).
 * **`screens/`**: le schermate.
-  * `ElencoSpotScreen` mostra gli spot con ambiente, categoria e stato *battuto*, e si aggiorna trascinando verso il basso. Oggi è la schermata iniziale dell'app; il pulsante *Nuova pescata* apre il modulo.
-  * `RegistraPescataScreen` ([REQ-FUN-06], [REQ-FUN-07]): spot con ricerca per nome, data (non futura), fascia oraria, condizioni dell'ambiente dello spot, temperature, esche (con ricerca e aggiunta di un'esca nuova), catture per specie con totale e caratteristiche, totale della pescata e note. Salvando, i problemi vengono elencati in un dialogo. Mancano ancora le foto e le catture memorabili (servono il `FotoService`) e la creazione di uno spot dal modulo.
+  * `ElencoSpotScreen` mostra gli spot con ambiente, categoria e stato *battuto*, e si aggiorna trascinando verso il basso. Oggi è la schermata iniziale dell'app: toccando uno spot lo si modifica, il pulsante in alto crea uno spot nuovo e *Nuova pescata* apre il modulo della pescata.
+  * `ModuloSpotScreen` (nuovo spot o modifica, aperto per nome con `ModificaSpotScreen`): nome, categoria (con aggiunta di una categoria nuova), ambiente, difficoltà, accessibilità, voto, punti del tratto (incollati, con riordino e rimozione; il primo è quello del meteo), lunghezza calcolata o scritta a mano, esposizione, punti complicati, note e link del parcheggio. Cambiando l'ambiente propone di collegare le condizioni già usate nelle pescate; l'eliminazione chiede conferma. Si chiude restituendo lo spot salvato. Il disegno del tratto sulla mappa ([REQ-FUN-01]) arriverà con la mappa.
+  * `RegistraPescataScreen` ([REQ-FUN-06], [REQ-FUN-07]): spot con ricerca per nome, data (non futura), fascia oraria, condizioni dell'ambiente dello spot, temperature, esche (con ricerca e aggiunta di un'esca nuova), catture per specie con totale e caratteristiche, totale della pescata e note. Salvando, i problemi vengono elencati in un dialogo. Il pulsante *Nuovo spot* apre il modulo dello spot e sceglie subito lo spot creato. Mancano ancora le foto e le catture memorabili (servono il `FotoService`).
 
 L'interfaccia è in italiano anche nei componenti di Flutter (calendario, dialoghi) grazie a `flutter_localizations`.
 
@@ -281,7 +290,7 @@ Nell'app e nei test i nuovi tentativi automatici di Riverpod sono disattivati: u
 
 ### 4.6 `test/` — Test automatici
 Una suite per componente, descritte nel `registro_dei_test_automatici.md`:
-`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`, `spot_state_test.dart` e `modulo_pescata_test.dart` (stato dell'interfaccia), `elenco_spot_screen_test.dart` e `registra_pescata_screen_test.dart` (schermate).
+`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`, `spot_state_test.dart`, `modulo_pescata_test.dart` e `modulo_spot_test.dart` (stato dell'interfaccia), `elenco_spot_screen_test.dart`, `registra_pescata_screen_test.dart` e `modulo_spot_screen_test.dart` (schermate).
 
 ---
 

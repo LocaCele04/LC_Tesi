@@ -68,7 +68,7 @@ void main() {
         findsNothing,
         reason: 'l\'indicatore di salvataggio deve fermarsi prima del dialogo',
       );
-      expect(find.text('Controlla la pescata'), findsOneWidget);
+      expect(find.text('Controlla i dati'), findsOneWidget);
       expect(find.text('• Scegli lo spot.'), findsOneWidget);
       expect(find.text('• Scegli la fascia oraria.'), findsOneWidget);
     });
