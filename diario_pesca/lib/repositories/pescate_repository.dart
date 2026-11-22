@@ -132,6 +132,22 @@ class PescateRepository {
     return righe.map((r) => DbMappers.pescataFromMap(r)).toList();
   }
 
+  /// Numero totale di catture (somma dei riepiloghi di tutte le specie) per
+  /// ogni pescata che ne ha almeno una, per id della pescata. Serve agli
+  /// elenchi, che non caricano i riepiloghi di ogni pescata.
+  Future<Map<int, int>> getTotaliCatture() async {
+    final db = await _dbHelper.database;
+    final righe = await db.rawQuery('''
+      SELECT pescata_id, SUM(quantita) AS totale
+      FROM RiepilogoSpecie
+      GROUP BY pescata_id
+      HAVING SUM(quantita) > 0
+    ''');
+    return {
+      for (final r in righe) r['pescata_id'] as int: (r['totale'] as num).toInt(),
+    };
+  }
+
   /// Elenco catture memorabili filtrabili per pescata, specie o esca, complete
   /// di esca (con relative foto), caratteristiche e foto.
   Future<List<CatturaMemorabile>> getCattureMemorabili({
@@ -373,9 +389,12 @@ class PescateRepository {
         percorsiFotoDaRimuovere.remove(f.percorsoThumbnail);
       }
 
-      // 3. Riepiloghi specie con dettagli per caratteristica
+      // 3. Riepiloghi specie con dettagli per caratteristica. Una specie
+      // scritta al momento nel modulo nasce qui, con la pescata.
       final riepiloghiSalvati = <RiepilogoSpecie>[];
-      for (final r in pescata.riepiloghiSpecie) {
+      for (final daSalvare in pescata.riepiloghiSpecie) {
+        final specieNome = await _catalogo.assicuraSpecieSalvata(txn, daSalvare.specieNome);
+        final r = daSalvare.copyWith(specieNome: specieNome);
         final riepilogoAllineato = r.copyWith(pescataId: pescataId);
         final riepilogoId = await txn.insert(
           'RiepilogoSpecie',

@@ -1,6 +1,6 @@
 # Schema Logico Relazionale
 
-Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/data/database_helper.dart`): 24 tabelle e 19 indici su SQLite.
+Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/data/database_helper.dart`): 24 tabelle e 19 indici su SQLite, alla **versione 1** dello schema (`DatabaseHelper.versioneSchema`). Come si passa da una versione alla successiva è descritto in `scelta_architetturale_migrazioni_del_database.md`.
 
 ---
 
@@ -52,7 +52,6 @@ Lo schema descritto in questo documento corrisponde a quello effettivamente crea
 * `lunghezzaMetri`: REAL *(NULL)* — > 0; calcolata automaticamente dalle coordinate se presenti almeno 2 punti
 * `voto`: REAL *(NULL)* — tra 0 e 10, ammessi decimali (es. 4.5)
 * `difficolta`: TEXT *(NULL)* — `bassa | media | alta`
-* `esposizioneSole`: TEXT *(NULL)*
 * `noteOstacoli`: TEXT *(NULL)*
 * `note`: TEXT *(NULL)*
 * `battuto`: INTEGER **(NOT NULL)**, default 0 — 1 se esiste almeno una pescata nello spot (mantenuto dai repository)
@@ -78,7 +77,6 @@ Lo schema descritto in questo documento corrisponde a quello effettivamente crea
 * `data`: TEXT **(NOT NULL)** — data ISO valida
 * `fasciaOraria`: TEXT **(NOT NULL)** — `alba | mattina | pomeriggio | tramonto | sera | notte`
 * `temp_acqua`: REAL *(NULL)* — tra 0 e 35 °C
-* `temp_aria`: REAL *(NULL)* — tra -30 e 45 °C
 * `note`: TEXT *(NULL)*
 * *`spot_nome`*: TEXT *(FK, NULL)* $\rightarrow$ `Spot(nome)` — `ON DELETE SET NULL`, `ON UPDATE CASCADE`. Nullable solo per consentire il `SET NULL` quando uno spot viene eliminato: alla creazione lo spot è obbligatorio (vedi §3.4)
 

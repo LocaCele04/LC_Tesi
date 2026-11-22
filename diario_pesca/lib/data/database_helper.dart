@@ -1,6 +1,8 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'migrazioni.dart';
+
 /// Per copiare il database dal telefono al PC e aprirlo con DBeaver usare
 /// `scriptCopiaDB.bat` nella cartella `diario_pesca`: chiude l'app, estrae il
 /// file con adb e lo copia accanto allo script.
@@ -28,35 +30,93 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDB(String filePath) async {
-    if (_inMemory) {
-      return await openDatabase(
-        inMemoryDatabasePath,
-        version: 1,
-        onConfigure: onConfigure,
-        onCreate: onCreate,
-        singleInstance: false,
-      );
-    }
+    if (_inMemory) return apri(inMemoryDatabasePath, singleInstance: false);
+    return apri(join(await getDatabasesPath(), filePath));
+  }
 
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, filePath);
+  /// Versione attuale dello schema. Va alzata di 1 a ogni modifica di
+  /// [onCreate], aggiungendo in `migrazioni.dart` il passaggio che porta un
+  /// database della versione precedente a quella nuova (vedi
+  /// `docs/scelta_architetturale_migrazioni_del_database.md`).
+  static const int versioneSchema = 1;
 
-    return await openDatabase(
-      path,
-      version: 1,
+  /// Apre (o crea) il database in [percorso] e lo porta alla [versione]:
+  /// un database nuovo viene creato da [onCreate], uno di una versione
+  /// precedente viene aggiornato con i [passaggi] mancanti.
+  ///
+  /// [versione] e [passaggi] si cambiano solo nei test delle migrazioni.
+  static Future<Database> apri(
+    String percorso, {
+    bool singleInstance = true,
+    int versione = versioneSchema,
+    Map<int, Migrazione> passaggi = migrazioni,
+  }) {
+    return openDatabase(
+      percorso,
+      version: versione,
+      singleInstance: singleInstance,
       onConfigure: onConfigure,
       onCreate: onCreate,
+      onUpgrade: (db, da, a) => aggiornaSchema(db, da, a, passaggi: passaggi),
+      onDowngrade: onDowngrade,
+      onOpen: onOpen,
     );
   }
 
-  // Pubblici e statici perché i test li riusano su un database in memoria.
-  /// Attiva i vincoli di chiave esterna (in SQLite sono spenti di default).
+  // Pubblici e statici perché i test li riusano.
+
+  /// Prima di creare o aggiornare lo schema le chiavi esterne restano
+  /// spente. Creazione e aggiornamento avvengono in una transazione, dove
+  /// SQLite non permette di cambiare `foreign_keys`; ricostruire una tabella
+  /// con le chiavi esterne attive farebbe partire le azioni a cascata
+  /// (cancellare la tabella vecchia cancellerebbe, per esempio, le coordinate
+  /// di tutti gli spot). Le chiavi esterne si accendono in [onOpen].
   static Future<void> onConfigure(Database db) async {
+    await db.execute('PRAGMA foreign_keys = OFF;');
+  }
+
+  /// Attiva i vincoli di chiave esterna (in SQLite sono spenti di default),
+  /// dopo che creazione o aggiornamento dello schema sono terminati.
+  static Future<void> onOpen(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON;');
   }
 
-  /// Crea lo schema. Nei CHECK un valore NULL passa sempre: i campi
-  /// facoltativi restano facoltativi.
+  /// Applica in ordine i passaggi da [da] + 1 fino ad [a] e controlla che
+  /// alla fine nessuna riga violi le chiavi esterne (durante i passaggi sono
+  /// spente). Un errore annulla l'intero aggiornamento: sqflite esegue
+  /// `onUpgrade` in una transazione, quindi il database resta alla versione
+  /// [da] con i dati intatti.
+  static Future<void> aggiornaSchema(
+    DatabaseExecutor db,
+    int da,
+    int a, {
+    Map<int, Migrazione> passaggi = migrazioni,
+  }) async {
+    for (var versione = da + 1; versione <= a; versione++) {
+      final passaggio = passaggi[versione];
+      if (passaggio == null) {
+        throw StateError('Manca la migrazione alla versione $versione dello schema.');
+      }
+      await passaggio(db);
+    }
+    final violazioni = await db.rawQuery('PRAGMA foreign_key_check;');
+    if (violazioni.isNotEmpty) {
+      throw StateError(
+        'Dopo l\'aggiornamento alla versione $a, ${violazioni.length} righe '
+        'violano le chiavi esterne: $violazioni',
+      );
+    }
+  }
+
+  /// Un database più recente dell'app (per esempio dopo aver reinstallato
+  /// una versione vecchia) non viene toccato: l'apertura fallisce.
+  static Future<void> onDowngrade(Database db, int da, int a) async {
+    throw StateError(
+      'Il database è alla versione $da dello schema, più recente di quella '
+      'di questa app ($a): installa la versione più recente dell\'app.',
+    );
+  }
+
   /// Ambienti presenti alla prima apertura; l'utente può aggiungerne altri.
   static const List<String> ambientiDiBase = ['Torrente', 'Fiume', 'Lago', 'Mare'];
 
@@ -85,6 +145,13 @@ class DatabaseHelper {
     'Meteo': ambientiDiBase,
   };
 
+  /// Crea lo schema completo dell'ultima versione ([versioneSchema]) su un
+  /// database nuovo. Nei CHECK un valore NULL passa sempre: i campi
+  /// facoltativi restano facoltativi.
+  ///
+  /// Ogni modifica a questo metodo richiede una migrazione (vedi
+  /// [versioneSchema]); il test `migrazioni_test.dart` fallisce se lo schema
+  /// cambia senza.
   static Future<void> onCreate(Database db, int version) async {
     // 1. Categoria
     await db.execute('''
@@ -157,7 +224,6 @@ class DatabaseHelper {
         lunghezzaMetri REAL,
         voto REAL,
         difficolta TEXT,
-        esposizioneSole TEXT,
         noteOstacoli TEXT,
         note TEXT,
         battuto INTEGER NOT NULL DEFAULT 0,
@@ -212,14 +278,12 @@ class DatabaseHelper {
         data TEXT NOT NULL,
         fasciaOraria TEXT NOT NULL,
         temp_acqua REAL,
-        temp_aria REAL,
         note TEXT,
         spot_nome TEXT,
         FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE SET NULL ON UPDATE CASCADE,
         CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),
         CHECK (fasciaOraria IN ('alba','mattina', 'pomeriggio', 'tramonto', 'sera', 'notte')),
-        CHECK (temp_acqua BETWEEN 0 AND 35),
-        CHECK (temp_aria BETWEEN -30 AND 45)
+        CHECK (temp_acqua BETWEEN 0 AND 35)
       );
     ''');
 
@@ -509,7 +573,8 @@ class DatabaseHelper {
   }
 
   /// SOLO SVILUPPO: cancella il file del database, così alla prossima
-  /// apertura viene ricreato con lo schema aggiornato.
+  /// apertura viene ricreato da zero. Con le migrazioni non serve più per
+  /// aggiornare lo schema.
   Future<void> resetPerSviluppo() async {
     await close();
     if (!_inMemory) {

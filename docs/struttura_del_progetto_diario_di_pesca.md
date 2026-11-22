@@ -8,8 +8,8 @@ Per mantenere il codice ordinato, leggibile e facilmente estendibile, il progett
 
 ```
 +-----------------------------------------------------------------------+
-|  PRESENTAZIONE (UI)                                        [previsto]  |
-|  lib/ui/   screens/ · widgets/ · state/                                |
+|  PRESENTAZIONE (UI)                                        [in corso]  |
+|  lib/ui/   screens/ · widgets/ · state/ (Riverpod)                     |
 +-----------------------------------------------------------------------+
             |                                   |
             | operazioni semplici               | operazioni composte
@@ -34,10 +34,10 @@ Per mantenere il codice ordinato, leggibile e facilmente estendibile, il progett
 * **Dominio (`models`)**: entità dell'applicazione come classi Dart immutabili, indipendenti dal database e da Flutter.
 * **Repository (`repositories`)**: lettura, salvataggio ed eliminazione degli aggregati del dominio, con le relative transazioni.
 * **Servizi (`services`)**: logica che coinvolge più sorgenti o più aggregati (database + file, database + rete, aggregazioni statistiche).
-* **Presentazione (`ui`)**: schermate, componenti grafici e gestione dello stato dell'interfaccia (non ancora implementata).
+* **Presentazione (`ui`)**: schermate, componenti grafici e gestione dello stato dell'interfaccia con **Riverpod** (in corso; vedi `scelta_architetturale_gestione_dello_stato.md`).
 
 ### 1.1 Regola d'uso: repository o servizi?
-* Per le **operazioni semplici** di lettura e salvataggio (creare uno spot, modificare un'esca, elencare le pescate) l'interfaccia chiama **direttamente il repository**.
+* Per le **operazioni semplici** di lettura e salvataggio (creare uno spot, modificare un'esca, elencare le pescate) l'interfaccia usa **direttamente il repository**, attraverso i provider di Riverpod (`lib/ui/state/`), che dopo una modifica aggiornano tutte le schermate interessate.
 * I **servizi** esistono solo dove la logica tocca più cose insieme e non appartiene a un singolo aggregato: acquisizione e compressione di una foto prima del salvataggio (file system + repository), backup su Google Drive (database + file + rete), previsioni meteo (rete), statistiche (query di aggregazione su più tabelle).
 * Un servizio può usare i repository e il livello dati; un repository non usa mai un servizio.
 
@@ -52,7 +52,9 @@ Ogni tabella è scritta da **un solo repository**. Così ogni regola di validazi
 | `ObiettiviRepository` | `Obiettivo` |
 | `MeteoRepository` | `CellaMeteo`, `MeteoGiornaliero`, `MeteoOrario`, `PescataMeteo` |
 
-Quando una pescata, una cattura memorabile o un obiettivo devono creare **al volo** un'esca o una caratteristica (es. l'utente scrive un'esca nuova mentre registra la pescata), il repository chiamante non scrive la tabella `Esca` o `Caratteristica`: chiama i metodi `assicuraEscaSalvata` / `assicuraCaratteristicaSalvata` del `CatalogoRepository`, passando la propria transazione. La creazione resta atomica con il resto del salvataggio e la logica sta in un solo punto.
+Quando una pescata, una cattura memorabile o un obiettivo devono creare **al volo** un'esca, una specie o una caratteristica (es. l'utente scrive un'esca nuova mentre registra la pescata), il repository chiamante non scrive la tabella `Esca`, `Specie` o `Caratteristica`: chiama i metodi `assicuraEscaSalvata` / `assicuraSpecieSalvata` / `assicuraCaratteristicaSalvata` del `CatalogoRepository`, passando la propria transazione. La creazione resta atomica con il resto del salvataggio e la logica sta in un solo punto. Allo stesso modo `salvaSpotConCoordinate` crea, nella sua transazione, la categoria scritta al momento nel modulo dello spot. Se il nome corrisponde a un elemento esistente (senza distinzione di maiuscole e spazi), si usa quello.
+
+**Regola dell'interfaccia:** ciò che l'utente scrive al momento in un modulo (esca, specie, categoria) resta *in sospeso* nella bozza e nasce nel catalogo solo salvando il modulo; un modulo abbandonato non lascia nulla. Togliere dalla bozza un elemento in sospeso lo scarta, e prima di farlo l'interfaccia chiede conferma.
 
 Se il nome scritto dall'utente è già usato da un'esca o da una caratteristica esistente (senza distinzione di maiuscole e spazi):
 * se l'elemento nuovo ha solo il nome, o dati già presenti in quello esistente, viene **riusato l'elemento esistente**: non si crea un doppione e non si perde nulla;
@@ -82,6 +84,8 @@ Il progetto utilizza l'SDK **Dart `^3.11.1`** e integra un insieme essenziale di
 | **`path`** | `^1.9.1` | Libreria per comporre in modo sicuro i percorsi dei file su disco (database e immagini). |
 | **`sqflite_common_ffi`** | `^2.4.0` | Driver SQLite basato su FFI che consente di eseguire il motore relazionale su desktop durante i test automatici. |
 | **`http`** | `^1.2.2` | Client HTTP per le richieste a Open-Meteo (dati meteo storici e previsioni); nei test viene sostituito da un client simulato (`MockClient`). |
+| **`flutter_localizations`** | SDK | Traduzioni italiane dei componenti di Flutter (calendario, dialoghi, menu). |
+| **`flutter_riverpod`** | `^3.4.1` | Gestione dello stato dell'interfaccia: rende disponibili repository e servizi alle schermate e le aggiorna quando i dati cambiano (vedi `scelta_architetturale_gestione_dello_stato.md`). |
 | **`cupertino_icons`** | `^1.0.8` | Raccolta standard di icone in stile iOS affiancata alle Material Icons di Flutter. |
 | **`flutter_test`** | SDK | Framework ufficiale per l'esecuzione dei test automatizzati. |
 | **`flutter_lints`** | `^6.0.0` | Regole di analisi statica per mantenere coerenza stilistica e qualità del codice Dart. |
@@ -96,7 +100,8 @@ La radice del progetto separa il codice sorgente dell'applicazione (`lib/`) dall
 diario_pesca/
 ├── lib/
 │   ├── data/
-│   │   ├── database_helper.dart       # Connessione SQLite, schema (24 tabelle, 19 indici)
+│   │   ├── database_helper.dart       # Connessione SQLite, schema (24 tabelle, 19 indici), versione
+│   │   ├── migrazioni.dart            # Passaggi di aggiornamento dello schema tra versioni
 │   │   ├── db_mappers.dart            # Conversione tra righe SQL e classi Dart
 │   │   ├── query_condivise.dart       # Query usate da più componenti (stato battuto, riepiloghi)
 │   │   └── archivio_foto.dart         # Accesso ai file immagine sul dispositivo
@@ -141,17 +146,51 @@ diario_pesca/
 │   │   ├── foto_service.dart          # [previsto]
 │   │   ├── backup_service.dart        # [previsto]
 │   │   └── meteo_service.dart         # Open-Meteo: storico e previsioni
-│   ├── ui/                            # [previsto] screens/ · widgets/ · state/
+│   ├── ui/
+│   │   ├── state/
+│   │   │   ├── dipendenze.dart        # Provider di database, repository, servizi, orologio
+│   │   │   ├── spot_state.dart        # Stato degli spot (schema di riferimento)
+│   │   │   ├── pescate_state.dart     # Pescate: elenco, dettaglio, totali, meteo
+│   │   │   ├── catalogo_state.dart    # Esche, specie, caratteristiche, condizioni
+│   │   │   ├── modulo_pescata_state.dart  # Bozza del modulo "Registra pescata"
+│   │   │   ├── modulo_spot_state.dart # Bozza del modulo dello spot, lettura dei punti
+│   │   │   └── bozza_non_valida.dart  # Errore comune dei moduli
+│   │   ├── screens/
+│   │   │   ├── home_screen.dart       # Barra in basso: Pescate | Spot
+│   │   │   ├── elenco_pescate_screen.dart
+│   │   │   ├── scheda_pescata_screen.dart
+│   │   │   ├── elenco_spot_screen.dart
+│   │   │   ├── modulo_spot_screen.dart
+│   │   │   └── registra_pescata_screen.dart
+│   │   └── widgets/
+│   │       ├── vista_asincrona.dart   # Caricamento / errore / dati
+│   │       ├── dialoghi.dart          # Problemi del modulo, conferma
+│   │       ├── dialogo_nome.dart
+│   │       └── etichette.dart
 │   └── main.dart                      # Punto di ingresso dell'applicazione
 ├── test/
 │   ├── catalogo_repository_test.dart
 │   ├── database_integrita_test.dart
+│   ├── elenco_pescate_screen_test.dart
+│   ├── elenco_spot_screen_test.dart
+│   ├── modulo_pescata_test.dart
+│   ├── modulo_spot_screen_test.dart
+│   ├── modulo_spot_test.dart
 │   ├── meteo_repository_test.dart
 │   ├── meteo_service_test.dart
+│   ├── migrazioni_test.dart
 │   ├── obiettivi_repository_test.dart
 │   ├── pescate_repository_test.dart
+│   ├── pescate_state_test.dart
+│   ├── registra_pescata_screen_test.dart
+│   ├── spot_state_test.dart
 │   ├── statistiche_service_test.dart
-│   └── territorio_repository_test.dart
+│   ├── territorio_repository_test.dart
+│   ├── schemi/
+│   │   └── schema_v1.json             # Fotografia dello schema della versione 1
+│   └── supporto/
+│       ├── fotografia_schema.dart     # Scatta, ricarica e confronta le fotografie dello schema
+│       └── open_meteo_finto.dart      # Risposta finta di Open-Meteo per i test
 ├── scriptCopiaDB.bat                  # Copia il database dal telefono al PC (per DBeaver)
 └── pubspec.yaml
 ```
@@ -161,7 +200,8 @@ diario_pesca/
 ## 4. Descrizione dei Pacchetti e delle Classi
 
 ### 4.1 `lib/data/` — Livello dati
-* **`DatabaseHelper`**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **24 tabelle** e **19 indici**, con vincoli di integrità referenziale attivi, e inserisce alla creazione gli ambienti e le condizioni di base.
+* **`DatabaseHelper`**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **24 tabelle** e **19 indici**, con vincoli di integrità referenziale attivi, e inserisce alla creazione gli ambienti e le condizioni di base. Dichiara la versione dello schema (`versioneSchema`) e all'apertura aggiorna un database di una versione precedente con i passaggi di `migrazioni.dart`, con le chiavi esterne spente durante l'aggiornamento e accese subito dopo.
+* **`migrazioni.dart`**: i passaggi di aggiornamento, uno per versione, e `ricostruisciTabella` per le modifiche che `ALTER TABLE` non permette (vedi `scelta_architetturale_migrazioni_del_database.md`).
 * **`DbMappers`**: traduce le righe restituite da SQLite (`Map<String, Object?>`) nelle classi del modello di dominio e viceversa. Contiene solo conversioni, nessuna query.
 * **`QueryCondivise`**: query usate da più componenti, scritte in un solo punto: l'aggiornamento di `Spot.battuto` (usato da `TerritorioRepository` e `PescateRepository`) e la lettura dei riepiloghi con i dettagli per caratteristica (usata da `PescateRepository` e `StatisticheService`).
 * **`ArchivioFoto`**: accesso ai file immagine sul dispositivo. I repository lo usano per cancellare i file rimasti senza riferimento, sempre dopo il commit della transazione.
@@ -216,8 +256,8 @@ I modelli identificano le righe del database in due modi.
 Un repository per area del dominio; la tabella in §1.2 indica quali tabelle scrive ciascuno.
 
 * **`TerritorioRepository`**: categorie, ambienti, spot e coordinate GPS, con il calcolo automatico della lunghezza del tratto (formula di Haversine), lo spostamento degli spot tra categorie e, prima di cambiare l'ambiente di uno spot, l'elenco delle condizioni usate dalle sue pescate e non previste dal nuovo ambiente (`getCondizioniNonPreviste`).
-* **`PescateRepository`**: pescate complete (salvate in modo atomico con valori delle condizioni, esche, foto, riepiloghi, dettagli e catture memorabili), catture memorabili e pianificazioni, con il filtro delle pescate per valori di condizione. Garantisce lo spot obbligatorio, un solo valore per condizione, il vincolo dettaglio ≤ totale e la pulizia dei file immagine non più usati.
-* **`CatalogoRepository`**: specie, caratteristiche, esche e condizioni (con valori, attivazione, collegamenti agli ambienti, copia dei collegamenti da un altro ambiente e le condizioni da mostrare nel form di una pescata, `getCondizioniPerForm`); offre agli altri repository la creazione al volo di esche e caratteristiche dentro una transazione esistente, con il controllo dei nomi già usati (`NomeDuplicatoException`), e all'interfaccia la ricerca per nome (`getEscaPerNome`, `getCaratteristicaPerNome`).
+* **`PescateRepository`**: pescate complete (salvate in modo atomico con valori delle condizioni, esche, foto, riepiloghi, dettagli e catture memorabili), catture memorabili e pianificazioni, con il filtro delle pescate per valori di condizione e i totali delle catture di ogni pescata per gli elenchi (`getTotaliCatture`). Garantisce lo spot obbligatorio, un solo valore per condizione, il vincolo dettaglio ≤ totale e la pulizia dei file immagine non più usati.
+* **`CatalogoRepository`**: specie, caratteristiche, esche e condizioni (con valori, attivazione, collegamenti agli ambienti, copia dei collegamenti da un altro ambiente e le condizioni da mostrare nel form di una pescata, `getCondizioniPerForm`); offre agli altri repository la creazione al volo di esche, specie e caratteristiche dentro una transazione esistente, con il controllo dei nomi già usati (`NomeDuplicatoException`), e all'interfaccia la ricerca per nome (`getEscaPerNome`, `getCaratteristicaPerNome`).
 * **`ObiettiviRepository`**: obiettivi annuali.
 * **`MeteoRepository`**: archivio dei dati meteo storici. Indica quali pescate sono da scaricare e con quale punto, quale cella è già nota per un punto e quali giorni e ore mancano in archivio; salva i dati scaricati (un dato riscaricato sostituisce il precedente); calcola lo stato del meteo di una pescata e ne restituisce i dati. Non accede alla rete.
 
@@ -243,15 +283,36 @@ Tutti i repository ricevono il `DatabaseHelper` (e, dove serve, gli altri reposi
 
   **Limiti noti:** la cella di un punto è quella della prima risposta; l'archivio delle previsioni passate è completo dalla metà del 2021: per date più vecchie mancano alcune variabili, e i giorni senza nessun valore restano mancanti (la pescata resta incompleta e viene ritentata).
 
-### 4.5 `lib/ui/` — Presentazione *(previsto)*
-* **`screens/`** e **`widgets/`**: schermate principali e componenti grafici riutilizzabili.
-* **`state/`**: gestione dello stato dell'interfaccia (soluzione da definire, es. Provider). È l'unico punto in cui lo stato è mutabile: i modelli restano immutabili e ogni modifica confermata dall'utente passa da un repository o da un servizio.
+### 4.5 `lib/ui/` — Presentazione *(in corso)*
+La gestione dello stato usa **Riverpod 3**; motivazioni, alternative e regole d'uso sono in `scelta_architetturale_gestione_dello_stato.md`.
+* **`state/`**: i provider. È l'unico punto in cui lo stato è mutabile: i modelli restano immutabili e ogni modifica confermata dall'utente passa da un repository o da un servizio.
+  * `dipendenze.dart`: un provider per il database, ogni repository e ogni servizio, creati una sola volta. Nei test basta sostituire `databaseHelperProvider` con un database in memoria.
+  * `spot_state.dart`: stato degli spot ed **esempio di riferimento** per le altre aree. `elencoSpotProvider` (elenco con i metodi `salva` ed `elimina`, che chiamano il repository e invalidano elenco, dettagli e pescate), `dettaglioSpotProvider` (spot con coordinate, `autoDispose`), `categorieProvider` e `ambientiProvider`. Le categorie si aggiungono solo salvando uno spot (vedi la regola sulla creazione al volo, §1.2).
+  * `pescate_state.dart`: `elencoPescateProvider`, con `salva` ed `elimina`. Salvare una pescata ricarica anche gli spot (lo spot diventa *battuto*), le esche e le specie (quelle scritte al momento entrano nel catalogo), il dettaglio e il meteo della pescata. `totaliCattureProvider` e `pescateSenzaMeteoProvider` *dipendono* dall'elenco: si ricalcolano da soli quando l'elenco viene ricaricato, senza invalidazioni esplicite. `dettaglioPescataProvider`, `meteoPescataProvider` e `pioggiaCumulataProvider` (pioggia dei giorni precedenti, dallo `StatisticheService`) servono la scheda. `aggiornamentoMeteoProvider` scarica il meteo mancante con il `MeteoService` e ne tiene l'esito; mentre scarica è in caricamento.
+  * `catalogo_state.dart`: esche, specie, caratteristiche di una specie, condizioni del modulo per un ambiente (`condizioniPerFormProvider`, che per una pescata già salvata include anche le condizioni che usa) e nomi delle condizioni per id.
+  * `modulo_spot_state.dart`: il modulo dello spot, nuovo o da modificare. `BozzaSpot` (nome, categoria con l'eventuale categoria nuova in sospeso, ambiente, difficoltà, accessibilità, voto, punti del tratto, lunghezza scritta a mano usata solo con meno di due punti, note e link del parcheggio) con `errori()` e `inSpot()`; `ModuloSpotNotifier` (`autoDispose`, una bozza per spot) con un metodo per ogni modifica, `salva()` ed `elimina()`. `aggiungiCategoriaNuova()` sceglie una categoria esistente con lo stesso nome o ne tiene una nuova in sospeso; `categoriaScartata()` dice se sceglierne un'altra la scarterebbe, per chiedere conferma. Se cambia l'ambiente di uno spot, `condizioniDaCollegare()` restituisce le condizioni già usate nelle sue pescate ma non previste per il nuovo ambiente, che l'utente può collegare al salvataggio. `leggiCoordinata()` riconosce un punto incollato da Google Maps: due numeri (con punto o virgola decimale), gradi-primi-secondi o un link completo; i link brevi `maps.app.goo.gl` non contengono le coordinate.
+  * `bozza_non_valida.dart`: l'errore `BozzaNonValida`, comune ai moduli, con i problemi in parole per l'utente.
+  * `modulo_pescata_state.dart`: il modulo della pescata, nuova o da modificare. `moduloPescataProvider` è una *family*: `null` per una pescata nuova, `(pescata: …, ambiente: …)` per modificarne una; in modifica la bozza parte dai dati salvati e conserva id, foto e catture memorabili, che il modulo non tocca. Una pescata rimasta senza spot (spot eliminato) si modifica senza doverne scegliere uno. `BozzaPescata` è la bozza immutabile (spot e ambiente, data, fascia oraria, valori delle condizioni, esche, catture per specie con le caratteristiche, specie nuove in sospeso, temperatura dell'acqua e note); `errori()` restituisce i problemi in parole per l'utente, `inPescata()` la pescata da salvare. `ModuloPescataNotifier` (`autoDispose`) ha un metodo per ogni modifica e `salva()`. Cambiando lo spot verso un altro ambiente i valori delle condizioni si tolgono; cambiando la specie di una riga si tolgono le sue caratteristiche; un'esca o una specie nuova con il nome di una esistente seleziona quella. Una specie nuova resta in sospeso finché qualche riga la usa; `specieScartata()` dice se togliere o cambiare una riga la scarterebbe.
+* **`widgets/`**: componenti riutilizzabili. `VistaAsincrona` mostra un dato asincrono nei suoi tre stati: caricamento, errore con pulsante *Riprova*, dati; `sezioneAsincrona` è la versione compatta per una sezione di un modulo. `mostraProblemi` e `chiediConferma` sono i dialoghi comuni; `chiediNome` chiede un nome in un dialogo; `etichette.dart` contiene i testi per l'utente (fasce orarie, date in italiano).
+* **`screens/`**: le schermate.
+  * `HomeScreen`: schermata iniziale, con la barra in basso che passa tra *Pescate* e *Spot*; le due sezioni restano in memoria e non perdono la posizione.
+  * `ElencoPescateScreen`: pescate dalla più recente, divise per mese, con data, fascia, spot (o *Spot eliminato*), totale delle catture e l'icona del meteo da scaricare. *Nuova pescata* apre il modulo; il pulsante in alto scarica il meteo mancante e ne descrive l'esito.
+  * `SchedaPescataScreen`: spot, data e fascia, catture per specie con le caratteristiche e il totale, condizioni, temperatura dell'acqua, esche, note e meteo. Il meteo mostra lo stato: *non disponibile* (spot senza coordinate), *da scaricare* (con il pulsante per scaricarlo, solo per giornate concluse) o i dati del giorno (temperatura minima e massima, pioggia, vento e raffiche massimi della giornata intera a 10 m dal suolo con la direzione, pressione) con la pioggia dei 3, 7 e 14 giorni precedenti, la quota della zona e l'attribuzione richiesta da Open-Meteo. Dalla barra in alto si modifica (riapre il modulo con i dati salvati) o si elimina, con conferma.
+  * `ElencoSpotScreen` mostra gli spot con ambiente, categoria e stato *battuto*, e si aggiorna trascinando verso il basso: toccando uno spot lo si modifica, *Nuovo spot* ne crea uno.
+  * `ModuloSpotScreen` (nuovo spot o modifica, aperto per nome con `ModificaSpotScreen`): nome, categoria (con una categoria nuova scritta al momento, che nasce salvando lo spot; sceglierne un'altra chiede conferma prima di scartarla), ambiente, difficoltà, accessibilità, voto, punti del tratto (incollati e confermati con il pulsante *Aggiungi punto*, con riordino e rimozione; il primo è quello del meteo; un punto rimasto nel campo viene aggiunto salvando), lunghezza calcolata o scritta a mano, punti complicati, note e link del parcheggio. Cambiando l'ambiente propone di collegare le condizioni già usate nelle pescate; l'eliminazione chiede conferma. Si chiude restituendo lo spot salvato. Il disegno del tratto sulla mappa ([REQ-FUN-01]) arriverà con la mappa.
+  * `RegistraPescataScreen` ([REQ-FUN-06], [REQ-FUN-07]), per una pescata nuova o da modificare: spot con ricerca per nome, data (non futura), fascia oraria, condizioni dell'ambiente dello spot, temperatura dell'acqua (quella dell'aria viene dal meteo), esche (con ricerca e aggiunta di un'esca nuova), catture per specie con totale e caratteristiche (con aggiunta di una specie nuova), totale della pescata e note. Esche e specie nuove nascono salvando la pescata; togliere un'esca nuova o l'ultima riga che usa una specie nuova chiede conferma. Salvando, i problemi vengono elencati in un dialogo. Il pulsante *Nuovo spot* apre il modulo dello spot e sceglie subito lo spot creato. Mancano ancora le foto e le catture memorabili (servono il `FotoService`).
+
+L'interfaccia è in italiano anche nei componenti di Flutter (calendario, dialoghi) grazie a `flutter_localizations`.
+
+Nell'app e nei test i nuovi tentativi automatici di Riverpod sono disattivati: un errore viene mostrato subito e l'utente può riprovare.
+
+Il manifesto Android dichiara il permesso `INTERNET`, necessario alla versione di rilascio per scaricare il meteo (la versione di debug lo ha già).
 
 ### 4.6 `test/` — Test automatici
 Una suite per componente, descritte nel `registro_dei_test_automatici.md`:
-`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`.
+`database_integrita_test.dart` (schema), `migrazioni_test.dart` (aggiornamento dello schema tra versioni), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`, `spot_state_test.dart`, `pescate_state_test.dart`, `modulo_pescata_test.dart` e `modulo_spot_test.dart` (stato dell'interfaccia), `elenco_spot_screen_test.dart`, `elenco_pescate_screen_test.dart`, `registra_pescata_screen_test.dart` e `modulo_spot_screen_test.dart` (schermate). La risposta finta di Open-Meteo usata da più suite e gli strumenti per le fotografie dello schema stanno in `test/supporto/`; le fotografie in `test/schemi/`.
 
 ---
 
 ## 5. Evoluzione dello schema
-Il database è alla **versione 1** e, durante lo sviluppo, uno schema modificato si applica ricreando il database con `DatabaseHelper.resetPerSviluppo()`. Prima di usare l'app con dati reali va introdotta la gestione delle migrazioni (`onUpgrade` con incremento della versione), perché il reset cancella tutti i dati. Lo stesso numero di versione sarà scritto nel file JSON del backup, per sapere da quale versione dello schema provengono i dati da ripristinare.
+Il database è alla **versione 1**. Ogni modifica allo schema alza la versione e aggiunge in `lib/data/migrazioni.dart` il passaggio che aggiorna i database esistenti senza perdere i dati; i test di `test/migrazioni_test.dart`, con le fotografie dello schema in `test/schemi/`, segnalano una modifica a `onCreate` senza migrazione e verificano che ogni versione precedente, aggiornata, coincida con un database nuovo. Motivazioni e funzionamento sono in `scelta_architetturale_migrazioni_del_database.md`. Lo stesso numero di versione sarà scritto nel file JSON del backup, per sapere da quale versione dello schema provengono i dati da ripristinare.

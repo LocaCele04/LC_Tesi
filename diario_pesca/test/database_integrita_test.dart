@@ -64,7 +64,6 @@ void main() {
       'lunghezzaMetri': 350.5,
       'voto': 9,
       'difficolta': 'media',
-      'esposizioneSole': 'Mattino',
       'noteOstacoli': 'Massi affioranti',
       'note': 'Ottimo dopo pioggia',
       'battuto': 1,
@@ -103,7 +102,6 @@ void main() {
       'data': '2026-11-12',
       'fasciaOraria': 'alba',
       'temp_acqua': 11.5,
-      'temp_aria': 8.0,
       'note': 'Attività sulle correntine',
       'spot_nome': 'Ponte Vecchio',
     });

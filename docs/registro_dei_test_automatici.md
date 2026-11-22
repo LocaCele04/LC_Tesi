@@ -1,6 +1,6 @@
 # Registro dei Test Automatici
 
-La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio.
+La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate, la 17 l'aggiornamento dello schema tra versioni.
 
 ## 1. `test/database_integrita_test.dart` (20 test)
 
@@ -34,7 +34,7 @@ Questa suite verifica la traduzione tra righe SQLite e modelli immutabili Dart, 
 
 * **Condizioni al cambio di ambiente:** verifica che `getCondizioniNonPreviste` segnali le condizioni usate dalle pescate di uno spot e non previste dal nuovo ambiente (e nessuna se il nuovo ambiente le prevede tutte), e che il cambio di ambiente non tocchi i valori già salvati.
 
-## 3. `test/pescate_repository_test.dart` (10 test)
+## 3. `test/pescate_repository_test.dart` (11 test)
 
 Questa suite valida le operazioni, i filtri e le transazioni multi-tabella gestite da `PescateRepository`, l'unico componente che scrive pescate, riepiloghi, catture memorabili e pianificazioni:
 
@@ -46,7 +46,7 @@ Questa suite valida le operazioni, i filtri e le transazioni multi-tabella gesti
 
 * **Catture Memorabili e Dettaglio Completo:** verifica il salvataggio e il filtraggio delle catture con caratteristiche e foto, il cambio di specie in modifica, il blocco dell'associazione di caratteristiche appartenenti a una specie diversa, la creazione al volo di esche e caratteristiche nella stessa transazione della pescata (tramite `CatalogoRepository`) e la ricostruzione dell'intero aggregato `Pescata` tramite `getPescataCompleta`.
 
-* **Riepiloghi Specie e Dettagli:** testa il salvataggio e l'aggiornamento dei riepiloghi con i dettagli per caratteristica attraverso `salvaPescata`, il rifiuto di un dettaglio superiore al totale, di una caratteristica di un'altra specie e della stessa specie ripetuta nella pescata, l'assenza di dati parziali dopo una transazione fallita e la rimozione dei riepiloghi.
+* **Riepiloghi Specie e Dettagli:** testa il salvataggio e l'aggiornamento dei riepiloghi con i dettagli per caratteristica attraverso `salvaPescata`, il rifiuto di un dettaglio superiore al totale, di una caratteristica di un'altra specie e della stessa specie ripetuta nella pescata, l'assenza di dati parziali dopo una transazione fallita e la rimozione dei riepiloghi; la creazione, nella stessa transazione, di una specie scritta al momento e il riuso di una esistente scritta con maiuscole e spazi diversi.
 
 ## 4. `test/catalogo_repository_test.dart` (10 test)
 
@@ -96,3 +96,70 @@ Questa suite verifica `MeteoService` senza accedere alla rete: un client HTTP si
 ## 8. `test/statistiche_service_test.dart` (1 test)
 
 Questa suite verifica `StatisticheService`, il servizio di sola lettura per le statistiche: la lettura dei riepiloghi filtrati per pescata o per specie su più pescate, completi dei dettagli per caratteristica, e il risultato vuoto per una specie mai catturata.
+
+## 9. `test/spot_state_test.dart` (5 test)
+
+Questa suite verifica lo stato degli spot gestito con Riverpod (`lib/ui/state/spot_state.dart`) sul database reale in memoria: nel contenitore dei provider (`ProviderContainer.test`) viene sostituito solo `databaseHelperProvider`, quindi è provata tutta la catena notifier → repository → SQLite. I nuovi tentativi automatici sono disattivati.
+
+* **Lettura:** verifica che l'elenco degli spot si carichi in ordine alfabetico e che ambienti e categorie siano disponibili; che, se il repository non riesce a leggere, lo stato sia un errore senza nuovi tentativi automatici e che invalidare il provider (pulsante *Riprova*) rilegga il database.
+* **Scrittura:** verifica che salvare uno spot aggiorni da solo sia l'elenco sia il dettaglio già osservati (coordinate e lunghezza calcolata); che rinominare ed eliminare uno spot aggiornino l'elenco; che un errore di salvataggio (ambiente inesistente) arrivi a chi salva lasciando l'elenco com'era.
+
+## 10. `test/elenco_spot_screen_test.dart` (3 test)
+
+Questa suite verifica la schermata `ElencoSpotScreen` senza database: il provider dell'elenco viene sostituito con uno finto che restituisce dati preparati nel test.
+
+* verifica che la schermata mostri gli spot con ambiente, categoria e l'icona degli spot battuti;
+* che durante il caricamento compaia l'indicatore e, a dati arrivati, il messaggio per l'elenco vuoto;
+* che in caso di errore compaiano il messaggio e il pulsante *Riprova*, e che premerlo ricarichi i dati e li mostri.
+
+## 11. `test/modulo_pescata_test.dart` (8 test)
+
+Questa suite verifica le regole del modulo *Registra pescata* (`ModuloPescataNotifier` e `BozzaPescata`) senza interfaccia, sul database in memoria e con una data di "oggi" fissa (`orologioProvider`).
+
+* **Controlli:** verifica che la bozza parta dalla data di oggi e che senza spot e fascia oraria non si possa salvare; che vengano segnalati, con messaggi per l'utente, la data futura, la temperatura dell'acqua fuori intervallo, la riga di catture senza specie o senza totale, la caratteristica che supera il totale e la specie ripetuta (anche con maiuscole diverse); che, corretti i dati, la bozza sia valida e accetti la virgola decimale.
+* **Compilazione:** verifica che le condizioni proposte dipendano dall'ambiente dello spot (tutte per il torrente, solo il meteo per il lago), che toccare di nuovo un valore lo tolga e che passare a uno spot di un altro ambiente tolga i valori scelti; che un'esca nuova con il nome di una esistente (maiuscole e spazi diversi) selezioni quella e che la stessa esca nuova non si duplichi; che cambiare la specie di una riga ne tolga le caratteristiche; che una specie scritta al momento scelga quella del catalogo o una già scritta (senza duplicarla), resti in sospeso finché una riga la usa, venga segnalata da `specieScartata` solo quando togliere o cambiare la riga la scarterebbe, e non entri nel catalogo prima del salvataggio.
+* **Salvataggio:** verifica che il salvataggio registri la pescata completa (spot, data, fascia, temperatura, note ripulite, valore della condizione, esca esistente ed esca nuova, riepiloghi con dettagli) e che subito dopo l'elenco delle pescate, lo stato *battuto* dello spot e il catalogo delle esche risultino aggiornati; che una specie nuova entri nel catalogo (e nel provider delle specie) solo salvando la pescata.
+
+## 12. `test/registra_pescata_screen_test.dart` (3 test)
+
+Questa suite verifica la schermata `RegistraPescataScreen` senza database: spot, specie ed esche sono sostituiti da dati preparati nel test.
+
+* salvando il modulo vuoto il pulsante smette di mostrare il salvataggio in corso e compare il dialogo con i problemi (spot e fascia oraria mancanti);
+* scegliere una fascia oraria la evidenzia, selezionare un'esca aggiorna il conteggio delle selezionate e aggiungere una specie con il suo totale aggiorna il totale della pescata;
+* un'esca nuova compare selezionata e segnata come *nuova*; toglierla apre la richiesta di conferma (annullando resta, confermando viene scartata), mentre un'esca del catalogo si toglie senza domande.
+
+## 13. `test/modulo_spot_test.dart` (7 test)
+
+Questa suite verifica il modulo dello spot (`ModuloSpotNotifier`, `BozzaSpot` e `leggiCoordinata`) senza interfaccia, sul database in memoria.
+
+* **Lettura dei punti:** verifica che `leggiCoordinata` riconosca i formati copiati da Google Maps (due numeri con punto o virgola decimale, separati da virgola, spazio o punto e virgola; gradi-primi-secondi; link completo con il punto o con la vista) e rifiuti testo qualsiasi, un numero solo, coordinate fuori intervallo e i link brevi senza coordinate.
+* **Compilazione:** verifica i messaggi per nome mancante o già usato (anche con maiuscole diverse), categoria e ambiente mancanti, voto e lunghezza non validi, e che la virgola decimale sia accettata; che i punti si aggiungano, spostino e tolgano, e che con due punti la lunghezza scritta a mano sia ignorata a favore di quella calcolata; che la difficoltà si tolga toccandola di nuovo.
+* **Salvataggio:** verifica che uno spot nuovo, con una categoria scritta nel modulo (che entra nel catalogo solo salvando), si salvi con i punti, la lunghezza calcolata, l'accessibilità e le note ripulite; che rinominando lo spot e passando dal torrente al lago venga proposto di collegare il solo *Livello* usato nelle pescate (il meteo è già previsto per il lago), che dopo il collegamento il lago preveda entrambe e che la pescata segua il nuovo nome; che eliminando lo spot le sue pescate restino senza spot; che una categoria scritta al momento scelga quella esistente con lo stesso nome (maiuscole e spazi diversi), che `categoriaScartata` segnali quando sceglierne un'altra scarterebbe quella nuova e che un modulo abbandonato non lasci categorie nel catalogo.
+
+## 14. `test/modulo_spot_screen_test.dart` (2 test)
+
+Questa suite verifica la schermata `ModuloSpotScreen` senza database (spot, categorie e ambienti preparati nel test):
+
+* per uno spot nuovo non c'è il pulsante di eliminazione e salvando il modulo vuoto compare il dialogo con nome, categoria e ambiente mancanti;
+* un testo che non è un punto mostra l'errore sotto il campo, mentre un punto valido, confermato con il pulsante *Aggiungi punto*, viene aggiunto all'elenco come primo punto, quello del meteo.
+
+## 15. `test/pescate_state_test.dart` (4 test)
+
+Questa suite verifica lo stato delle pescate (`pescate_state.dart`) e il modulo della pescata in modifica, sul database in memoria, con una data di "oggi" fissa e un Open-Meteo finto (`test/supporto/open_meteo_finto.dart`, condiviso con `meteo_service_test.dart`): nessuna richiesta esce dal test.
+
+* **Elenco:** verifica che l'elenco sia dalla più recente e che i totali delle catture e le pescate con il meteo da scaricare si aggiornino da soli dopo un salvataggio e un'eliminazione; che scaricare il meteo faccia una sola richiesta, porti la pescata a *scaricato*, renda disponibile la pioggia dei giorni precedenti, svuoti l'elenco del meteo mancante e produca il messaggio per l'utente, e che un secondo aggiornamento non faccia richieste e dica che è già tutto scaricato.
+* **Modifica:** verifica che il modulo aperto su una pescata salvata parta dai suoi dati (spot, fascia, temperatura, note, valore della condizione, esca, catture con caratteristiche), che le condizioni del modulo includano quelle usate, che una riga aggiunta riceva una chiave nuova e che il salvataggio aggiorni la stessa pescata (stesso id, nessuna pescata in più, dettagli e totali aggiornati); che una pescata rimasta senza spot si possa modificare senza sceglierne uno.
+
+## 16. `test/elenco_pescate_screen_test.dart` (2 test)
+
+Questa suite verifica la schermata `ElencoPescateScreen` senza database (pescate, totali e meteo mancante preparati nel test):
+
+* le pescate compaiono divise per mese, con data e fascia, spot (o *Spot eliminato*), totale delle catture al singolare o al plurale e l'icona del meteo da scaricare solo dove serve;
+* senza pescate compare l'invito a registrarne una.
+
+## 17. `test/migrazioni_test.dart` (8 test)
+
+Verifica l'aggiornamento dello schema tra versioni (vedi `scelta_architetturale_migrazioni_del_database.md`). I test lavorano su file veri in una cartella temporanea, perché un database in memoria sparisce alla chiusura e non si potrebbe riaprirlo con una versione nuova. Si appoggiano alle fotografie dello schema in `test/schemi/` (istruzioni `CREATE` e dati iniziali di ogni versione) e a `test/supporto/fotografia_schema.dart`, che le scatta, le ricarica e confronta due database (schema normalizzato e contenuto di tutte le tabelle).
+
+* **Schema attuale:** `onCreate` crea esattamente lo schema della fotografia della versione attuale, quindi una modifica allo schema senza alzare la versione fa fallire il test; alla prima esecuzione dopo aver alzato la versione il test scatta la fotografia nuova e chiede di controllarla. Ogni versione fotografata precedente, aperta dall'app, viene aggiornata alla versione attuale e risulta identica a un database nuovo. I passaggi registrati vanno dalla versione 2 a quella attuale senza buchi.
+* **Meccanismo, con passaggi finti:** ricostruire la tabella `Spot` con un vincolo in più non tocca coordinate, pianificazioni e pescate (le azioni a cascata non partono), ricrea gli indici, lascia le chiavi esterne attive e funzionanti sulla tabella nuova e applica il nuovo vincolo; un passaggio che fallisce, o che lascia righe senza la riga a cui puntano, annulla l'intero aggiornamento lasciando versione e dati come prima; un passaggio mancante blocca l'aggiornamento; un database più recente dell'app non viene aperto né modificato.

@@ -58,7 +58,6 @@ package "Territorio e Spot" {
     - lunghezzaMetri : double [0..1]
     - difficolta : Difficolta [0..1]
     - voto : double [0..1]
-    - esposizioneSole : String [0..1]
     - note : String [0..1]
     - noteOstacoli : String [0..1]
     - linkParcheggio : String [0..1]
@@ -209,7 +208,6 @@ package "Pescate" {
     - fasciaOraria : FasciaOraria
     - note : String [0..1]
     - tempAcqua : real
-    - tempAria: real
     /totaleCatture : int
     /statoMeteo : StatoMeteo
   }

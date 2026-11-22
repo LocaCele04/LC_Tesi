@@ -8,7 +8,6 @@ class Spot {
   final double? lunghezzaMetri;
   final double? voto;
   final Difficolta? difficolta;
-  final String? esposizioneSole;
   final String? noteOstacoli;
   final String? note;
   final bool battuto;
@@ -23,7 +22,6 @@ class Spot {
     this.lunghezzaMetri,
     this.voto,
     this.difficolta,
-    this.esposizioneSole,
     this.noteOstacoli,
     this.note,
     this.battuto = false,
@@ -39,7 +37,6 @@ class Spot {
     double? lunghezzaMetri,
     double? voto,
     Difficolta? difficolta,
-    String? esposizioneSole,
     String? noteOstacoli,
     String? note,
     bool? battuto,
@@ -54,7 +51,6 @@ class Spot {
       lunghezzaMetri: lunghezzaMetri ?? this.lunghezzaMetri,
       voto: voto ?? this.voto,
       difficolta: difficolta ?? this.difficolta,
-      esposizioneSole: esposizioneSole ?? this.esposizioneSole,
       noteOstacoli: noteOstacoli ?? this.noteOstacoli,
       note: note ?? this.note,
       battuto: battuto ?? this.battuto,
@@ -75,7 +71,6 @@ class Spot {
           lunghezzaMetri == other.lunghezzaMetri &&
           voto == other.voto &&
           difficolta == other.difficolta &&
-          esposizioneSole == other.esposizioneSole &&
           noteOstacoli == other.noteOstacoli &&
           note == other.note &&
           battuto == other.battuto &&
@@ -91,7 +86,6 @@ class Spot {
         lunghezzaMetri,
         voto,
         difficolta,
-        esposizioneSole,
         noteOstacoli,
         note,
         battuto,
