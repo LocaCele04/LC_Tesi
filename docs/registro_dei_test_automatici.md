@@ -1,6 +1,6 @@
 # Registro dei Test Automatici
 
-La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate.
+La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate, la 17 l'aggiornamento dello schema tra versioni.
 
 ## 1. `test/database_integrita_test.dart` (20 test)
 
@@ -156,3 +156,10 @@ Questa suite verifica la schermata `ElencoPescateScreen` senza database (pescate
 
 * le pescate compaiono divise per mese, con data e fascia, spot (o *Spot eliminato*), totale delle catture al singolare o al plurale e l'icona del meteo da scaricare solo dove serve;
 * senza pescate compare l'invito a registrarne una.
+
+## 17. `test/migrazioni_test.dart` (8 test)
+
+Verifica l'aggiornamento dello schema tra versioni (vedi `scelta_architetturale_migrazioni_del_database.md`). I test lavorano su file veri in una cartella temporanea, perché un database in memoria sparisce alla chiusura e non si potrebbe riaprirlo con una versione nuova. Si appoggiano alle fotografie dello schema in `test/schemi/` (istruzioni `CREATE` e dati iniziali di ogni versione) e a `test/supporto/fotografia_schema.dart`, che le scatta, le ricarica e confronta due database (schema normalizzato e contenuto di tutte le tabelle).
+
+* **Schema attuale:** `onCreate` crea esattamente lo schema della fotografia della versione attuale, quindi una modifica allo schema senza alzare la versione fa fallire il test; alla prima esecuzione dopo aver alzato la versione il test scatta la fotografia nuova e chiede di controllarla. Ogni versione fotografata precedente, aperta dall'app, viene aggiornata alla versione attuale e risulta identica a un database nuovo. I passaggi registrati vanno dalla versione 2 a quella attuale senza buchi.
+* **Meccanismo, con passaggi finti:** ricostruire la tabella `Spot` con un vincolo in più non tocca coordinate, pianificazioni e pescate (le azioni a cascata non partono), ricrea gli indici, lascia le chiavi esterne attive e funzionanti sulla tabella nuova e applica il nuovo vincolo; un passaggio che fallisce, o che lascia righe senza la riga a cui puntano, annulla l'intero aggiornamento lasciando versione e dati come prima; un passaggio mancante blocca l'aggiornamento; un database più recente dell'app non viene aperto né modificato.

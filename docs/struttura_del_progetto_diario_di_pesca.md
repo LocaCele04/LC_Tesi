@@ -100,7 +100,8 @@ La radice del progetto separa il codice sorgente dell'applicazione (`lib/`) dall
 diario_pesca/
 ├── lib/
 │   ├── data/
-│   │   ├── database_helper.dart       # Connessione SQLite, schema (24 tabelle, 19 indici)
+│   │   ├── database_helper.dart       # Connessione SQLite, schema (24 tabelle, 19 indici), versione
+│   │   ├── migrazioni.dart            # Passaggi di aggiornamento dello schema tra versioni
 │   │   ├── db_mappers.dart            # Conversione tra righe SQL e classi Dart
 │   │   ├── query_condivise.dart       # Query usate da più componenti (stato battuto, riepiloghi)
 │   │   └── archivio_foto.dart         # Accesso ai file immagine sul dispositivo
@@ -177,6 +178,7 @@ diario_pesca/
 │   ├── modulo_spot_test.dart
 │   ├── meteo_repository_test.dart
 │   ├── meteo_service_test.dart
+│   ├── migrazioni_test.dart
 │   ├── obiettivi_repository_test.dart
 │   ├── pescate_repository_test.dart
 │   ├── pescate_state_test.dart
@@ -184,7 +186,10 @@ diario_pesca/
 │   ├── spot_state_test.dart
 │   ├── statistiche_service_test.dart
 │   ├── territorio_repository_test.dart
+│   ├── schemi/
+│   │   └── schema_v1.json             # Fotografia dello schema della versione 1
 │   └── supporto/
+│       ├── fotografia_schema.dart     # Scatta, ricarica e confronta le fotografie dello schema
 │       └── open_meteo_finto.dart      # Risposta finta di Open-Meteo per i test
 ├── scriptCopiaDB.bat                  # Copia il database dal telefono al PC (per DBeaver)
 └── pubspec.yaml
@@ -195,7 +200,8 @@ diario_pesca/
 ## 4. Descrizione dei Pacchetti e delle Classi
 
 ### 4.1 `lib/data/` — Livello dati
-* **`DatabaseHelper`**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **24 tabelle** e **19 indici**, con vincoli di integrità referenziale attivi, e inserisce alla creazione gli ambienti e le condizioni di base.
+* **`DatabaseHelper`**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **24 tabelle** e **19 indici**, con vincoli di integrità referenziale attivi, e inserisce alla creazione gli ambienti e le condizioni di base. Dichiara la versione dello schema (`versioneSchema`) e all'apertura aggiorna un database di una versione precedente con i passaggi di `migrazioni.dart`, con le chiavi esterne spente durante l'aggiornamento e accese subito dopo.
+* **`migrazioni.dart`**: i passaggi di aggiornamento, uno per versione, e `ricostruisciTabella` per le modifiche che `ALTER TABLE` non permette (vedi `scelta_architetturale_migrazioni_del_database.md`).
 * **`DbMappers`**: traduce le righe restituite da SQLite (`Map<String, Object?>`) nelle classi del modello di dominio e viceversa. Contiene solo conversioni, nessuna query.
 * **`QueryCondivise`**: query usate da più componenti, scritte in un solo punto: l'aggiornamento di `Spot.battuto` (usato da `TerritorioRepository` e `PescateRepository`) e la lettura dei riepiloghi con i dettagli per caratteristica (usata da `PescateRepository` e `StatisticheService`).
 * **`ArchivioFoto`**: accesso ai file immagine sul dispositivo. I repository lo usano per cancellare i file rimasti senza riferimento, sempre dopo il commit della transazione.
@@ -304,9 +310,9 @@ Il manifesto Android dichiara il permesso `INTERNET`, necessario alla versione d
 
 ### 4.6 `test/` — Test automatici
 Una suite per componente, descritte nel `registro_dei_test_automatici.md`:
-`database_integrita_test.dart` (schema), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`, `spot_state_test.dart`, `pescate_state_test.dart`, `modulo_pescata_test.dart` e `modulo_spot_test.dart` (stato dell'interfaccia), `elenco_spot_screen_test.dart`, `elenco_pescate_screen_test.dart`, `registra_pescata_screen_test.dart` e `modulo_spot_screen_test.dart` (schermate). La risposta finta di Open-Meteo usata da più suite sta in `test/supporto/`.
+`database_integrita_test.dart` (schema), `migrazioni_test.dart` (aggiornamento dello schema tra versioni), `territorio_repository_test.dart`, `pescate_repository_test.dart`, `catalogo_repository_test.dart`, `obiettivi_repository_test.dart`, `meteo_repository_test.dart`, `meteo_service_test.dart`, `statistiche_service_test.dart`, `spot_state_test.dart`, `pescate_state_test.dart`, `modulo_pescata_test.dart` e `modulo_spot_test.dart` (stato dell'interfaccia), `elenco_spot_screen_test.dart`, `elenco_pescate_screen_test.dart`, `registra_pescata_screen_test.dart` e `modulo_spot_screen_test.dart` (schermate). La risposta finta di Open-Meteo usata da più suite e gli strumenti per le fotografie dello schema stanno in `test/supporto/`; le fotografie in `test/schemi/`.
 
 ---
 
 ## 5. Evoluzione dello schema
-Il database è alla **versione 1** e, durante lo sviluppo, uno schema modificato si applica ricreando il database con `DatabaseHelper.resetPerSviluppo()`. Prima di usare l'app con dati reali va introdotta la gestione delle migrazioni (`onUpgrade` con incremento della versione), perché il reset cancella tutti i dati. Lo stesso numero di versione sarà scritto nel file JSON del backup, per sapere da quale versione dello schema provengono i dati da ripristinare.
+Il database è alla **versione 1**. Ogni modifica allo schema alza la versione e aggiunge in `lib/data/migrazioni.dart` il passaggio che aggiorna i database esistenti senza perdere i dati; i test di `test/migrazioni_test.dart`, con le fotografie dello schema in `test/schemi/`, segnalano una modifica a `onCreate` senza migrazione e verificano che ogni versione precedente, aggiornata, coincida con un database nuovo. Motivazioni e funzionamento sono in `scelta_architetturale_migrazioni_del_database.md`. Lo stesso numero di versione sarà scritto nel file JSON del backup, per sapere da quale versione dello schema provengono i dati da ripristinare.

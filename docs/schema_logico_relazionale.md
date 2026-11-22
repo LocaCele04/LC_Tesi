@@ -1,6 +1,6 @@
 # Schema Logico Relazionale
 
-Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/data/database_helper.dart`): 24 tabelle e 19 indici su SQLite.
+Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/data/database_helper.dart`): 24 tabelle e 19 indici su SQLite, alla **versione 1** dello schema (`DatabaseHelper.versioneSchema`). Come si passa da una versione alla successiva è descritto in `scelta_architetturale_migrazioni_del_database.md`.
 
 ---
 
