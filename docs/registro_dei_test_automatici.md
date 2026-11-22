@@ -2,11 +2,11 @@
 
 La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate, la 17 l'aggiornamento dello schema tra versioni.
 
-## 1. `test/database_integrita_test.dart` (20 test)
+## 1. `test/database_integrita_test.dart` (21 test)
 
 Questa suite valida direttamente lo schema relazionale definito in `DatabaseHelper`, verificando che il database stesso impedisca l'inserimento di dati incoerenti indipendentemente dalla logica applicativa:
 
-* **Configurazione e struttura:** verifica che i vincoli di chiave esterna siano attivi (`PRAGMA foreign_keys = ON`) e che vengano create correttamente tutte le 24 tabelle e i 19 indici previsti.
+* **Configurazione e struttura:** verifica che i vincoli di chiave esterna siano attivi (`PRAGMA foreign_keys = ON`) e che vengano create correttamente tutte le 26 tabelle e i 19 indici previsti.
 
 * **Inserimenti validi:** popola in sequenza tutte e 24 le tabelle con dati completi e facoltativi (`NULL`), confermando la compatibilità generale dei tipi e delle relazioni.
 
@@ -16,13 +16,15 @@ Questa suite valida direttamente lo schema relazionale definito in `DatabaseHelp
 
 * **Condizioni:** verifica le condizioni e i valori di base con il loro ordine e i collegamenti agli ambienti (il Lago prevede solo il Meteo); il rifiuto di condizioni e valori duplicati senza distinzione di maiuscole, ammettendo lo stesso nome in condizioni diverse; il rifiuto di un secondo valore per la stessa condizione in una pescata e di un valore attribuito alla condizione sbagliata (FK composta). Nelle azioni referenziali verifica il blocco dell'eliminazione di un valore usato (anche tramite la cascata dalla sua condizione), l'eliminazione a cascata di una condizione mai usata con valori e collegamenti, la propagazione della rinomina di un ambiente ai collegamenti e la pulizia delle condizioni di una pescata eliminata.
 
+* **Divieti:** verifica il rifiuto di nomi vuoti, l'ammissione di più divieti con lo stesso nome, il rifiuto di punti duplicati, fuori intervallo, con ordine negativo o di un divieto inesistente, e l'eliminazione a cascata dei punti con il divieto.
+
 * **Meteo:** verifica l'unicità delle celle e di una riga per cella e giorno (o ora), il rifiuto di fonti non valide, date inesistenti, pioggia negativa, ore in formato errato e direzioni del vento fuori intervallo; verifica che eliminando una pescata sparisca solo il suo collegamento al meteo (l'archivio resta) e che eliminando una cella sparisca il suo archivio.
 
 * **Integrità incrociata tra specie:** controlla che le chiavi esterne composte impediscano di associare a una cattura, a un riepilogo o a un obiettivo una caratteristica appartenente a una specie diversa.
 
 * **Azioni referenziali:** verifica il blocco dell'eliminazione (`ON DELETE RESTRICT`) per categorie, ambienti e specie ancora referenziati, la propagazione automatica delle rinomine (`ON UPDATE CASCADE`) su tabelle figlie e chiavi composte, e la pulizia coerente (`ON DELETE SET NULL` e `ON DELETE CASCADE`) alla rimozione di esche, spot e pescate.
 
-## 2. `test/territorio_repository_test.dart` (10 test)
+## 2. `test/territorio_repository_test.dart` (14 test)
 
 Questa suite verifica la traduzione tra righe SQLite e modelli immutabili Dart, nonché la logica applicativa incapsulata in `TerritorioRepository` (aggiornamento di `battuto` compreso, tramite `QueryCondivise`):
 
@@ -31,6 +33,8 @@ Questa suite verifica la traduzione tra righe SQLite e modelli immutabili Dart, 
 * **Gestione delle Categorie:** testa l'inserimento e il recupero ordinato alfabeticamente, l'aggiornamento con rinomina della chiave primaria (verificando che gli spot collegati ereditino il nuovo nome) e il blocco dell'eliminazione quando la categoria è associata ad almeno uno spot.
 
 * **Gestione di Spot e Coordinate:** verifica il salvataggio transazionale di uno spot con le relative coordinate GPS ordinate e il calcolo automatico della lunghezza in metri tramite formula di Haversine quando non inserita manualmente. Testa inoltre la ricerca parametrica combinata (per categoria, ambiente *case-insensitive*, voto minimo e lunghezza massima), l'aggiornamento di uno spot esistente con risincronizzazione dei punti GPS e l'eliminazione completa di spot e categoria una volta liberata.
+
+* **Divieti:** verifica che un divieto salvato riceva l'id, che i punti siano numerati nell'ordine della lista, che nome e note vengano ripuliti (note vuote salvate come assenti) e che il divieto non compaia tra gli spot né tra le loro coordinate; che l'aggiornamento sostituisca nome, note e tutti i punti; che `getDivieti` restituisca tutti i divieti con i loro punti, anche con lo stesso nome, ordinati per nome; che un divieto senza punti o inesistente venga rifiutato e che eliminarlo tolga anche i punti.
 
 * **Condizioni al cambio di ambiente:** verifica che `getCondizioniNonPreviste` segnali le condizioni usate dalle pescate di uno spot e non previste dal nuovo ambiente (e nessuna se il nuovo ambiente le prevede tutte), e che il cambio di ambiente non tocchi i valori già salvati.
 

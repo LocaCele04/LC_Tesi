@@ -38,7 +38,7 @@ class DatabaseHelper {
   /// [onCreate], aggiungendo in `migrazioni.dart` il passaggio che porta un
   /// database della versione precedente a quella nuova (vedi
   /// `docs/scelta_architetturale_migrazioni_del_database.md`).
-  static const int versioneSchema = 1;
+  static const int versioneSchema = 2;
 
   /// Apre (o crea) il database in [percorso] e lo porta alla [versione]:
   /// un database nuovo viene creato da [onCreate], uno di una versione
@@ -251,6 +251,31 @@ class DatabaseHelper {
         longitudine REAL NOT NULL,
         PRIMARY KEY (spot_nome, ordine),
         FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE CASCADE ON UPDATE CASCADE,
+        CHECK (ordine >= 0),
+        CHECK (latitudine BETWEEN -90 AND 90),
+        CHECK (longitudine BETWEEN -180 AND 180)
+      );
+    ''');
+
+    // 3-bis. Divieto: tratto in cui non si può pescare. Non è uno spot: si
+    // vede solo sulla mappa. Chiave `id` perché più divieti possono avere
+    // lo stesso nome (es. "Divieto").
+    await db.execute('''
+      CREATE TABLE Divieto (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        note TEXT,
+        CHECK (length(trim(nome)) > 0)
+      );
+    ''');
+    await db.execute('''
+      CREATE TABLE CoordinataDivieto (
+        divieto_id INTEGER NOT NULL,
+        ordine INTEGER NOT NULL,
+        latitudine REAL NOT NULL,
+        longitudine REAL NOT NULL,
+        PRIMARY KEY (divieto_id, ordine),
+        FOREIGN KEY (divieto_id) REFERENCES Divieto (id) ON DELETE CASCADE,
         CHECK (ordine >= 0),
         CHECK (latitudine BETWEEN -90 AND 90),
         CHECK (longitudine BETWEEN -180 AND 180)

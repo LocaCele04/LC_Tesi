@@ -46,7 +46,7 @@ Ogni tabella è scritta da **un solo repository**. Così ogni regola di validazi
 
 | Repository | Tabelle che scrive |
 | :--- | :--- |
-| `TerritorioRepository` | `Categoria`, `Ambiente`, `Spot`, `Coordinata` |
+| `TerritorioRepository` | `Categoria`, `Ambiente`, `Spot`, `Coordinata`, `Divieto`, `CoordinataDivieto` |
 | `PescateRepository` | `Pescata`, `Pescata_Condizione`, `Pescata_Esca`, `RiepilogoSpecie`, `DettaglioRiepilogo`, `CatturaMemorabile`, `Cattura_Caratteristica`, `Pianificazione`, `Foto` di pescate e catture |
 | `CatalogoRepository` | `Specie`, `Caratteristica`, `Esca`, `Foto` delle esche, `Condizione`, `ValoreCondizione`, `Ambiente_Condizione` |
 | `ObiettiviRepository` | `Obiettivo` |
@@ -100,7 +100,7 @@ La radice del progetto separa il codice sorgente dell'applicazione (`lib/`) dall
 diario_pesca/
 ├── lib/
 │   ├── data/
-│   │   ├── database_helper.dart       # Connessione SQLite, schema (24 tabelle, 19 indici), versione
+│   │   ├── database_helper.dart       # Connessione SQLite, schema (26 tabelle, 19 indici), versione
 │   │   ├── migrazioni.dart            # Passaggi di aggiornamento dello schema tra versioni
 │   │   ├── db_mappers.dart            # Conversione tra righe SQL e classi Dart
 │   │   ├── query_condivise.dart       # Query usate da più componenti (stato battuto, riepiloghi)
@@ -110,6 +110,7 @@ diario_pesca/
 │   │   │   ├── ambiente.dart
 │   │   │   ├── categoria.dart
 │   │   │   ├── coordinata.dart
+│   │   │   ├── divieto.dart
 │   │   │   └── spot.dart
 │   │   ├── pescate/
 │   │   │   ├── cattura_memorabile.dart
@@ -187,7 +188,8 @@ diario_pesca/
 │   ├── statistiche_service_test.dart
 │   ├── territorio_repository_test.dart
 │   ├── schemi/
-│   │   └── schema_v1.json             # Fotografia dello schema della versione 1
+│   │   ├── schema_v1.json             # Fotografia dello schema della versione 1
+│   │   └── schema_v2.json             # ... e della versione 2 (divieti)
 │   └── supporto/
 │       ├── fotografia_schema.dart     # Scatta, ricarica e confronta le fotografie dello schema
 │       └── open_meteo_finto.dart      # Risposta finta di Open-Meteo per i test
@@ -200,7 +202,7 @@ diario_pesca/
 ## 4. Descrizione dei Pacchetti e delle Classi
 
 ### 4.1 `lib/data/` — Livello dati
-* **`DatabaseHelper`**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **24 tabelle** e **19 indici**, con vincoli di integrità referenziale attivi, e inserisce alla creazione gli ambienti e le condizioni di base. Dichiara la versione dello schema (`versioneSchema`) e all'apertura aggiorna un database di una versione precedente con i passaggi di `migrazioni.dart`, con le chiavi esterne spente durante l'aggiornamento e accese subito dopo.
+* **`DatabaseHelper`**: implementa il pattern *Singleton* per fornire un'unica istanza del database all'app (oltre a una variante in memoria per i test). Contiene lo schema relazionale composto da **26 tabelle** e **19 indici**, con vincoli di integrità referenziale attivi, e inserisce alla creazione gli ambienti e le condizioni di base. Dichiara la versione dello schema (`versioneSchema`) e all'apertura aggiorna un database di una versione precedente con i passaggi di `migrazioni.dart`, con le chiavi esterne spente durante l'aggiornamento e accese subito dopo.
 * **`migrazioni.dart`**: i passaggi di aggiornamento, uno per versione, e `ricostruisciTabella` per le modifiche che `ALTER TABLE` non permette (vedi `scelta_architetturale_migrazioni_del_database.md`).
 * **`DbMappers`**: traduce le righe restituite da SQLite (`Map<String, Object?>`) nelle classi del modello di dominio e viceversa. Contiene solo conversioni, nessuna query.
 * **`QueryCondivise`**: query usate da più componenti, scritte in un solo punto: l'aggiornamento di `Spot.battuto` (usato da `TerritorioRepository` e `PescateRepository`) e la lettura dei riepiloghi con i dettagli per caratteristica (usata da `PescateRepository` e `StatisticheService`).
@@ -216,7 +218,8 @@ Tutte le classi modello sono **oggetti immutabili** (campi `final`, metodo `copy
   * `Ambiente`: tipologia di corso o specchio d'acqua dello spot (di base *Torrente*, *Fiume*, *Lago*, *Mare*), estendibile dall'utente.
   * `Categoria`: raggruppamento di spot scelto dall'utente, come una cartella (es. *Fondovalle*, *Val Serina*, *Valle Imagna*).
   * `Spot`: luogo di pesca con le sue caratteristiche fisiche e logistiche e la lista delle coordinate.
-  * `Coordinata`: singolo punto GPS (`latitudine`, `longitudine`, `ordine`) che compone il tracciato di uno spot.
+  * `Coordinata`: singolo punto GPS (`latitudine`, `longitudine`, `ordine`) che compone il tracciato di uno spot o di un divieto.
+  * `Divieto`: tratto in cui la pesca è vietata, con nome, note e punti. Non è uno spot: si vede solo sulla mappa; l'identità è l'`id`, perché più divieti possono avere lo stesso nome.
 * **Pacchetto `pescate/`**:
   * `Pescata`: entità centrale che raccoglie data, condizioni meteo-ambientali, spot visitato, esche utilizzate, riepiloghi, catture memorabili e foto.
   * `RiepilogoSpecie` e `RiepilogoCaratteristica`: totale degli esemplari catturati per specie in una pescata e loro suddivisione per caratteristica.
@@ -255,7 +258,7 @@ I modelli identificano le righe del database in due modi.
 ### 4.3 `lib/repositories/` — Repository
 Un repository per area del dominio; la tabella in §1.2 indica quali tabelle scrive ciascuno.
 
-* **`TerritorioRepository`**: categorie, ambienti, spot e coordinate GPS, con il calcolo automatico della lunghezza del tratto (formula di Haversine), lo spostamento degli spot tra categorie e, prima di cambiare l'ambiente di uno spot, l'elenco delle condizioni usate dalle sue pescate e non previste dal nuovo ambiente (`getCondizioniNonPreviste`).
+* **`TerritorioRepository`**: categorie, ambienti, spot e coordinate GPS, con il calcolo automatico della lunghezza del tratto (formula di Haversine), lo spostamento degli spot tra categorie, i divieti con i loro punti (`getDivieti`, `salvaDivieto`, `eliminaDivieto`) e, prima di cambiare l'ambiente di uno spot, l'elenco delle condizioni usate dalle sue pescate e non previste dal nuovo ambiente (`getCondizioniNonPreviste`).
 * **`PescateRepository`**: pescate complete (salvate in modo atomico con valori delle condizioni, esche, foto, riepiloghi, dettagli e catture memorabili), catture memorabili e pianificazioni, con il filtro delle pescate per valori di condizione e i totali delle catture di ogni pescata per gli elenchi (`getTotaliCatture`). Garantisce lo spot obbligatorio, un solo valore per condizione, il vincolo dettaglio ≤ totale e la pulizia dei file immagine non più usati.
 * **`CatalogoRepository`**: specie, caratteristiche, esche e condizioni (con valori, attivazione, collegamenti agli ambienti, copia dei collegamenti da un altro ambiente e le condizioni da mostrare nel form di una pescata, `getCondizioniPerForm`); offre agli altri repository la creazione al volo di esche, specie e caratteristiche dentro una transazione esistente, con il controllo dei nomi già usati (`NomeDuplicatoException`), e all'interfaccia la ricerca per nome (`getEscaPerNome`, `getCaratteristicaPerNome`).
 * **`ObiettiviRepository`**: obiettivi annuali.
@@ -315,4 +318,4 @@ Una suite per componente, descritte nel `registro_dei_test_automatici.md`:
 ---
 
 ## 5. Evoluzione dello schema
-Il database è alla **versione 1**. Ogni modifica allo schema alza la versione e aggiunge in `lib/data/migrazioni.dart` il passaggio che aggiorna i database esistenti senza perdere i dati; i test di `test/migrazioni_test.dart`, con le fotografie dello schema in `test/schemi/`, segnalano una modifica a `onCreate` senza migrazione e verificano che ogni versione precedente, aggiornata, coincida con un database nuovo. Motivazioni e funzionamento sono in `scelta_architetturale_migrazioni_del_database.md`. Lo stesso numero di versione sarà scritto nel file JSON del backup, per sapere da quale versione dello schema provengono i dati da ripristinare.
+Il database è alla **versione 2**: la prima migrazione ha aggiunto i divieti (tabelle `Divieto` e `CoordinataDivieto`). Ogni modifica allo schema alza la versione e aggiunge in `lib/data/migrazioni.dart` il passaggio che aggiorna i database esistenti senza perdere i dati; i test di `test/migrazioni_test.dart`, con le fotografie dello schema in `test/schemi/`, segnalano una modifica a `onCreate` senza migrazione e verificano che ogni versione precedente, aggiornata, coincida con un database nuovo. Motivazioni e funzionamento sono in `scelta_architetturale_migrazioni_del_database.md`. Lo stesso numero di versione sarà scritto nel file JSON del backup, per sapere da quale versione dello schema provengono i dati da ripristinare.

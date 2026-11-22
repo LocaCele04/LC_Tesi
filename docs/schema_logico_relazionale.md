@@ -1,6 +1,6 @@
 # Schema Logico Relazionale
 
-Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/data/database_helper.dart`): 24 tabelle e 19 indici su SQLite, alla **versione 1** dello schema (`DatabaseHelper.versioneSchema`). Come si passa da una versione alla successiva è descritto in `scelta_architetturale_migrazioni_del_database.md`.
+Lo schema descritto in questo documento corrisponde a quello effettivamente creato da `DatabaseHelper.onCreate` (`lib/data/database_helper.dart`): 26 tabelle e 19 indici su SQLite, alla **versione 2** dello schema (`DatabaseHelper.versioneSchema`). Come si passa da una versione alla successiva è descritto in `scelta_architetturale_migrazioni_del_database.md`.
 
 ---
 
@@ -64,6 +64,18 @@ Lo schema descritto in questo documento corrisponde a quello effettivamente crea
 * **`ordine`**: INTEGER **(PK)** — ≥ 0, indice posizionale del punto nel tracciato
 * `latitudine`: REAL **(NOT NULL)** — tra -90 e 90
 * `longitudine`: REAL **(NOT NULL)** — tra -180 e 180
+
+### **Divieto** *(tratto in cui non si può pescare; non è uno spot)*
+* **`id`**: INTEGER **(PK, autoincrement)**
+* `nome`: TEXT **(NOT NULL)** — non vuoto; non unico, più divieti possono chiamarsi allo stesso modo
+* `note`: TEXT *(NULL)*
+
+### **CoordinataDivieto**
+* *`divieto_id`*: INTEGER **(PK, FK)** $\rightarrow$ `Divieto(id)` — `ON DELETE CASCADE`
+* **`ordine`**: INTEGER **(PK)** — ≥ 0, indice posizionale del punto nel tracciato
+* `latitudine`: REAL **(NOT NULL)** — tra -90 e 90
+* `longitudine`: REAL **(NOT NULL)** — tra -180 e 180
+* Un divieto ha almeno un punto: il vincolo è verificato da `TerritorioRepository.salvaDivieto` (vedi §3.9).
 
 ### **Pianificazione**
 * **`id`**: INTEGER **(PK, autoincrement)**
@@ -231,6 +243,9 @@ In questo modo nessun altro componente deve ricordarsi di "invalidare" il meteo:
 
 Tutti i dati vengono da un'unica fonte, l'archivio delle previsioni passate di Open-Meteo (modello ICON-D2, circa 2 km): per questo non serve una colonna che distingua la provenienza, e un dato riscaricato sostituisce semplicemente quello precedente.
 
+### 3.9 Divieti separati dagli spot — *scelta progettuale*
+Un divieto è un tratto in cui non si pesca: ha un nome e un tracciato come uno spot, ma nessuno degli altri attributi dello spot (categoria, ambiente, voto, stato *battuto*) ha senso per lui, e non deve comparire tra gli spot, nelle pescate o nelle statistiche. Per questo è un'entità a parte con la propria tabella dei punti, invece di uno spot con un indicatore. La chiave è un `id` e non il nome, perché più divieti possono chiamarsi allo stesso modo. Non c'è alcun legame con gli spot: se uno spot entra in un divieto lo si vede sulla mappa. Un divieto senza punti non sarebbe visibile, quindi `TerritorioRepository.salvaDivieto` ne richiede almeno uno; il vincolo coinvolge due tabelle e non è esprimibile con un `CHECK`.
+
 ---
 
 ## 4. Politiche di Eliminazione e Aggiornamento
@@ -243,6 +258,7 @@ Tutti i dati vengono da un'unica fonte, l'archivio delle previsioni passate di O
 | Eliminare una **Condizione** | Elimina valori e collegamenti agli ambienti (`CASCADE`), ma è bloccata se uno dei suoi valori è usato in una pescata (il `RESTRICT` sul valore blocca la cascata): va disattivata. |
 | Rinominare una **Categoria** / **Ambiente** / **Spot** / **Specie** | Il nuovo nome si propaga a tutte le tabelle figlie (`ON UPDATE CASCADE`). |
 | Eliminare uno **Spot** | Elimina coordinate (tratto) e pianificazioni (`CASCADE`); le pescate restano nello storico con `spot_nome = NULL` (`SET NULL`). |
+| Eliminare un **Divieto** | Elimina i suoi punti (`CASCADE`). Nessun'altra tabella fa riferimento ai divieti. |
 | Eliminare una **Pescata** | Elimina il collegamento al meteo (`PescataMeteo`; l'archivio meteo resta), valori delle condizioni, legami con le esche, riepiloghi, dettagli, catture memorabili e foto (`CASCADE`); il repository cancella anche i file immagine dal disco e ricalcola `Spot.battuto`. |
 | Eliminare una **CellaMeteo** | Elimina il suo archivio giornaliero e orario e i collegamenti delle pescate, che tornano da scaricare (`CASCADE`). L'app non elimina mai le celle: la regola garantisce solo la coerenza. |
 | Eliminare un'**Esca** | Elimina i legami con le pescate e le sue foto (`CASCADE`); nelle catture memorabili il riferimento diventa NULL (`SET NULL`). |

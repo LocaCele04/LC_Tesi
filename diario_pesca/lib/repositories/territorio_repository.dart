@@ -10,6 +10,7 @@ import '../models/enums.dart';
 import '../models/territorio/ambiente.dart';
 import '../models/territorio/categoria.dart';
 import '../models/territorio/coordinata.dart';
+import '../models/territorio/divieto.dart';
 import '../models/territorio/spot.dart';
 
 class TerritorioRepository {
@@ -305,6 +306,101 @@ class TerritorioRepository {
   Future<void> eliminaSpot(String nome) async {
     final db = await _dbHelper.database;
     await db.delete('Spot', where: 'nome = ?', whereArgs: [nome]);
+  }
+
+  // ===========================================================================
+  // DIVIETI
+  // ===========================================================================
+
+  /// Tutti i divieti con i loro punti in ordine (per la mappa), per nome.
+  /// Due sole query, qualunque sia il numero di divieti.
+  Future<List<Divieto>> getDivieti() async {
+    final db = await _dbHelper.database;
+    final righe = await db.query('Divieto', orderBy: 'nome COLLATE NOCASE ASC, id ASC');
+    final righeCoord = await db.query(
+      'CoordinataDivieto',
+      orderBy: 'divieto_id ASC, ordine ASC',
+    );
+    final punti = <int, List<Coordinata>>{};
+    for (final r in righeCoord) {
+      punti.putIfAbsent(r['divieto_id'] as int, () => []).add(DbMappers.coordinataDivietoFromMap(r));
+    }
+    return [
+      for (final r in righe)
+        DbMappers.divietoFromMap(r, coordinate: punti[r['id'] as int] ?? const []),
+    ];
+  }
+
+  /// Il divieto [id] con i suoi punti in ordine, `null` se non esiste.
+  Future<Divieto?> getDivieto(int id) async {
+    final db = await _dbHelper.database;
+    final righe = await db.query('Divieto', where: 'id = ?', whereArgs: [id], limit: 1);
+    if (righe.isEmpty) return null;
+    final righeCoord = await db.query(
+      'CoordinataDivieto',
+      where: 'divieto_id = ?',
+      whereArgs: [id],
+      orderBy: 'ordine ASC',
+    );
+    return DbMappers.divietoFromMap(
+      righe.first,
+      coordinate: righeCoord.map(DbMappers.coordinataDivietoFromMap).toList(),
+    );
+  }
+
+  /// Inserisce un divieto nuovo (`id` nullo) o aggiorna quello esistente,
+  /// sostituendone tutti i punti, e restituisce il divieto salvato con il
+  /// suo `id` e i punti numerati nell'ordine della lista.
+  ///
+  /// Un divieto senza punti non si vedrebbe sulla mappa: viene rifiutato
+  /// ([ArgumentError]). Nome e note sono salvati senza spazi iniziali e
+  /// finali; note vuote diventano `null`.
+  Future<Divieto> salvaDivieto(Divieto divieto) async {
+    if (divieto.coordinate.isEmpty) {
+      throw ArgumentError('Un divieto deve avere almeno un punto');
+    }
+    final note = divieto.note?.trim();
+    final pulito = Divieto(
+      id: divieto.id,
+      nome: divieto.nome.trim(),
+      note: note == null || note.isEmpty ? null : note,
+      coordinate: [
+        for (var i = 0; i < divieto.coordinate.length; i++)
+          Coordinata(
+            ordine: i,
+            latitudine: divieto.coordinate[i].latitudine,
+            longitudine: divieto.coordinate[i].longitudine,
+          ),
+      ],
+    );
+
+    final db = await _dbHelper.database;
+    return db.transaction((txn) async {
+      int id;
+      if (pulito.id == null) {
+        id = await txn.insert('Divieto', DbMappers.divietoToMap(pulito));
+      } else {
+        id = pulito.id!;
+        final aggiornati = await txn.update(
+          'Divieto',
+          DbMappers.divietoToMap(pulito),
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        if (aggiornati == 0) throw ArgumentError('Divieto $id inesistente');
+        await txn.delete('CoordinataDivieto', where: 'divieto_id = ?', whereArgs: [id]);
+      }
+      for (final c in pulito.coordinate) {
+        await txn.insert('CoordinataDivieto', DbMappers.coordinataDivietoToMap(id, c));
+      }
+      return pulito.copyWith(id: id);
+    });
+  }
+
+  /// Elimina il divieto [id] con i suoi punti (ON DELETE CASCADE).
+  Future<void> eliminaDivieto(int id) async {
+    final db = await _dbHelper.database;
+    await db.delete('Divieto', where: 'id = ?', whereArgs: [id]);
   }
 
   // ===========================================================================

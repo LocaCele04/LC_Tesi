@@ -17,6 +17,7 @@ import '../models/pescate/riepilogo_specie.dart';
 import '../models/territorio/ambiente.dart';
 import '../models/territorio/categoria.dart';
 import '../models/territorio/coordinata.dart';
+import '../models/territorio/divieto.dart';
 import '../models/territorio/spot.dart';
 
 class DbMappers {
@@ -106,6 +107,37 @@ class DbMappers {
         'ordine': c.ordine,
         'latitudine': c.latitudine,
         'longitudine': c.longitudine,
+      };
+
+  /// Punto di un divieto: stesso modello dei punti degli spot, senza spot.
+  static Coordinata coordinataDivietoFromMap(Map<String, Object?> map) => Coordinata(
+        ordine: map['ordine'] as int,
+        latitudine: (map['latitudine'] as num).toDouble(),
+        longitudine: (map['longitudine'] as num).toDouble(),
+      );
+
+  static Map<String, Object?> coordinataDivietoToMap(int divietoId, Coordinata c) => {
+        'divieto_id': divietoId,
+        'ordine': c.ordine,
+        'latitudine': c.latitudine,
+        'longitudine': c.longitudine,
+      };
+
+  static Divieto divietoFromMap(
+    Map<String, Object?> map, {
+    List<Coordinata> coordinate = const [],
+  }) =>
+      Divieto(
+        id: map['id'] as int,
+        nome: map['nome'] as String,
+        note: map['note'] as String?,
+        coordinate: coordinate,
+      );
+
+  static Map<String, Object?> divietoToMap(Divieto d) => {
+        if (d.id != null) 'id': d.id,
+        'nome': d.nome,
+        'note': d.note,
       };
 
   static Spot spotFromMap(

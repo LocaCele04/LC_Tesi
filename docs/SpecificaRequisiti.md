@@ -24,7 +24,8 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **Condizione**: aspetto della pescata che il pescatore vuole registrare, scelto da un elenco di valori (es. *Livello*: secca, magra, normale, morbida, piena; *Meteo*; per il mare *Stato del mare*). Condizioni e valori sono definiti dall'utente; ogni condizione è collegata agli ambienti per cui ha senso.
 * **Valore di condizione**: uno dei valori ammessi di una condizione, con una posizione nella scala della condizione (es. *Morbida* viene dopo *Normale* nel Livello).
 * **Spot**: luogo di pesca identificato da un nome, appartenente a una categoria, caratterizzato da un ambiente e da un tracciato geografico (tratto) che ne delimita l'estensione lungo il corso d'acqua.
-* **Tratto**: sequenza ordinata di coordinate geografiche (polilinea) che rappresenta il percorso fisico di uno spot lungo il torrente, analoga ai tracciati salvati in Google Earth.
+* **Tratto**: sequenza ordinata di coordinate geografiche (polilinea) che rappresenta il percorso fisico di uno spot (o di un divieto) lungo il torrente, analoga ai tracciati salvati in Google Earth.
+* **Divieto**: tratto di corso d'acqua in cui la pesca è vietata (es. a valle di un incubatoio), con un nome ed eventuali note. Non è uno spot: si vede solo sulla mappa, come riferimento durante la scelta e il disegno degli spot.
 * **Pescata**: attività di pesca svolta in un singolo spot in una certa data e fascia oraria, con le condizioni registrate (es. meteo, livello dell'acqua), la temperatura dell'acqua, il riepilogo delle catture, le esche utilizzate, le foto ed eventuali note. Un'uscita in cui si visitano più spot si registra come più pescate, una per spot.
 * **Riepilogo specie**: numero di esemplari di una specie catturati in una pescata, eventualmente suddiviso per caratteristica (es. 12 trote, di cui 3 "over 30"). L'app non registra i singoli pesci catturati ma solo questi totali.
 * **Caratteristica**: aspetto che il pescatore vuole evidenziare per una specie, definito da lui nelle impostazioni (es. un colore, una misura come "over 35", un peso). Ogni caratteristica appartiene a una sola specie.
@@ -127,6 +128,12 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Descrizione**: Il sistema potrebbe permettere di visualizzare la mappa con diverse viste (es. colore dei tratti in base all'ambiente oppure al voto assegnato).
   * **Input**: Selezione del tipo di vista.
   * **Output**: Modifica dei colori dei tratti sulla mappa.
+
+* **[REQ-FUN-18]** - *Should have*
+  * **Descrizione**: Il sistema dovrebbe permettere di registrare, modificare ed eliminare i divieti, disegnandone il tratto sulla mappa come per gli spot, e di visualizzarli sulla mappa in modo riconoscibile e indipendente dalla colorazione scelta per gli spot.
+  * **Input**: Nome del divieto, note facoltative, sequenza di punti selezionati sulla mappa.
+  * **Elaborazione**: Validazione che il nome non sia vuoto e che il tratto contenga almeno un punto. Più divieti possono avere lo stesso nome. I divieti non compaiono tra gli spot, nelle pescate e nelle statistiche.
+  * **Output**: Divieto salvato e visualizzato sulla mappa; eliminandolo spariscono anche i suoi punti.
 
 * **[REQ-FUN-04]** - *Should have*
   * **Descrizione**: Il sistema dovrebbe permettere all'utente di creare, rinominare ed eliminare categorie, che funzionano come cartelle per gli spot (es. le valli minori come *Val Stabina*, oppure zone come *Basso Brembo*).

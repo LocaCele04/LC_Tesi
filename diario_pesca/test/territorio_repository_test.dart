@@ -3,6 +3,7 @@ import 'package:diario_pesca/models/enums.dart';
 import 'package:diario_pesca/models/territorio/ambiente.dart';
 import 'package:diario_pesca/models/territorio/categoria.dart';
 import 'package:diario_pesca/models/territorio/coordinata.dart';
+import 'package:diario_pesca/models/territorio/divieto.dart';
 import 'package:diario_pesca/models/territorio/spot.dart';
 import 'package:diario_pesca/repositories/territorio_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -335,6 +336,69 @@ void main() {
         nomeOriginale: 'Valsecca',
       );
       expect(await db.query('Pescata_Condizione'), hasLength(2));
+    });
+  });
+
+  group('TerritorioRepository - Divieti', () {
+    const p1 = Coordinata(ordine: 7, latitudine: 46.01, longitudine: 9.70);
+    const p2 = Coordinata(ordine: 3, latitudine: 46.02, longitudine: 9.71);
+    const p3 = Coordinata(ordine: 0, latitudine: 46.03, longitudine: 9.72);
+
+    test('salvaDivieto assegna l\'id, numera i punti nell\'ordine della lista e pulisce nome e note', () async {
+      final salvato = await repo.salvaDivieto(
+        const Divieto(nome: '  Divieto incubatoio ', note: '   ', coordinate: [p1, p2]),
+      );
+      expect(salvato.id, isNotNull);
+      expect(salvato.nome, 'Divieto incubatoio');
+      expect(salvato.note, isNull);
+      expect(salvato.coordinate.map((c) => c.ordine), [0, 1]);
+
+      final letto = await repo.getDivieto(salvato.id!);
+      expect(letto, salvato);
+      expect(letto!.coordinate.map((c) => c.latitudine), [46.01, 46.02]);
+      // Un divieto non è uno spot
+      expect(await repo.getSpots(), isEmpty);
+      expect(await repo.getTutteLeCoordinate(), isEmpty);
+    });
+
+    test('aggiornare un divieto sostituisce nome, note e tutti i punti', () async {
+      final salvato = await repo.salvaDivieto(const Divieto(nome: 'Divieto', coordinate: [p1, p2]));
+      final aggiornato = await repo.salvaDivieto(
+        salvato.copyWith(nome: 'Divieto per frane', note: 'Fino al ponte', coordinate: [p3]),
+      );
+      expect(aggiornato.id, salvato.id);
+
+      final letto = await repo.getDivieto(salvato.id!);
+      expect(letto!.nome, 'Divieto per frane');
+      expect(letto.note, 'Fino al ponte');
+      expect(letto.coordinate, [p3.copyWith(ordine: 0)]);
+    });
+
+    test('getDivieti restituisce tutti i divieti con i loro punti, anche con lo stesso nome', () async {
+      final a = await repo.salvaDivieto(const Divieto(nome: 'Divieto', coordinate: [p1, p2]));
+      final b = await repo.salvaDivieto(const Divieto(nome: 'divieto', coordinate: [p3]));
+      final c = await repo.salvaDivieto(const Divieto(nome: 'Ansa', coordinate: [p2, p3]));
+
+      final divieti = await repo.getDivieti();
+      // Per nome senza distinzione di maiuscole, poi per id
+      expect(divieti.map((d) => d.id), [c.id, a.id, b.id]);
+      expect(divieti.map((d) => d.coordinate.length), [2, 2, 1]);
+      expect(divieti[1].coordinate.first.latitudine, 46.01);
+    });
+
+    test('un divieto senza punti o inesistente viene rifiutato, eliminarlo toglie anche i punti', () async {
+      expect(() => repo.salvaDivieto(const Divieto(nome: 'Vuoto')), throwsArgumentError);
+      expect(
+        () => repo.salvaDivieto(const Divieto(id: 999, nome: 'Fantasma', coordinate: [p1])),
+        throwsArgumentError,
+      );
+      expect(await repo.getDivieti(), isEmpty);
+
+      final salvato = await repo.salvaDivieto(const Divieto(nome: 'Divieto', coordinate: [p1, p2]));
+      await repo.eliminaDivieto(salvato.id!);
+      expect(await repo.getDivieto(salvato.id!), isNull);
+      final db = await dbHelper.database;
+      expect(await db.query('CoordinataDivieto'), isEmpty);
     });
   });
 }
