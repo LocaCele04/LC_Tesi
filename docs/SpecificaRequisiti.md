@@ -116,7 +116,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **[REQ-FUN-01]** - *Must have*
   * **Descrizione**: Il sistema deve permettere la creazione di un nuovo spot disegnando manualmente il relativo tratto sulla mappa.
   * **Input**: Sequenza di punti selezionati dall'utente sulla mappa (punto di partenza, punti intermedi, punto di arrivo); nome, categoria e ambiente assegnati allo spot al termine del disegno.
-  * **Elaborazione**: Validazione che il tratto contenga almeno due punti e che nome, categoria e ambiente siano stati indicati prima del salvataggio; calcolo automatico della lunghezza del tratto in metri.
+  * **Elaborazione**: Validazione che nome, categoria e ambiente siano stati indicati prima del salvataggio; calcolo automatico della lunghezza del tratto in metri quando ha almeno due punti. Uno spot con un solo punto (es. una pozza) è ammesso e compare sulla mappa come segnaposto; i punti si possono spostare, inserire tra due esistenti ed eliminare, con la possibilità di annullare.
   * **Output / Risposta**: Nuovo spot salvato e visualizzato sulla mappa; messaggio di conferma del salvataggio.
 
 * **[REQ-FUN-02]** - *Should have*
@@ -125,9 +125,9 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Output**: Scheda dello spot aggiornata con i nuovi valori; la rinomina dello spot si propaga a pescate, pianificazioni e coordinate collegate.
 
 * **[REQ-FUN-03]** - *Could have*
-  * **Descrizione**: Il sistema potrebbe permettere di visualizzare la mappa con diverse viste (es. colore dei tratti in base all'ambiente oppure al voto assegnato).
-  * **Input**: Selezione del tipo di vista.
-  * **Output**: Modifica dei colori dei tratti sulla mappa.
+  * **Descrizione**: Il sistema potrebbe permettere di visualizzare la mappa con diverse viste: colore dei tratti in base allo stato (spot in cui si è pescato o mai visitati), al voto, all'ambiente, alla categoria, alla difficoltà o all'accessibilità, e di filtrare gli spot mostrati.
+  * **Input**: Selezione del tipo di vista e dei filtri (stato, ambienti, categorie, visibilità dei divieti).
+  * **Output**: Modifica dei colori dei tratti sulla mappa e legenda dei soli valori presenti; i colori di ambienti e categorie restano gli stessi quando se ne aggiungono di nuovi.
 
 * **[REQ-FUN-18]** - *Should have*
   * **Descrizione**: Il sistema dovrebbe permettere di registrare, modificare ed eliminare i divieti, disegnandone il tratto sulla mappa come per gli spot, e di visualizzarli sulla mappa in modo riconoscibile e indipendente dalla colorazione scelta per gli spot.

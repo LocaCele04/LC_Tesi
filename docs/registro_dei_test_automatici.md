@@ -1,6 +1,6 @@
 # Registro dei Test Automatici
 
-La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate, la 17 l'aggiornamento dello schema tra versioni.
+La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate, la 17 l'aggiornamento dello schema tra versioni, dalla 18 alla 21 la mappa.
 
 ## 1. `test/database_integrita_test.dart` (21 test)
 
@@ -167,3 +167,19 @@ Verifica l'aggiornamento dello schema tra versioni (vedi `scelta_architetturale_
 
 * **Schema attuale:** `onCreate` crea esattamente lo schema della fotografia della versione attuale, quindi una modifica allo schema senza alzare la versione fa fallire il test; alla prima esecuzione dopo aver alzato la versione il test scatta la fotografia nuova e chiede di controllarla. Ogni versione fotografata precedente, aperta dall'app, viene aggiornata alla versione attuale e risulta identica a un database nuovo. I passaggi registrati vanno dalla versione 2 a quella attuale senza buchi.
 * **Meccanismo, con passaggi finti:** ricostruire la tabella `Spot` con un vincolo in più non tocca coordinate, pianificazioni e pescate (le azioni a cascata non partono), ricrea gli indici, lascia le chiavi esterne attive e funzionanti sulla tabella nuova e applica il nuovo vincolo; un passaggio che fallisce, o che lascia righe senza la riga a cui puntano, annulla l'intero aggiornamento lasciando versione e dati come prima; un passaggio mancante blocca l'aggiornamento; un database più recente dell'app non viene aperto né modificato.
+
+## 18. `test/colori_mappa_test.dart` (7 test)
+
+Verifica, senza widget, i colori della mappa: le cinque fasce del voto dal rosso al blu (con i valori di confine) e il grigio per gli spot senza voto; lo stato *battuto* in blu e quello mai pescato in bianco; la legenda del voto ordinata dal migliore, con la voce *senza voto* solo se serve; i colori fissi e distinti degli ambienti di base; il colore calcolato dal nome, uguale per lo stesso nome con maiuscole e spazi diversi e indipendente dagli altri nomi presenti (aggiungere una categoria non cambia i colori delle altre); la legenda per categoria con i soli valori presenti, una volta sola e in ordine alfabetico; le legende fisse di difficoltà e accessibilità.
+
+## 19. `test/tratto_in_modifica_test.dart` (3 test)
+
+Verifica, senza mappa, le operazioni del disegno di un tratto: aggiungere punti, inserire un punto a metà di un segmento e toglierne uno, con l'ordine sempre ricalcolato e la lunghezza; un trascinamento formato da molti spostamenti che si annulla in un colpo solo, come ogni altra operazione, fino a tornare al tratto vuoto; svuotare il tratto e annullare; il confronto con i punti di partenza (`modificato`), usato per chiedere conferma prima di uscire senza salvare.
+
+## 20. `test/mappa_state_test.dart` (3 test)
+
+Verifica lo stato della mappa su un database in memoria: gli spot sulla mappa con le loro coordinate seguono da soli il salvataggio di uno spot, una pescata (lo spot diventa *battuto* e cambia colore nella vista per stato) e l'eliminazione; i divieti si salvano, si aggiornano e si eliminano, un divieto senza punti viene rifiutato lasciando l'elenco com'era, e i divieti non compaiono tra gli spot. Verifica anche la combinazione dei filtri per stato, ambiente e categoria (senza distinzione di maiuscole), l'azzeramento dei filtri e che colorazione e sfondo restino.
+
+## 21. `test/modulo_divieto_screen_test.dart` (3 test)
+
+Verifica il modulo del divieto con un elenco di divieti finto: i problemi segnalati (nome mancante, nessun punto); il numero di punti e la lunghezza del tratto appena disegnato; il dialogo che chiede il nome e il salvataggio di nome, note e punti con ritorno alla pagina precedente; l'eliminazione di un divieto esistente dopo la conferma.

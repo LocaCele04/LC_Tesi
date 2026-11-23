@@ -33,6 +33,12 @@ dependencies:
   http: ^1.2.2
   flutter_riverpod: ^3.4.1
   sqflite_common_ffi: ^2.4.0
+  # Mappa: tessere OpenStreetMap / OpenTopoMap con cache su disco, linee e
+  # segnaposto; latlong2 è il tipo delle coordinate usato da flutter_map.
+  flutter_map: ^8.3.2
+  latlong2: ^0.9.1
+  # Posizione del telefono (GPS) per centrare la mappa.
+  geolocator: ^14.0.2
 
 dev_dependencies:
   flutter_test:

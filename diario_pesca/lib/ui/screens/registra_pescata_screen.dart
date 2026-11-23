@@ -23,10 +23,13 @@ import 'modulo_spot_screen.dart';
 /// lo mostra e inoltra le modifiche. Le foto e le catture memorabili si
 /// aggiungeranno quando sarà pronto il `FotoService`.
 class RegistraPescataScreen extends ConsumerStatefulWidget {
-  const RegistraPescataScreen({super.key, this.apertura});
+  const RegistraPescataScreen({super.key, this.apertura, this.spotIniziale});
 
   /// Pescata da modificare; `null` per registrarne una nuova.
   final AperturaPescata? apertura;
+
+  /// Spot già scelto per una pescata nuova (es. aperta dalla mappa).
+  final ({String nome, String ambiente})? spotIniziale;
 
   @override
   ConsumerState<RegistraPescataScreen> createState() => _RegistraPescataScreenState();
@@ -34,6 +37,21 @@ class RegistraPescataScreen extends ConsumerStatefulWidget {
 
 class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
   bool _salvataggioInCorso = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final spot = widget.spotIniziale;
+    if (spot != null && widget.apertura == null) {
+      // Dopo il primo disegno: durante la costruzione dei widget non si
+      // può modificare lo stato di un provider.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(moduloPescataProvider(null).notifier).impostaSpot(spot.nome, spot.ambiente);
+        }
+      });
+    }
+  }
 
   Future<void> _salva() async {
     final messaggi = ScaffoldMessenger.of(context);

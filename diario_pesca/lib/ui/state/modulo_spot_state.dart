@@ -317,6 +317,14 @@ class ModuloSpotNotifier extends Notifier<BozzaSpot> {
     return true;
   }
 
+  /// Sostituisce tutti i punti del tratto (es. con quelli disegnati sulla
+  /// mappa).
+  void impostaPunti(List<Coordinata> punti) {
+    state = state.copyWith(coordinate: [
+      for (var i = 0; i < punti.length; i++) punti[i].copyWith(ordine: i),
+    ]);
+  }
+
   void rimuoviPunto(int indice) {
     final punti = [...state.coordinate]..removeAt(indice);
     state = state.copyWith(coordinate: punti);

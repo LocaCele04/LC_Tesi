@@ -5,6 +5,7 @@ import '../../models/catalogo/condizione.dart';
 import '../../models/enums.dart';
 import '../../models/territorio/coordinata.dart';
 import '../../models/territorio/spot.dart';
+import '../mappa/disegna_tratto_screen.dart';
 import '../state/modulo_spot_state.dart';
 import '../state/spot_state.dart';
 import '../widgets/dialoghi.dart';
@@ -59,15 +60,16 @@ class _ModificaSpotScreenState extends ConsumerState<ModificaSpotScreen> {
   }
 }
 
-/// Modulo di uno spot: nuovo ([spot] nullo) o da modificare. Per ora i
-/// punti del tratto si inseriscono come coordinate; il disegno sulla mappa
-/// previsto da [REQ-FUN-01] arriverà con la mappa.
+/// Modulo di uno spot: nuovo ([spot] nullo) o da modificare. Il tratto si
+/// disegna sulla mappa (REQ-FUN-01) oppure si inseriscono le coordinate a
+/// mano. Uno spot nuovo può partire da [puntiIniziali], già disegnati.
 /// Alla fine si chiude restituendo lo spot salvato, così chi l'ha aperto
 /// (es. il modulo della pescata) può usarlo subito.
 class ModuloSpotScreen extends ConsumerStatefulWidget {
-  const ModuloSpotScreen({super.key, this.spot});
+  const ModuloSpotScreen({super.key, this.spot, this.puntiIniziali = const []});
 
   final Spot? spot;
+  final List<Coordinata> puntiIniziali;
 
   @override
   ConsumerState<ModuloSpotScreen> createState() => _ModuloSpotScreenState();
@@ -86,6 +88,33 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
   int _versioneCategoria = 0;
 
   ModuloSpotNotifier get _modulo => ref.read(moduloSpotProvider(widget.spot).notifier);
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.puntiIniziali.isNotEmpty) {
+      // Dopo il primo disegno: durante la costruzione dei widget non si
+      // può modificare lo stato di un provider.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _modulo.impostaPunti(widget.puntiIniziali);
+      });
+    }
+  }
+
+  /// Apre la mappa per disegnare o modificare il tratto.
+  Future<void> _disegna() async {
+    final bozza = ref.read(moduloSpotProvider(widget.spot));
+    final punti = await Navigator.of(context).push<List<Coordinata>>(
+      MaterialPageRoute(
+        builder: (_) => DisegnaTrattoScreen(
+          titolo: bozza.nome.trim().isEmpty ? 'Tratto dello spot' : bozza.nome.trim(),
+          puntiIniziali: bozza.coordinate,
+          escludiSpot: widget.spot?.nome,
+        ),
+      ),
+    );
+    if (punti != null && mounted) _modulo.impostaPunti(punti);
+  }
 
   @override
   void dispose() {
@@ -323,11 +352,20 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
             onChanged: modulo.impostaVoto,
           ),
           const _Titolo('Punti del tratto'),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.icon(
+              onPressed: _disegna,
+              icon: const Icon(Icons.edit_location_alt_outlined),
+              label: Text(bozza.coordinate.isEmpty ? 'Disegna sulla mappa' : 'Modifica sulla mappa'),
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
-            'Incolla le coordinate da Google Maps (tieni premuto sul punto e '
-            'copia i numeri, oppure incolla il link completo), poi premi "Aggiungi punto". '
             'Il primo punto è quello usato per il meteo; con due o più punti la lunghezza '
-            'si calcola da sola.',
+            'si calcola da sola. In alternativa incolla le coordinate da Google Maps '
+            '(tieni premuto sul punto e copia i numeri, oppure incolla il link completo) '
+            'e premi "Aggiungi punto".',
             style: testo.bodySmall,
           ),
           const SizedBox(height: 12),

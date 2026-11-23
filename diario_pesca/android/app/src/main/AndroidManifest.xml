@@ -2,6 +2,10 @@
     <!-- Scaricamento del meteo da Open-Meteo: senza questo permesso la
          versione di rilascio non può usare la rete (quella di debug sì). -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Posizione del telefono per il pulsante "La mia posizione" della mappa.
+         Viene chiesta solo quando si preme il pulsante. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
         android:label="diario_pesca"
         android:name="${applicationName}"
