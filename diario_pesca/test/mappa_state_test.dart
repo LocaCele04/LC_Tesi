@@ -47,37 +47,37 @@ void main() {
 
   group('Stato della mappa - Dati', () {
     test('gli spot sulla mappa hanno i loro punti e seguono salvataggi, pescate ed eliminazioni', () async {
-      await container.read(elencoSpotProvider.notifier).salva(spot('Valsecca', punti: [p1, p2]));
-      await container.read(elencoSpotProvider.notifier).salva(spot('Lenna'));
+      await container.read(elencoSpotProvider.notifier).salva(spot('Valbrina', punti: [p1, p2]));
+      await container.read(elencoSpotProvider.notifier).salva(spot('Lunetta'));
 
       var mappa = await container.read(spotSullaMappaProvider.future);
-      expect(mappa.map((s) => s.nome), ['Lenna', 'Valsecca']);
+      expect(mappa.map((s) => s.nome), ['Lunetta', 'Valbrina']);
       expect(mappa.last.coordinate.map((c) => c.latitudine), [45.76, 45.77]);
       expect(mappa.first.coordinate, isEmpty);
       expect(mappa.last.battuto, isFalse);
 
       // Una pescata rende lo spot battuto: il colore della mappa cambia da solo
       await container.read(elencoPescateProvider.notifier).salva(
-            Pescata(data: DateTime(2026, 2, 10), fasciaOraria: FasciaOraria.alba, spotNome: 'Valsecca'),
+            Pescata(data: DateTime(2026, 2, 10), fasciaOraria: FasciaOraria.alba, spotNome: 'Valbrina'),
           );
       mappa = await container.read(spotSullaMappaProvider.future);
-      final valsecca = mappa.firstWhere((s) => s.nome == 'Valsecca');
-      expect(coloreSpot(valsecca, Colorazione.stato), coloreBattuto);
+      final valbrina = mappa.firstWhere((s) => s.nome == 'Valbrina');
+      expect(coloreSpot(valbrina, Colorazione.stato), coloreBattuto);
 
-      await container.read(elencoSpotProvider.notifier).elimina('Valsecca');
+      await container.read(elencoSpotProvider.notifier).elimina('Valbrina');
       mappa = await container.read(spotSullaMappaProvider.future);
-      expect(mappa.map((s) => s.nome), ['Lenna']);
+      expect(mappa.map((s) => s.nome), ['Lunetta']);
     });
 
     test('i divieti si salvano, si aggiornano e si eliminano; un errore lascia l\'elenco com\'era', () async {
       final divieti = container.read(divietiProvider.notifier);
       expect(await container.read(divietiProvider.future), isEmpty);
 
-      final salvato = await divieti.salva(const Divieto(nome: 'Divieto incubatoio', coordinate: [p1, p2]));
+      final salvato = await divieti.salva(const Divieto(nome: 'Divieto vasca', coordinate: [p1, p2]));
       expect((await container.read(divietiProvider.future)).single.id, salvato.id);
 
-      await divieti.salva(salvato.copyWith(nome: 'Divieto per frane'));
-      expect((await container.read(divietiProvider.future)).single.nome, 'Divieto per frane');
+      await divieti.salva(salvato.copyWith(nome: 'Divieto per piene'));
+      expect((await container.read(divietiProvider.future)).single.nome, 'Divieto per piene');
 
       await expectLater(divieti.salva(const Divieto(nome: 'Senza punti')), throwsArgumentError);
       expect(container.read(divietiProvider).value, hasLength(1));

@@ -228,7 +228,7 @@ Tutte le classi modello sono **oggetti immutabili** (campi `final`, metodo `copy
 * **`uguaglianza.dart`**: funzione `listeUguali`, usata dagli `operator ==` dei modelli che contengono liste.
 * **Pacchetto `territorio/`**:
   * `Ambiente`: tipologia di corso o specchio d'acqua dello spot (di base *Torrente*, *Fiume*, *Lago*, *Mare*), estendibile dall'utente.
-  * `Categoria`: raggruppamento di spot scelto dall'utente, come una cartella (es. *Fondovalle*, *Val Serina*, *Valle Imagna*).
+  * `Categoria`: raggruppamento di spot scelto dall'utente, come una cartella (es. *Fondopiano*, *Val Sorbina*, *Valle Ombrosa*).
   * `Spot`: luogo di pesca con le sue caratteristiche fisiche e logistiche e la lista delle coordinate.
   * `Coordinata`: singolo punto GPS (`latitudine`, `longitudine`, `ordine`) che compone il tracciato di uno spot o di un divieto.
   * `Divieto`: tratto in cui la pesca è vietata, con nome, note e punti. Non è uno spot: si vede solo sulla mappa; l'identità è l'`id`, perché più divieti possono avere lo stesso nome.

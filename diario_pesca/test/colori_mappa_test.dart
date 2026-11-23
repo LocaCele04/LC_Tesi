@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 Spot _spot({
-  String nome = 'Valsecca',
+  String nome = 'Valbrina',
   String ambiente = 'Torrente',
   String categoria = 'Valle',
   double? voto,
@@ -57,24 +57,24 @@ void main() {
     });
 
     test('il colore calcolato dal nome è stabile e non dipende dagli altri nomi', () {
-      final prima = coloreDaNome('Val Serina');
+      final prima = coloreDaNome('Val Sorbina');
       // Aggiungere categorie non cambia il colore di quelle esistenti
-      legenda(Colorazione.categoria, [_spot(categoria: 'Val Brembana'), _spot(categoria: 'Val Taleggio')]);
-      expect(coloreDaNome('Val Serina'), prima);
-      expect(coloreDaNome('  val serina'), prima);
-      expect(coloreDaNome('Val Brembana'), isNot(prima));
+      legenda(Colorazione.categoria, [_spot(categoria: 'Val Bruna'), _spot(categoria: 'Val Torba')]);
+      expect(coloreDaNome('Val Sorbina'), prima);
+      expect(coloreDaNome('  val sorbina'), prima);
+      expect(coloreDaNome('Val Bruna'), isNot(prima));
       // Un ambiente aggiunto dall'utente usa il colore dal nome
       expect(coloreAmbiente('Roggia'), coloreDaNome('Roggia'));
     });
 
     test('la legenda per categoria mostra solo quelle presenti, una volta sola, in ordine alfabetico', () {
       final voci = legenda(Colorazione.categoria, [
-        _spot(categoria: 'Valle Imagna'),
-        _spot(categoria: 'Fondovalle'),
-        _spot(categoria: 'valle imagna'),
+        _spot(categoria: 'Valle Ombrosa'),
+        _spot(categoria: 'Fondopiano'),
+        _spot(categoria: 'valle ombrosa'),
       ]);
-      expect(voci.map((v) => v.etichetta), ['Fondovalle', 'Valle Imagna']);
-      expect(voci.last.colore, coloreDaNome('Valle Imagna'));
+      expect(voci.map((v) => v.etichetta), ['Fondopiano', 'Valle Ombrosa']);
+      expect(voci.last.colore, coloreDaNome('Valle Ombrosa'));
     });
 
     test('difficoltà e accessibilità hanno legende fisse', () {

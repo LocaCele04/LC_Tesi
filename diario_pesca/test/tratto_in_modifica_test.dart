@@ -50,8 +50,8 @@ void main() {
 
     test('svuotare si può annullare; modificato confronta con i punti di partenza', () {
       const iniziali = [
-        Coordinata(ordine: 0, latitudine: 46.0, longitudine: 9.0, spotNome: 'Valsecca'),
-        Coordinata(ordine: 1, latitudine: 46.1, longitudine: 9.1, spotNome: 'Valsecca'),
+        Coordinata(ordine: 0, latitudine: 46.0, longitudine: 9.0, spotNome: 'Valbrina'),
+        Coordinata(ordine: 1, latitudine: 46.1, longitudine: 9.1, spotNome: 'Valbrina'),
       ];
       final t = TrattoInModifica(iniziali);
       expect(t.modificato, isFalse);

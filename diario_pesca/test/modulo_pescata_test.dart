@@ -42,13 +42,13 @@ void main() {
     final territorio = container.read(territorioRepositoryProvider);
     await territorio.inserisciCategoria(const Categoria(nome: 'Valle'));
     await territorio.salvaSpotConCoordinate(
-      const Spot(nome: 'Valsecca', ambiente: 'Torrente', categoriaNome: 'Valle'),
+      const Spot(nome: 'Valbrina', ambiente: 'Torrente', categoriaNome: 'Valle'),
     );
     await territorio.salvaSpotConCoordinate(
       const Spot(nome: 'Piazza3', ambiente: 'Torrente', categoriaNome: 'Valle'),
     );
     await territorio.salvaSpotConCoordinate(
-      const Spot(nome: 'Lago Nero', ambiente: 'Lago', categoriaNome: 'Valle'),
+      const Spot(nome: 'Lago Smeraldo', ambiente: 'Lago', categoriaNome: 'Valle'),
     );
     final catalogo = container.read(catalogoRepositoryProvider);
     await catalogo.inserisciSpecie(const Specie(nome: 'Trota'));
@@ -77,7 +77,7 @@ void main() {
 
     test('segnala data futura, temperature non valide e catture incomplete', () {
       final m = modulo();
-      m.impostaSpot('Valsecca', 'Torrente');
+      m.impostaSpot('Valbrina', 'Torrente');
       m.impostaFascia(FasciaOraria.alba);
       m.impostaData(DateTime(2026, 2, 21));
       m.impostaTempAcqua('40');
@@ -115,7 +115,7 @@ void main() {
   group('Modulo pescata - Compilazione', () {
     test('le condizioni dipendono dall\'ambiente: cambiandolo i valori scelti si tolgono', () async {
       final m = modulo();
-      m.impostaSpot('Valsecca', 'Torrente');
+      m.impostaSpot('Valbrina', 'Torrente');
       final condizioni = await container.read(condizioniPerFormProvider((ambiente: 'Torrente', pescataId: null)).future);
       expect(condizioni.map((c) => c.nome), containsAll(['Livello', 'Trasparenza', 'Fondo', 'Meteo']));
       final livello = condizioni.firstWhere((c) => c.nome == 'Livello');
@@ -130,7 +130,7 @@ void main() {
       m.impostaValore(livello, morbida);
       m.impostaSpot('Piazza3', 'Torrente');
       expect(bozza().valori, hasLength(1));
-      m.impostaSpot('Lago Nero', 'Lago');
+      m.impostaSpot('Lago Smeraldo', 'Lago');
       expect(bozza().valori, isEmpty);
       final delLago = await container.read(condizioniPerFormProvider((ambiente: 'Lago', pescataId: null)).future);
       expect(delLago.map((c) => c.nome), ['Meteo']);
@@ -211,7 +211,7 @@ void main() {
       expect((await container.read(elencoSpotProvider.future)).every((s) => !s.battuto), isTrue);
 
       final m = modulo();
-      m.impostaSpot('Valsecca', 'Torrente');
+      m.impostaSpot('Valbrina', 'Torrente');
       m.impostaData(DateTime(2026, 2, 18));
       m.impostaFascia(FasciaOraria.mattina);
       final livello = (await container.read(condizioniPerFormProvider((ambiente: 'Torrente', pescataId: null)).future))
@@ -235,7 +235,7 @@ void main() {
       expect(salvata.id, isNotNull);
 
       final completa = await container.read(pescateRepositoryProvider).getPescataCompleta(salvata.id!);
-      expect(completa!.spotNome, 'Valsecca');
+      expect(completa!.spotNome, 'Valbrina');
       expect(completa.data, DateTime(2026, 2, 18));
       expect(completa.fasciaOraria, FasciaOraria.mattina);
       expect(completa.tempAcqua, 7);
@@ -250,7 +250,7 @@ void main() {
       // Gli altri dati dell'app sono già aggiornati
       expect(container.read(elencoPescateProvider).requireValue, hasLength(1));
       final spot = await container.read(elencoSpotProvider.future);
-      expect(spot.firstWhere((s) => s.nome == 'Valsecca').battuto, isTrue);
+      expect(spot.firstWhere((s) => s.nome == 'Valbrina').battuto, isTrue);
       expect(
         (await container.read(escheProvider.future)).map((e) => e.nome),
         ['Gomma verde 7 cm', 'Streamer nero'],
@@ -260,7 +260,7 @@ void main() {
     test('una specie nuova entra nel catalogo solo salvando la pescata', () async {
       container.listen(specieProvider, (_, _) {});
       final m = modulo();
-      m.impostaSpot('Valsecca', 'Torrente');
+      m.impostaSpot('Valbrina', 'Torrente');
       m.impostaData(DateTime(2026, 2, 18));
       m.impostaFascia(FasciaOraria.alba);
       m.aggiungiCattura();

@@ -87,12 +87,12 @@ void main() {
         const Obiettivo(specieNome: 'Trota', anno: 2026, quantita: 15),
       );
 
-      await inserisciSpotDiProva('Ponte Vecchio');
+      await inserisciSpotDiProva('Ponte Ruga');
       final pescata = await pescateRepo.salvaPescata(
         Pescata(
           data: DateTime(2026, 11, 10),
           fasciaOraria: FasciaOraria.alba,
-          spotNome: 'Ponte Vecchio',
+          spotNome: 'Ponte Ruga',
           riepiloghiSpecie: const [
             RiepilogoSpecie(specieNome: 'Trota', quantita: 2),
           ],
@@ -285,11 +285,11 @@ void main() {
       expect(trovata?.foto.length, 1);
       expect(await catalogoRepo.getEscaPerNome('Jerk'), isNull);
 
-      await inserisciSpotDiProva('Ponte Vecchio');
+      await inserisciSpotDiProva('Ponte Ruga');
       Pescata conEsca(Esca esca) => Pescata(
             data: DateTime(2026, 11, 14),
             fasciaOraria: FasciaOraria.alba,
-            spotNome: 'Ponte Vecchio',
+            spotNome: 'Ponte Ruga',
             esche: [esca],
           );
 
@@ -437,7 +437,7 @@ void main() {
     });
 
     test('salvaCondizione rinomina, aggiunge ed elimina valori; un valore usato si può solo disattivare', () async {
-      await inserisciSpotDiProva('Ponte Vecchio');
+      await inserisciSpotDiProva('Ponte Ruga');
       final condizioni = await catalogoRepo.getCondizioni();
       final livello = condizioni.firstWhere((c) => c.nome == 'Livello');
       final fondo = condizioni.firstWhere((c) => c.nome == 'Fondo');
@@ -447,7 +447,7 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 10),
           fasciaOraria: FasciaOraria.alba,
-          spotNome: 'Ponte Vecchio',
+          spotNome: 'Ponte Ruga',
           valoriCondizioni: [morbida],
         ),
       );
@@ -516,7 +516,7 @@ void main() {
         ['Livello', 'Trasparenza', 'Fondo', 'Meteo'],
       );
 
-      await inserisciSpotDiProva('Ponte Vecchio');
+      await inserisciSpotDiProva('Ponte Ruga');
       final condizioni = await catalogoRepo.getCondizioni();
       Condizione cond(String nome) => condizioni.firstWhere((c) => c.nome == nome);
       final scuro = cond('Fondo').valori.firstWhere((v) => v.nome == 'Scuro');
@@ -526,7 +526,7 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 10),
           fasciaOraria: FasciaOraria.alba,
-          spotNome: 'Ponte Vecchio',
+          spotNome: 'Ponte Ruga',
           valoriCondizioni: [scuro, sereno],
         ),
       );

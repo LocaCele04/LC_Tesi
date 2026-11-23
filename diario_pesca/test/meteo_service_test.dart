@@ -40,7 +40,7 @@ void main() {
     await territorioRepo.inserisciCategoria(const Categoria(nome: 'Valle'));
     await territorioRepo.salvaSpotConCoordinate(
       const Spot(
-        nome: 'Valsecca',
+        nome: 'Valbrina',
         ambiente: 'Torrente',
         categoriaNome: 'Valle',
         coordinate: [
@@ -68,7 +68,7 @@ void main() {
       );
 
   Future<Pescata> salvaPescata(DateTime data) => pescateRepo.salvaPescata(
-        Pescata(data: data, fasciaOraria: FasciaOraria.alba, spotNome: 'Valsecca'),
+        Pescata(data: data, fasciaOraria: FasciaOraria.alba, spotNome: 'Valbrina'),
       );
 
   group('MeteoService - Storico delle pescate', () {
@@ -130,7 +130,7 @@ void main() {
     test('spot nella stessa cella della griglia ma a quote diverse hanno celle distinte', () async {
       await territorioRepo.salvaSpotConCoordinate(
         const Spot(
-          nome: 'Valsecca alta',
+          nome: 'Valbrina alta',
           ambiente: 'Torrente',
           categoriaNome: 'Valle',
           coordinate: [Coordinata(ordine: 0, latitudine: 45.7701, longitudine: 9.6420)],
@@ -138,7 +138,7 @@ void main() {
       );
       final bassa = await salvaPescata(DateTime(2026, 1, 10));
       final alta = await pescateRepo.salvaPescata(
-        Pescata(data: DateTime(2026, 1, 10), fasciaOraria: FasciaOraria.alba, spotNome: 'Valsecca alta'),
+        Pescata(data: DateTime(2026, 1, 10), fasciaOraria: FasciaOraria.alba, spotNome: 'Valbrina alta'),
       );
 
       final esito = await servizio(

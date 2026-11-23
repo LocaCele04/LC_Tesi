@@ -56,11 +56,11 @@ void main() {
       'note': null,
     });
 
-    await db.insert('Ambiente', {'nome': 'Torrente di fondovalle'});
+    await db.insert('Ambiente', {'nome': 'Torrente di fondopiano'});
 
     await db.insert('Spot', {
-      'nome': 'Ponte Vecchio',
-      'ambiente': 'Torrente di fondovalle',
+      'nome': 'Ponte Ruga',
+      'ambiente': 'Torrente di fondopiano',
       'lunghezzaMetri': 350.5,
       'voto': 9,
       'difficolta': 'media',
@@ -79,13 +79,13 @@ void main() {
     });
 
     await db.insert('Coordinata', {
-      'spot_nome': 'Ponte Vecchio',
+      'spot_nome': 'Ponte Ruga',
       'ordine': 0,
       'latitudine': 45.6495,
       'longitudine': 9.6012,
     });
     await db.insert('Coordinata', {
-      'spot_nome': 'Ponte Vecchio',
+      'spot_nome': 'Ponte Ruga',
       'ordine': 1,
       'latitudine': 45.6510,
       'longitudine': 9.6030,
@@ -95,7 +95,7 @@ void main() {
       'data': '2026-11-20',
       'fasciaOraria': 'alba',
       'note': 'Uscita esplorativa',
-      'spot_nome': 'Ponte Vecchio',
+      'spot_nome': 'Ponte Ruga',
     });
 
     final pescataId = await db.insert('Pescata', {
@@ -103,7 +103,7 @@ void main() {
       'fasciaOraria': 'alba',
       'temp_acqua': 11.5,
       'note': 'Attività sulle correntine',
-      'spot_nome': 'Ponte Vecchio',
+      'spot_nome': 'Ponte Ruga',
     });
     final morbida = await valore('Livello', 'Morbida');
     await db.insert('Pescata_Condizione', {
@@ -238,7 +238,7 @@ void main() {
       'caratteristica_id': null,
     });
 
-    final divietoId = await db.insert('Divieto', {'nome': 'Divieto incubatoio', 'note': null});
+    final divietoId = await db.insert('Divieto', {'nome': 'Divieto vasca', 'note': null});
     await db.insert('CoordinataDivieto', {
       'divieto_id': divietoId,
       'ordine': 0,
@@ -443,7 +443,7 @@ void main() {
       await popolaDatiBase();
       expect(
         () => db.insert('Coordinata', {
-          'spot_nome': 'Ponte Vecchio',
+          'spot_nome': 'Ponte Ruga',
           'ordine': 2,
           'latitudine': 95.0,
           'longitudine': 10.0,
@@ -729,7 +729,7 @@ void main() {
         where: 'nome = ?',
         whereArgs: ['Torrente'],
       );
-      final spot = await db.query('Spot', where: 'nome = ?', whereArgs: ['Ponte Vecchio']);
+      final spot = await db.query('Spot', where: 'nome = ?', whereArgs: ['Ponte Ruga']);
       expect(spot.first['categoria_nome'], 'Torrente Alpino');
 
       await db.update(
@@ -918,7 +918,7 @@ void main() {
       expect(fotoEsca, isEmpty);
 
       // Eliminazione Spot
-      await db.delete('Spot', where: 'nome = ?', whereArgs: ['Ponte Vecchio']);
+      await db.delete('Spot', where: 'nome = ?', whereArgs: ['Ponte Ruga']);
       expect(await db.query('Coordinata'), isEmpty);
       expect(await db.query('Pianificazione'), isEmpty);
       final pescata = await db.query('Pescata', where: 'id = ?', whereArgs: [ids.pescataId]);

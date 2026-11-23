@@ -28,13 +28,13 @@ void main() {
   group('ElencoSpotScreen', () {
     testWidgets('mostra gli spot con ambiente, categoria e stato battuto', (tester) async {
       await tester.pumpWidget(_app(() async => const [
-            Spot(nome: 'Ambriola', ambiente: 'Torrente', categoriaNome: 'Val Serina', battuto: true),
-            Spot(nome: 'Valsecca', ambiente: 'Torrente', categoriaNome: 'Brembo di Carona'),
+            Spot(nome: 'Abetina', ambiente: 'Torrente', categoriaNome: 'Val Sorbina', battuto: true),
+            Spot(nome: 'Valbrina', ambiente: 'Torrente', categoriaNome: 'Borgo di Cima'),
           ]));
       await tester.pumpAndSettle();
 
-      expect(find.text('Ambriola'), findsOneWidget);
-      expect(find.text('Torrente · Brembo di Carona'), findsOneWidget);
+      expect(find.text('Abetina'), findsOneWidget);
+      expect(find.text('Torrente · Borgo di Cima'), findsOneWidget);
       expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
     });
 
@@ -55,7 +55,7 @@ void main() {
       await tester.pumpWidget(_app(() async {
         tentativi++;
         if (tentativi == 1) throw Exception('Database non leggibile');
-        return const [Spot(nome: 'Valsecca', ambiente: 'Torrente', categoriaNome: 'Valle')];
+        return const [Spot(nome: 'Valbrina', ambiente: 'Torrente', categoriaNome: 'Valle')];
       }));
       await tester.pumpAndSettle();
 
@@ -65,7 +65,7 @@ void main() {
       await tester.tap(find.text('Riprova'));
       await tester.pumpAndSettle();
       expect(tentativi, 2);
-      expect(find.text('Valsecca'), findsOneWidget);
+      expect(find.text('Valbrina'), findsOneWidget);
     });
   });
 }

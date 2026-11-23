@@ -63,7 +63,7 @@ void main() {
     await territorio.inserisciCategoria(const Categoria(nome: 'Valle'));
     await territorio.salvaSpotConCoordinate(
       const Spot(
-        nome: 'Valsecca',
+        nome: 'Valbrina',
         ambiente: 'Torrente',
         categoriaNome: 'Valle',
         coordinate: [Coordinata(ordine: 0, latitudine: 45.7612, longitudine: 9.6401)],
@@ -92,7 +92,7 @@ void main() {
             Pescata(
               data: data,
               fasciaOraria: FasciaOraria.alba,
-              spotNome: 'Valsecca',
+              spotNome: 'Valbrina',
               riepiloghiSpecie: catture,
             ),
           );
@@ -156,7 +156,7 @@ void main() {
             Pescata(
               data: DateTime(2026, 2, 10),
               fasciaOraria: FasciaOraria.mattina,
-              spotNome: 'Valsecca',
+              spotNome: 'Valbrina',
               tempAcqua: 8.5,
               note: 'Prima uscita',
               valoriCondizioni: [morbida],
@@ -177,7 +177,7 @@ void main() {
       final modulo = container.read(moduloPescataProvider(apertura).notifier);
       final bozza = container.read(moduloPescataProvider(apertura));
       expect(bozza.isNuova, isFalse);
-      expect(bozza.spotNome, 'Valsecca');
+      expect(bozza.spotNome, 'Valbrina');
       expect(bozza.fasciaOraria, FasciaOraria.mattina);
       expect(bozza.tempAcqua, '8.5');
       expect(bozza.note, 'Prima uscita');
@@ -212,7 +212,7 @@ void main() {
 
     test('una pescata rimasta senza spot si modifica senza dover scegliere uno spot', () async {
       final salvata = await salva(DateTime(2026, 2, 10));
-      await container.read(elencoSpotProvider.notifier).elimina('Valsecca');
+      await container.read(elencoSpotProvider.notifier).elimina('Valbrina');
       final completa = await container.read(dettaglioPescataProvider(salvata.id!).future);
       expect(completa!.spotNome, isNull);
 

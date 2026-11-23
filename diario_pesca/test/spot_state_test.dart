@@ -57,8 +57,8 @@ void main() {
     await dbHelper.close();
   });
 
-  const valsecca = Spot(
-    nome: 'Valsecca',
+  const valbrina = Spot(
+    nome: 'Valbrina',
     ambiente: 'Torrente',
     categoriaNome: 'Valle',
     coordinate: [
@@ -72,12 +72,12 @@ void main() {
   group('Stato degli spot - Lettura', () {
     test('l\'elenco si carica dal database in ordine alfabetico', () async {
       final repo = container.read(territorioRepositoryProvider);
-      await repo.salvaSpotConCoordinate(valsecca);
+      await repo.salvaSpotConCoordinate(valbrina);
       await repo.salvaSpotConCoordinate(
-        const Spot(nome: 'Ambriola', ambiente: 'Torrente', categoriaNome: 'Valle'),
+        const Spot(nome: 'Abetina', ambiente: 'Torrente', categoriaNome: 'Valle'),
       );
 
-      expect(nomi(await container.read(elencoSpotProvider.future)), ['Ambriola', 'Valsecca']);
+      expect(nomi(await container.read(elencoSpotProvider.future)), ['Abetina', 'Valbrina']);
       expect(container.read(elencoSpotProvider).hasValue, isTrue);
       // Ambienti di base e categorie sono disponibili per i moduli
       expect(await container.read(ambientiProvider.future), isNotEmpty);
@@ -108,14 +108,14 @@ void main() {
     test('salvare uno spot aggiorna da solo l\'elenco e il dettaglio', () async {
       // Una schermata aperta sull'elenco e una sul dettaglio
       container.listen(elencoSpotProvider, (_, _) {});
-      container.listen(dettaglioSpotProvider('Valsecca'), (_, _) {});
+      container.listen(dettaglioSpotProvider('Valbrina'), (_, _) {});
       expect(await container.read(elencoSpotProvider.future), isEmpty);
-      expect(await container.read(dettaglioSpotProvider('Valsecca').future), isNull);
+      expect(await container.read(dettaglioSpotProvider('Valbrina').future), isNull);
 
-      await container.read(elencoSpotProvider.notifier).salva(valsecca);
+      await container.read(elencoSpotProvider.notifier).salva(valbrina);
 
-      expect(nomi(container.read(elencoSpotProvider).requireValue), ['Valsecca']);
-      final dettaglio = await container.read(dettaglioSpotProvider('Valsecca').future);
+      expect(nomi(container.read(elencoSpotProvider).requireValue), ['Valbrina']);
+      final dettaglio = await container.read(dettaglioSpotProvider('Valbrina').future);
       expect(dettaglio?.coordinate, hasLength(2));
       expect(dettaglio?.lunghezzaMetri, isNotNull);
     });
@@ -123,26 +123,26 @@ void main() {
     test('rinominare ed eliminare uno spot aggiornano l\'elenco', () async {
       container.listen(elencoSpotProvider, (_, _) {});
       final notifier = container.read(elencoSpotProvider.notifier);
-      await notifier.salva(valsecca);
+      await notifier.salva(valbrina);
 
-      await notifier.salva(valsecca.copyWith(nome: 'Valsecca bassa'), nomeOriginale: 'Valsecca');
-      expect(nomi(container.read(elencoSpotProvider).requireValue), ['Valsecca bassa']);
+      await notifier.salva(valbrina.copyWith(nome: 'Valbrina bassa'), nomeOriginale: 'Valbrina');
+      expect(nomi(container.read(elencoSpotProvider).requireValue), ['Valbrina bassa']);
 
-      await notifier.elimina('Valsecca bassa');
+      await notifier.elimina('Valbrina bassa');
       expect(container.read(elencoSpotProvider).requireValue, isEmpty);
     });
 
     test('un errore di scrittura arriva a chi salva e l\'elenco resta com\'era', () async {
       container.listen(elencoSpotProvider, (_, _) {});
       final notifier = container.read(elencoSpotProvider.notifier);
-      await notifier.salva(valsecca);
+      await notifier.salva(valbrina);
 
       // Ambiente inesistente: il database rifiuta lo spot
       await expectLater(
-        notifier.salva(valsecca.copyWith(nome: 'Altro', ambiente: 'Inesistente')),
+        notifier.salva(valbrina.copyWith(nome: 'Altro', ambiente: 'Inesistente')),
         throwsA(isA<DatabaseException>()),
       );
-      expect(nomi(container.read(elencoSpotProvider).requireValue), ['Valsecca']);
+      expect(nomi(container.read(elencoSpotProvider).requireValue), ['Valbrina']);
     });
   });
 }

@@ -76,14 +76,14 @@ void main() {
       await tester.tap(find.text('OK'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.widgetWithText(TextField, 'Nome'), 'Divieto incubatoio');
+      await tester.enterText(find.widgetWithText(TextField, 'Nome'), 'Divieto vasca');
       await tester.enterText(find.widgetWithText(TextField, 'Note'), 'Fino al terzo ponte');
       await tester.tap(find.text('Salva divieto'));
       await tester.pumpAndSettle();
 
       // Salvato e tornato alla pagina di partenza
       expect(find.text('Apri'), findsOneWidget);
-      expect(divieti.salvati.single.nome, 'Divieto incubatoio');
+      expect(divieti.salvati.single.nome, 'Divieto vasca');
       expect(divieti.salvati.single.note, 'Fino al terzo ponte');
       expect(divieti.salvati.single.coordinate, _punti);
     });

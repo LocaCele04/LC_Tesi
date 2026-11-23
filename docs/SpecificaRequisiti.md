@@ -19,7 +19,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 ### 1.3 Definizioni, Acronimi e Abbreviazioni
 * **SRS**: Software Requirements Specification (Specifica dei Requisiti Software).
-* **Categoria**: raggruppamento di spot scelto dall'utente, simile a una cartella (es. la valle di appartenenza come *Val Taleggio*, oppure una zona come *Fondovalle*). Ogni spot appartiene a una sola categoria.
+* **Categoria**: raggruppamento di spot scelto dall'utente, simile a una cartella (es. la valle di appartenenza come *Val Torba*, oppure una zona come *Fondopiano*). Ogni spot appartiene a una sola categoria.
 * **Ambiente**: tipologia del corso o specchio d'acqua di uno spot (es. torrente, fiume, lago, mare), definibile dall'utente.
 * **Condizione**: aspetto della pescata che il pescatore vuole registrare, scelto da un elenco di valori (es. *Livello*: secca, magra, normale, morbida, piena; *Meteo*; per il mare *Stato del mare*). Condizioni e valori sono definiti dall'utente; ogni condizione è collegata agli ambienti per cui ha senso.
 * **Valore di condizione**: uno dei valori ammessi di una condizione, con una posizione nella scala della condizione (es. *Morbida* viene dopo *Normale* nel Livello).

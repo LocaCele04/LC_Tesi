@@ -121,7 +121,7 @@ class _ModuloDivietoScreenState extends ConsumerState<ModuloDivietoScreen> {
             controller: _note,
             decoration: const InputDecoration(
               labelText: 'Note',
-              hintText: 'Es. dall\'incubatoio fino al terzo ponte',
+              hintText: 'Es. dalla diga fino al terzo ponte',
               border: OutlineInputBorder(),
             ),
             minLines: 2,
