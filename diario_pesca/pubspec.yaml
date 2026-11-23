@@ -39,6 +39,8 @@ dependencies:
   latlong2: ^0.9.1
   # Posizione del telefono (GPS) per centrare la mappa.
   geolocator: ^14.0.2
+  # Scelta del file da importare (solo per l'import dei dati).
+  file_picker: ^13.4.1
 
 dev_dependencies:
   flutter_test:

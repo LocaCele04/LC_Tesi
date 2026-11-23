@@ -88,6 +88,7 @@ Il progetto utilizza l'SDK **Dart `^3.11.1`** e integra un insieme essenziale di
 | **`flutter_riverpod`** | `^3.4.1` | Gestione dello stato dell'interfaccia: rende disponibili repository e servizi alle schermate e le aggiorna quando i dati cambiano (vedi `scelta_architetturale_gestione_dello_stato.md`). |
 | **`flutter_map`** | `^8.3.2` | Mappa degli spot: tessere OpenTopoMap e OpenStreetMap (con cache su disco integrata, per le zone già viste senza rete), linee dei tratti con tocco riconosciuto, segnaposto. |
 | **`latlong2`** | `^0.9.1` | Tipo `LatLng` delle coordinate usato da `flutter_map`. |
+| **`file_picker`** | `^13.4.1` | Scelta del file da importare (`ImportaScreen`). |
 | **`geolocator`** | `^14.0.2` | Posizione del telefono (GPS) per il pulsante *La mia posizione*; il permesso viene chiesto solo al primo uso. |
 | **`cupertino_icons`** | `^1.0.8` | Raccolta standard di icone in stile iOS affiancata alle Material Icons di Flutter. |
 | **`flutter_test`** | SDK | Framework ufficiale per l'esecuzione dei test automatizzati. |
@@ -148,6 +149,7 @@ diario_pesca/
 │   ├── services/
 │   │   ├── statistiche_service.dart
 │   │   ├── posizione_service.dart     # Posizione del telefono (GPS)
+│   │   ├── import_service.dart        # Import dello storico da un file JSON
 │   │   ├── foto_service.dart          # [previsto]
 │   │   ├── backup_service.dart        # [previsto]
 │   │   └── meteo_service.dart         # Open-Meteo: storico e previsioni
@@ -164,6 +166,7 @@ diario_pesca/
 │   │   ├── screens/
 │   │   │   ├── home_screen.dart       # Barra in basso: Pescate | Spot | Mappa
 │   │   │   ├── elenco_pescate_screen.dart
+│   │   │   ├── importa_screen.dart    # Import dei dati da un file
 │   │   │   ├── scheda_pescata_screen.dart
 │   │   │   ├── elenco_spot_screen.dart
 │   │   │   ├── modulo_spot_screen.dart
@@ -279,6 +282,7 @@ Un repository per area del dominio; la tabella in §1.2 indica quali tabelle scr
 Tutti i repository ricevono il `DatabaseHelper` (e, dove serve, gli altri repository e l'`ArchivioFoto`) dal costruttore: in produzione si usano le istanze predefinite, nei test un database in memoria.
 
 ### 4.4 `lib/services/` — Servizi
+* **`ImportService`** *(implementato)*: import dello storico (REQ-FUN-19) da un file JSON preparato fuori dall'app (formato `diario-pesca-import`, versione 1, descritto in testa al file): ambienti nuovi con le condizioni copiate da un ambiente esistente, specie e caratteristiche, spot con tratto e categorie, divieti, pescate con condizioni e catture per specie e caratteristica. `leggi` controlla tutto senza scrivere (formato, nomi ripetuti, riferimenti a spot, condizioni, valori, specie e caratteristiche, catture incoerenti, diario non vuoto) e restituisce i problemi in parole per l'utente; `importa` salva tramite i repository, nell'ordine in cui i dati dipendono l'uno dall'altro, e segnala l'avanzamento. Funziona solo su un diario vuoto, così non nascono doppioni. Non è un'unica transazione: un errore imprevisto a metà (`ImportInterrotto`) lascia i dati già salvati, e si riparte da un diario vuoto. **Il file contiene dati personali: viene letto sul telefono e non va mai aggiunto al repository** (il `.gitignore` esclude `import/`, `storico*` e i file di Google Earth).
 * **`StatisticheService`** *(implementato)*: statistiche di sola lettura sullo storico. Oggi espone la lettura dei riepiloghi per pescata o per specie e la pioggia cumulata nei giorni precedenti una pescata (`getPioggiaCumulata`, con finestra da 1 a 30 giorni); accoglierà medie, conteggi, confronti tra anni e progresso degli obiettivi.
 * **`FotoService`** *(previsto)*: acquisizione da fotocamera o galleria, compressione, generazione delle anteprime e salvataggio con percorso relativo alla cartella documenti dell'app (REQ-DES-03), tramite `ArchivioFoto`.
 * **`BackupService`** *(previsto)*: creazione e ripristino dell'archivio ZIP (dati in JSON + foto) su Google Drive (REQ-FUN-14, REQ-FUN-15).
@@ -312,7 +316,8 @@ La gestione dello stato usa **Riverpod 3**; motivazioni, alternative e regole d'
 * **`widgets/`**: componenti riutilizzabili. `VistaAsincrona` mostra un dato asincrono nei suoi tre stati: caricamento, errore con pulsante *Riprova*, dati; `sezioneAsincrona` è la versione compatta per una sezione di un modulo. `mostraProblemi` e `chiediConferma` sono i dialoghi comuni; `chiediNome` chiede un nome in un dialogo; `etichette.dart` contiene i testi per l'utente (fasce orarie, date in italiano).
 * **`screens/`**: le schermate.
   * `HomeScreen`: schermata iniziale, con la barra in basso che passa tra *Pescate*, *Spot* e *Mappa*; le sezioni restano in memoria e non perdono la posizione o l'inquadratura. La mappa viene creata solo alla prima apertura della sua sezione.
-  * `ElencoPescateScreen`: pescate dalla più recente, divise per mese, con data, fascia, spot (o *Spot eliminato*), totale delle catture e l'icona del meteo da scaricare. *Nuova pescata* apre il modulo; il pulsante in alto scarica il meteo mancante e ne descrive l'esito.
+  * `ElencoPescateScreen`: pescate dalla più recente, divise per mese, con data, fascia, spot (o *Spot eliminato*), totale delle catture e l'icona del meteo da scaricare. *Nuova pescata* apre il modulo; il pulsante in alto scarica il meteo mancante e ne descrive l'esito; dal menu si apre *Importa dati*.
+  * `ImportaScreen`: scelta del file sul telefono (`file_picker`), riepilogo di cosa contiene o elenco dei problemi, import con avanzamento ed esito, con l'invito a scaricare poi il meteo delle pescate.
   * `SchedaPescataScreen`: spot, data e fascia, catture per specie con le caratteristiche e il totale, condizioni, temperatura dell'acqua, esche, note e meteo. Il meteo mostra lo stato: *non disponibile* (spot senza coordinate), *da scaricare* (con il pulsante per scaricarlo, solo per giornate concluse) o i dati del giorno (temperatura minima e massima, pioggia, vento e raffiche massimi della giornata intera a 10 m dal suolo con la direzione, pressione) con la pioggia dei 3, 7 e 14 giorni precedenti, la quota della zona e l'attribuzione richiesta da Open-Meteo. Dalla barra in alto si modifica (riapre il modulo con i dati salvati) o si elimina, con conferma.
   * `ElencoSpotScreen` mostra gli spot con ambiente, categoria e stato *battuto*, e si aggiorna trascinando verso il basso: toccando uno spot lo si modifica, *Nuovo spot* ne crea uno.
   * `ModuloSpotScreen` (nuovo spot o modifica, aperto per nome con `ModificaSpotScreen`): nome, categoria (con una categoria nuova scritta al momento, che nasce salvando lo spot; sceglierne un'altra chiede conferma prima di scartarla), ambiente, difficoltà, accessibilità, voto, punti del tratto (disegnati sulla mappa con *Disegna sulla mappa*, oppure incollati e confermati con il pulsante *Aggiungi punto*, con riordino e rimozione; il primo è quello del meteo; un punto rimasto nel campo viene aggiunto salvando), lunghezza calcolata o scritta a mano, punti complicati, note e link del parcheggio. Cambiando l'ambiente propone di collegare le condizioni già usate nelle pescate; l'eliminazione chiede conferma. Si chiude restituendo lo spot salvato. Uno spot nuovo può partire dai punti appena disegnati sulla mappa (`puntiIniziali`).

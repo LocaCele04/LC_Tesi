@@ -1,6 +1,6 @@
 # Registro dei Test Automatici
 
-La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate, la 17 l'aggiornamento dello schema tra versioni, dalla 18 alla 21 la mappa.
+La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate, la 17 l'aggiornamento dello schema tra versioni, dalla 18 alla 21 la mappa, la 22 l'import dello storico.
 
 ## 1. `test/database_integrita_test.dart` (21 test)
 
@@ -183,3 +183,7 @@ Verifica lo stato della mappa su un database in memoria: gli spot sulla mappa co
 ## 21. `test/modulo_divieto_screen_test.dart` (3 test)
 
 Verifica il modulo del divieto con un elenco di divieti finto: i problemi segnalati (nome mancante, nessun punto); il numero di punti e la lunghezza del tratto appena disegnato; il dialogo che chiede il nome e il salvataggio di nome, note e punti con ritorno alla pagina precedente; l'eliminazione di un divieto esistente dopo la conferma.
+
+## 22. `test/import_service_test.dart` (4 test)
+
+Verifica l'import dei dati con un file di prova inventato (i dati veri non entrano mai nel repository): un file completo crea l'ambiente nuovo con le condizioni copiate dal torrente, le categorie, gli spot con voto, difficoltà, tratto e lunghezza (calcolata dal tratto o presa dal file per uno spot con un solo punto), il divieto e le pescate, collegate allo spot anche se scritto con maiuscole diverse, con la condizione Meteo, le note e le catture con le caratteristiche; lo spot con pescate risulta *battuto*. Verifica poi che vengano rifiutati prima di scrivere: un testo che non è JSON, un file di un altro formato o di un'altra versione; spot ripetuti o con ambiente sconosciuto, divieti senza punti, pescate con data, fascia o spot non validi, condizioni o valori inesistenti, specie o caratteristiche non dichiarate e caratteristiche che contano più catture del totale; un diario che contiene già dei dati.

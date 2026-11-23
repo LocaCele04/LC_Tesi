@@ -135,6 +135,12 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Elaborazione**: Validazione che il nome non sia vuoto e che il tratto contenga almeno un punto. Più divieti possono avere lo stesso nome. I divieti non compaiono tra gli spot, nelle pescate e nelle statistiche.
   * **Output**: Divieto salvato e visualizzato sulla mappa; eliminandolo spariscono anche i suoi punti.
 
+* **[REQ-FUN-19]** - *Should have*
+  * **Descrizione**: Il sistema dovrebbe permettere di importare in un diario nuovo i dati raccolti prima dell'app (spot con il loro tratto, divieti, pescate con condizioni e catture) da un file preparato a partire dallo storico personale.
+  * **Input**: File di import scelto sul dispositivo.
+  * **Elaborazione**: Controllo completo del file prima di scrivere (formato, versione, nomi ripetuti, riferimenti a spot, condizioni, specie e caratteristiche esistenti o dichiarate, catture coerenti); import consentito solo su un diario vuoto; salvataggio di ambienti, specie, spot, divieti e pescate in quest'ordine. Il file resta sul dispositivo.
+  * **Output**: Riepilogo del contenuto prima dell'import, elenco dei problemi se il file non è valido, numero di elementi importati al termine. Il meteo delle pescate importate resta da scaricare (REQ-FUN-17).
+
 * **[REQ-FUN-04]** - *Should have*
   * **Descrizione**: Il sistema dovrebbe permettere all'utente di creare, rinominare ed eliminare categorie, che funzionano come cartelle per gli spot (es. le valli minori come *Val Stabina*, oppure zone come *Basso Brembo*).
   * **Elaborazione**: Una categoria che contiene spot non può essere eliminata: l'utente deve prima spostarne gli spot in un'altra categoria.

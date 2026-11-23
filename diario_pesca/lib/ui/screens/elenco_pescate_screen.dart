@@ -6,6 +6,7 @@ import '../../services/meteo_service.dart';
 import '../state/pescate_state.dart';
 import '../widgets/etichette.dart';
 import '../widgets/vista_asincrona.dart';
+import 'importa_screen.dart';
 import 'registra_pescata_screen.dart';
 import 'scheda_pescata_screen.dart';
 
@@ -51,6 +52,14 @@ class ElencoPescateScreen extends ConsumerWidget {
               onPressed: () => _aggiornaMeteo(context, ref),
               icon: const Icon(Icons.cloud_download_outlined),
             ),
+          PopupMenuButton<String>(
+            onSelected: (_) => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const ImportaScreen()),
+            ),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'importa', child: Text('Importa dati')),
+            ],
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
