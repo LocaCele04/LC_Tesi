@@ -266,194 +266,198 @@ class _ModuloSpotScreenState extends ConsumerState<ModuloSpotScreen> {
     final modulo = ref.read(provider.notifier);
     final testo = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(bozza.isNuovo ? 'Nuovo spot' : 'Modifica spot')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        children: [
-          const SizedBox(height: 8),
-          TextFormField(
-            initialValue: bozza.nome,
-            decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder()),
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: modulo.impostaNome,
-          ),
-          _spazio,
-          sezioneAsincrona(ref.watch(categorieProvider), (categorie) => DropdownMenu<String>(
-                key: ValueKey('categoria-${bozza.categoriaNome}-$_versioneCategoria'),
-                expandedInsets: EdgeInsets.zero,
-                label: const Text('Categoria'),
-                initialSelection: bozza.categoriaNome,
-                dropdownMenuEntries: [
-                  if (bozza.nuovaCategoria != null)
-                    DropdownMenuEntry(
-                      value: bozza.nuovaCategoria!,
-                      label: '${bozza.nuovaCategoria} (nuova)',
-                    ),
-                  for (final c in categorie) DropdownMenuEntry(value: c.nome, label: c.nome),
-                ],
-                onSelected: (nome) {
-                  if (nome != null && nome != bozza.categoriaNome) _scegliCategoria(nome);
-                },
-              )),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _nuovaCategoria,
-              icon: const Icon(Icons.add, size: 18),
-              label: const Text('Nuova categoria'),
-            ),
-          ),
-          _spazio,
-          sezioneAsincrona(ref.watch(ambientiProvider), (ambienti) => DropdownMenu<String>(
-                expandedInsets: EdgeInsets.zero,
-                label: const Text('Ambiente'),
-                initialSelection: bozza.ambiente,
-                dropdownMenuEntries: [
-                  for (final a in ambienti) DropdownMenuEntry(value: a.nome, label: a.nome),
-                ],
-                onSelected: (nome) {
-                  if (nome != null) modulo.impostaAmbiente(nome);
-                },
-              )),
-          const _Titolo('Difficoltà'),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              for (final (d, etichetta) in const [
-                (Difficolta.bassa, 'Bassa'),
-                (Difficolta.media, 'Media'),
-                (Difficolta.alta, 'Alta'),
-              ])
-                ChoiceChip(
-                  label: Text(etichetta),
-                  selected: bozza.difficolta == d,
-                  onSelected: (_) => modulo.impostaDifficolta(d),
-                ),
-            ],
-          ),
-          _spazio,
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Accessibile'),
-            subtitle: const Text('Spegnilo se al momento lo spot non si raggiunge (frana, lavori…)'),
-            value: bozza.accessibilita == Accessibilita.accessibile,
-            onChanged: modulo.impostaAccessibile,
-          ),
-          _spazio,
-          TextFormField(
-            initialValue: bozza.voto,
-            decoration: const InputDecoration(
-              labelText: 'Voto (da 0 a 10)',
-              border: OutlineInputBorder(),
-            ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: modulo.impostaVoto,
-          ),
-          const _Titolo('Punti del tratto'),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.icon(
-              onPressed: _disegna,
-              icon: const Icon(Icons.edit_location_alt_outlined),
-              label: Text(bozza.coordinate.isEmpty ? 'Disegna sulla mappa' : 'Modifica sulla mappa'),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Il primo punto è quello usato per il meteo; con due o più punti la lunghezza '
-            'si calcola da sola. In alternativa incolla le coordinate da Google Maps '
-            '(tieni premuto sul punto e copia i numeri, oppure incolla il link completo) '
-            'e premi "Aggiungi punto".',
-            style: testo.bodySmall,
-          ),
-          const SizedBox(height: 12),
-          for (var i = 0; i < bozza.coordinate.length; i++)
-            _RigaPunto(
-              indice: i,
-              punto: bozza.coordinate[i],
-              ultimo: i == bozza.coordinate.length - 1,
-              sposta: (verso) => modulo.spostaPunto(i, verso),
-              rimuovi: () => modulo.rimuoviPunto(i),
-            ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _punto,
-            decoration: InputDecoration(
-              labelText: 'Nuovo punto',
-              hintText: '45.7612, 9.6401',
-              errorText: _errorePunto,
-              errorMaxLines: 2,
-              helperText: _anteprima == null
-                  ? null
-                  : 'Riconosciuto: ${_anteprima!.latitudine.toStringAsFixed(5)}, '
-                      '${_anteprima!.longitudine.toStringAsFixed(5)}',
-              border: const OutlineInputBorder(),
-            ),
-            onChanged: (testo) => setState(() {
-              _anteprima = leggiCoordinata(testo);
-              _errorePunto = null;
-            }),
-            onSubmitted: (_) => _aggiungiPunto(),
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.tonalIcon(
-              onPressed: _aggiungiPunto,
-              icon: const Icon(Icons.add_location_alt),
-              label: const Text('Aggiungi punto'),
-            ),
-          ),
-          _spazio,
-          if (bozza.coordinate.length >= 2)
-            Text(
-              'Lunghezza calcolata: ${bozza.lunghezzaCalcolata?.round() ?? 0} m',
-              style: testo.titleSmall,
-            )
-          else
+    return UscitaProtetta(
+      modificato: modulo.modificato,
+      messaggio: 'Le modifiche allo spot, compreso il tratto, andranno perse.',
+      child: Scaffold(
+        appBar: AppBar(title: Text(bozza.isNuovo ? 'Nuovo spot' : 'Modifica spot')),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: [
+            const SizedBox(height: 8),
             TextFormField(
-              initialValue: bozza.lunghezza,
+              initialValue: bozza.nome,
+              decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder()),
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: modulo.impostaNome,
+            ),
+            _spazio,
+            sezioneAsincrona(ref.watch(categorieProvider), (categorie) => DropdownMenu<String>(
+                  key: ValueKey('categoria-${bozza.categoriaNome}-$_versioneCategoria'),
+                  expandedInsets: EdgeInsets.zero,
+                  label: const Text('Categoria'),
+                  initialSelection: bozza.categoriaNome,
+                  dropdownMenuEntries: [
+                    if (bozza.nuovaCategoria != null)
+                      DropdownMenuEntry(
+                        value: bozza.nuovaCategoria!,
+                        label: '${bozza.nuovaCategoria} (nuova)',
+                      ),
+                    for (final c in categorie) DropdownMenuEntry(value: c.nome, label: c.nome),
+                  ],
+                  onSelected: (nome) {
+                    if (nome != null && nome != bozza.categoriaNome) _scegliCategoria(nome);
+                  },
+                )),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _nuovaCategoria,
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Nuova categoria'),
+              ),
+            ),
+            _spazio,
+            sezioneAsincrona(ref.watch(ambientiProvider), (ambienti) => DropdownMenu<String>(
+                  expandedInsets: EdgeInsets.zero,
+                  label: const Text('Ambiente'),
+                  initialSelection: bozza.ambiente,
+                  dropdownMenuEntries: [
+                    for (final a in ambienti) DropdownMenuEntry(value: a.nome, label: a.nome),
+                  ],
+                  onSelected: (nome) {
+                    if (nome != null) modulo.impostaAmbiente(nome);
+                  },
+                )),
+            const _Titolo('Difficoltà'),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                for (final (d, etichetta) in const [
+                  (Difficolta.bassa, 'Bassa'),
+                  (Difficolta.media, 'Media'),
+                  (Difficolta.alta, 'Alta'),
+                ])
+                  ChoiceChip(
+                    label: Text(etichetta),
+                    selected: bozza.difficolta == d,
+                    onSelected: (_) => modulo.impostaDifficolta(d),
+                  ),
+              ],
+            ),
+            _spazio,
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Accessibile'),
+              subtitle: const Text('Spegnilo se al momento lo spot non si raggiunge (frana, lavori…)'),
+              value: bozza.accessibilita == Accessibilita.accessibile,
+              onChanged: modulo.impostaAccessibile,
+            ),
+            _spazio,
+            TextFormField(
+              initialValue: bozza.voto,
               decoration: const InputDecoration(
-                labelText: 'Lunghezza in metri (facoltativa)',
+                labelText: 'Voto (da 0 a 10)',
                 border: OutlineInputBorder(),
               ),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              onChanged: modulo.impostaLunghezza,
+              onChanged: modulo.impostaVoto,
             ),
-          const _Titolo('Altre informazioni'),
-          _CampoTesto('Punti complicati', bozza.noteOstacoli, modulo.impostaNoteOstacoli, righe: 2),
-          _CampoTesto('Note', bozza.note, modulo.impostaNote, righe: 3),
-          _CampoTesto(
-            'Link del parcheggio',
-            bozza.linkParcheggio,
-            modulo.impostaLinkParcheggio,
-            tastiera: TextInputType.url,
-          ),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: _salvataggioInCorso ? null : _salva,
-            icon: _salvataggioInCorso
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save),
-            label: const Text('Salva spot'),
-          ),
-          if (!bozza.isNuovo) ...[
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
+            const _Titolo('Punti del tratto'),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.icon(
+                onPressed: _disegna,
+                icon: const Icon(Icons.edit_location_alt_outlined),
+                label: Text(bozza.coordinate.isEmpty ? 'Disegna sulla mappa' : 'Modifica sulla mappa'),
               ),
-              onPressed: _salvataggioInCorso ? null : _elimina,
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Elimina spot'),
             ),
+            const SizedBox(height: 12),
+            Text(
+              'Il primo punto è quello usato per il meteo; con due o più punti la lunghezza '
+              'si calcola da sola. In alternativa incolla le coordinate da Google Maps '
+              '(tieni premuto sul punto e copia i numeri, oppure incolla il link completo) '
+              'e premi "Aggiungi punto".',
+              style: testo.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            for (var i = 0; i < bozza.coordinate.length; i++)
+              _RigaPunto(
+                indice: i,
+                punto: bozza.coordinate[i],
+                ultimo: i == bozza.coordinate.length - 1,
+                sposta: (verso) => modulo.spostaPunto(i, verso),
+                rimuovi: () => modulo.rimuoviPunto(i),
+              ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _punto,
+              decoration: InputDecoration(
+                labelText: 'Nuovo punto',
+                hintText: '45.7612, 9.6401',
+                errorText: _errorePunto,
+                errorMaxLines: 2,
+                helperText: _anteprima == null
+                    ? null
+                    : 'Riconosciuto: ${_anteprima!.latitudine.toStringAsFixed(5)}, '
+                        '${_anteprima!.longitudine.toStringAsFixed(5)}',
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: (testo) => setState(() {
+                _anteprima = leggiCoordinata(testo);
+                _errorePunto = null;
+              }),
+              onSubmitted: (_) => _aggiungiPunto(),
+            ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.tonalIcon(
+                onPressed: _aggiungiPunto,
+                icon: const Icon(Icons.add_location_alt),
+                label: const Text('Aggiungi punto'),
+              ),
+            ),
+            _spazio,
+            if (bozza.coordinate.length >= 2)
+              Text(
+                'Lunghezza calcolata: ${bozza.lunghezzaCalcolata?.round() ?? 0} m',
+                style: testo.titleSmall,
+              )
+            else
+              TextFormField(
+                initialValue: bozza.lunghezza,
+                decoration: const InputDecoration(
+                  labelText: 'Lunghezza in metri (facoltativa)',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                onChanged: modulo.impostaLunghezza,
+              ),
+            const _Titolo('Altre informazioni'),
+            _CampoTesto('Punti complicati', bozza.noteOstacoli, modulo.impostaNoteOstacoli, righe: 2),
+            _CampoTesto('Note', bozza.note, modulo.impostaNote, righe: 3),
+            _CampoTesto(
+              'Link del parcheggio',
+              bozza.linkParcheggio,
+              modulo.impostaLinkParcheggio,
+              tastiera: TextInputType.url,
+            ),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: _salvataggioInCorso ? null : _salva,
+              icon: _salvataggioInCorso
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save),
+              label: const Text('Salva spot'),
+            ),
+            if (!bozza.isNuovo) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+                onPressed: _salvataggioInCorso ? null : _elimina,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Elimina spot'),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

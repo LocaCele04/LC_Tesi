@@ -219,8 +219,18 @@ void main() {
   });
 
   group('BackupService - File non validi', () {
-    test('un file che non è uno ZIP', () async {
-      await siAspettaNonValido(Uint8List.fromList(utf8.encode('non sono uno zip')), 'non è un backup');
+    test('un file vuoto, uno che non è uno ZIP e uno ZIP troncato', () async {
+      await siAspettaNonValido(Uint8List(0), 'vuoto (0 byte)');
+      await siAspettaNonValido(Uint8List.fromList(utf8.encode('non sono uno zip')), 'Non è un archivio ZIP');
+      await territorio.salvaDivieto(_divieto('Divieto vasca'));
+      final buono = await servizio.crea();
+      await siAspettaNonValido(Uint8List.sublistView(buono, 0, buono.length ~/ 2), 'incompleto o danneggiato');
+    });
+
+    test('dimensione in parole', () {
+      expect(BackupService.dimensione(850), '850 byte');
+      expect(BackupService.dimensione(12 * 1024), '12 KB');
+      expect(BackupService.dimensione(1468006), '1,4 MB');
     });
 
     test('uno ZIP senza manifesto o senza database', () async {

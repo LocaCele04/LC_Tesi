@@ -56,3 +56,41 @@ Future<bool> chiediConferma(
   );
   return risposta ?? false;
 }
+
+/// Avvisa prima di uscire da un modulo con modifiche non salvate.
+///
+/// Con [modificato] `false` si esce come sempre; altrimenti il tasto
+/// indietro (o la freccia in alto) chiede conferma. Le uscite fatte dal
+/// codice con `Navigator.pop`, come dopo un salvataggio, non vengono
+/// fermate.
+class UscitaProtetta extends StatelessWidget {
+  const UscitaProtetta({
+    super.key,
+    required this.modificato,
+    required this.child,
+    this.messaggio = 'Le modifiche fatte andranno perse.',
+  });
+
+  final bool modificato;
+  final String messaggio;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope<Object?>(
+      canPop: !modificato,
+      onPopInvokedWithResult: (uscito, _) async {
+        if (uscito) return;
+        final navigatore = Navigator.of(context);
+        final esci = await chiediConferma(
+          context,
+          titolo: 'Uscire senza salvare?',
+          messaggio: messaggio,
+          conferma: 'Esci',
+        );
+        if (esci) navigatore.pop();
+      },
+      child: child,
+    );
+  }
+}

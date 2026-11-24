@@ -102,6 +102,13 @@ class BackupService {
 
   static Future<Directory?> _nessunaCartellaFoto() async => null;
 
+  /// Dimensione di un file in parole: `850 byte`, `12 KB`, `1,4 MB`.
+  static String dimensione(int byte) {
+    if (byte < 1024) return '$byte byte';
+    if (byte < 1024 * 1024) return '${(byte / 1024).round()} KB';
+    return '${(byte / (1024 * 1024)).toStringAsFixed(1).replaceAll('.', ',')} MB';
+  }
+
   /// Nome proposto per il file, per esempio
   /// `diario_pesca_backup_2026-11-24_1050.zip`.
   String nomeFile() {
@@ -174,28 +181,54 @@ class BackupService {
   /// Controlla il file scelto dall'utente senza toccare i dati dell'app.
   /// Lancia [BackupNonValido] se non è un backup, se è danneggiato o se viene
   /// da una versione dell'app più recente di questa.
+  ///
+  /// Il messaggio dice anche *perché* il file non va (vuoto, non è uno ZIP,
+  /// ZIP incompleto, mancano i file del backup), così si capisce se il
+  /// problema è nel salvataggio o nella scelta del file.
   Future<ContenutoBackup> leggi(Uint8List byte) async {
+    if (byte.isEmpty) {
+      throw const BackupNonValido(
+        'Il file scelto è vuoto (0 byte): il backup non è stato salvato correttamente.',
+      );
+    }
+    // Ogni archivio ZIP inizia con le lettere "PK".
+    if (byte.length < 4 || byte[0] != 0x50 || byte[1] != 0x4B) {
+      throw BackupNonValido('${_nonEUnBackup.messaggio} Non è un archivio ZIP (${dimensione(byte.length)}).');
+    }
+    final incompleto = BackupNonValido(
+      '${_nonEUnBackup.messaggio} L\'archivio ZIP è incompleto o danneggiato (${dimensione(byte.length)}).',
+    );
     final Archive archivio;
     try {
       archivio = ZipDecoder().decodeBytes(byte);
     } catch (_) {
-      throw _nonEUnBackup;
+      throw incompleto;
     }
+    // Su un file troncato il decodificatore può non dare errore e restituire
+    // un archivio senza file.
+    if (archivio.files.isEmpty) throw incompleto;
 
     final fileManifesto = archivio.findFile(_manifesto);
     final fileDatabase = archivio.findFile(_database);
-    if (fileManifesto == null || fileDatabase == null) throw _nonEUnBackup;
+    if (fileManifesto == null || fileDatabase == null) {
+      final contenuto = archivio.files.where((f) => f.isFile).map((f) => f.name).take(3).join(', ');
+      throw BackupNonValido(
+        '${_nonEUnBackup.messaggio} Nell\'archivio mancano '
+        '${fileManifesto == null ? _manifesto : _database}'
+        '${contenuto.isEmpty ? ' (è vuoto)' : ' (contiene: $contenuto)'}.',
+      );
+    }
 
     final Map<String, Object?> manifesto;
     try {
       manifesto = jsonDecode(utf8.decode(_contenuto(fileManifesto))) as Map<String, Object?>;
     } catch (_) {
-      throw _nonEUnBackup;
+      throw BackupNonValido('${_nonEUnBackup.messaggio} Il file $_manifesto non è leggibile.');
     }
     final versioneDelFormato = manifesto['versioneFormato'];
     final creatoIl = DateTime.tryParse(manifesto['creatoIl'] as String? ?? '');
     if (manifesto['formato'] != formato || versioneDelFormato is! int || creatoIl == null) {
-      throw _nonEUnBackup;
+      throw BackupNonValido('${_nonEUnBackup.messaggio} Il file $_manifesto è di un altro formato.');
     }
     if (versioneDelFormato > versioneFormato) throw _piuRecente;
 
@@ -301,12 +334,7 @@ class BackupService {
     return relativo.split('/').every((parte) => parte.isNotEmpty && parte != '.' && parte != '..');
   }
 
-  static Uint8List _contenuto(ArchiveFile file) {
-    final Object? contenuto = file.content;
-    if (contenuto is Uint8List) return contenuto;
-    if (contenuto is List<int>) return Uint8List.fromList(contenuto);
-    throw _nonEUnBackup;
-  }
+  static Uint8List _contenuto(ArchiveFile file) => Uint8List.fromList(file.content);
 
   static Future<void> _elimina(Directory cartella) async {
     try {

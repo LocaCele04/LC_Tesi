@@ -29,7 +29,8 @@ Il backup sostituisce anche l'import dello storico (ex REQ-FUN-19), lo strumento
 | Alternativa | Pro | Contro |
 | :--- | :--- | :--- |
 | **API di Google Drive** con accesso OAuth 2.0, come previsto nella prima versione dei requisiti | Caricamento in una cartella dedicata senza passaggi per l'utente | Progetto Google Cloud, schermata di consenso e verifica dell'app da parte di Google; gestione di account, token e loro scadenza; rete obbligatoria; vincola il backup a Google Drive |
-| **Finestra di sistema per salvare e scegliere i file** (Storage Access Framework di Android, tramite `file_picker`) *(scelta)* | Nessuna credenziale nell'app; l'utente sceglie la memoria del telefono, Google Drive (se ne ha l'app) o un altro servizio; funziona offline; la stessa finestra serve per scegliere il file da ripristinare | Il backup non è automatico e l'utente sceglie ogni volta la cartella |
+| **Finestra di sistema per salvare i file** (Storage Access Framework, `saveFile` di `file_picker`) *(scelta iniziale, abbandonata)* | Nessuna credenziale nell'app; si sceglie direttamente la cartella, anche su Drive | Alla prima prova sul telefono ha creato un file **vuoto** dicendo che il salvataggio era riuscito: il file lo scrive il plugin e l'app non può controllarlo |
+| **Condivisione di Android** (`share_plus`) per consegnare il file, finestra di sistema (`file_picker`) solo per sceglierlo al ripristino *(scelta)* | Il file lo scrive l'app stessa, che ne controlla la dimensione prima di consegnarlo; nessuna credenziale; l'utente sceglie "Salva su Drive", l'app File, l'email…; funziona offline | Il backup non è automatico; l'utente deve controllare che il file sia arrivato (lo fa con *Scegli un backup*, che lo legge senza toccare i dati) |
 
 **Copia del database aperto**
 
@@ -53,7 +54,7 @@ Il manifesto distingue due versioni diverse: `versioneFormato` riguarda la strut
 ### 3.2 Divisione dei compiti
 
 * `BackupService` produce e legge **solo byte**: non sa dove finisce il file. Così si prova nei test senza finestre di sistema.
-* `BackupScreen` chiede all'utente dove salvarlo e quale file ripristinare (`file_picker`), mostra il riepilogo e chiede conferma.
+* `BackupScreen` scrive il file in una cartella temporanea dell'app, ne controlla la dimensione e lo consegna con la condivisione di Android (`share_plus`); per il ripristino fa scegliere il file (`file_picker`), mostra il riepilogo e chiede conferma. Prima di consegnarlo, il backup appena creato viene riletto con `BackupService.leggi`: un file che non si potrebbe ripristinare non esce dall'app.
 * `DatabaseHelper.sostituisciCon` sostituisce il file del database: è l'unico punto che conosce il percorso del file e come aprirlo.
 
 ### 3.3 Controlli prima del ripristino

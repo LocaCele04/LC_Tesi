@@ -118,6 +118,34 @@ class BozzaPescata {
 
   bool get isNuova => originale == null;
 
+  /// Riassunto di tutto ciò che il salvataggio scriverebbe: due bozze con la
+  /// stessa firma salvano la stessa pescata. Serve a capire se l'utente ha
+  /// modificato qualcosa. Le righe delle catture vuote non contano, e conta
+  /// solo il contenuto delle righe, non la loro chiave.
+  String get firma {
+    final condizioni = valori.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
+    final escheScelte = esche.map((e) => e.id?.toString() ?? 'nuova:${e.nome.trim().toLowerCase()}').toList()
+      ..sort();
+    return [
+      spotNome ?? '',
+      '${data.year}-${data.month}-${data.day}',
+      fasciaOraria?.name ?? '',
+      for (final v in condizioni) '${v.key}=${v.value.id ?? v.value.nome}',
+      'esche:${escheScelte.join(',')}',
+      for (final c in catture)
+        if (c.specieNome != null || c.totale != 0 || c.dettagli.values.any((q) => q != 0))
+          [
+            c.specieNome ?? '',
+            c.totale,
+            for (final d in (c.dettagli.entries.where((d) => d.value != 0).toList()
+              ..sort((a, b) => a.key.nome.compareTo(b.key.nome))))
+              '${d.key.nome}:${d.value}',
+          ].join('/'),
+      tempAcqua.trim(),
+      note.trim(),
+    ].join('\u0001');
+  }
+
   BozzaPescata copyWith({
     String? spotNome,
     String? ambiente,
@@ -270,17 +298,32 @@ class ModuloPescataNotifier extends Notifier<BozzaPescata> {
   final AperturaPescata? apertura;
   int _prossimaChiave = 0;
 
+  /// Firma della bozza all'apertura, per sapere se ci sono modifiche.
+  String _firmaIniziale = '';
+
   @override
   BozzaPescata build() {
     final daModificare = apertura;
+    final BozzaPescata bozza;
     if (daModificare != null) {
-      final bozza = BozzaPescata.da(daModificare.pescata, daModificare.ambiente);
+      bozza = BozzaPescata.da(daModificare.pescata, daModificare.ambiente);
       _prossimaChiave = bozza.catture.length;
-      return bozza;
+    } else {
+      final oggi = ref.read(orologioProvider)();
+      bozza = BozzaPescata(data: DateTime(oggi.year, oggi.month, oggi.day));
     }
-    final oggi = ref.read(orologioProvider)();
-    return BozzaPescata(data: DateTime(oggi.year, oggi.month, oggi.day));
+    _firmaIniziale = bozza.firma;
+    return bozza;
   }
+
+  /// `true` se la bozza è diversa da com'era all'apertura: uscendo senza
+  /// salvare le modifiche andrebbero perse.
+  bool get modificato => state.firma != _firmaIniziale;
+
+  /// Considera la bozza attuale come punto di partenza: per lo spot già
+  /// scelto all'apertura (pescata aperta dalla mappa), che non è una
+  /// modifica dell'utente.
+  void fissaComeIniziale() => _firmaIniziale = state.firma;
 
   /// Sceglie lo spot. Se cambia l'ambiente cambiano le condizioni da
   /// compilare, quindi i valori già scelti vengono tolti.

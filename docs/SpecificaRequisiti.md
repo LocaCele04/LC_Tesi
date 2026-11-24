@@ -74,7 +74,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * Si assume la disponibilità di un servizio meteo pubblico gratuito, consultabile via API REST senza chiave, che fornisca sia previsioni sia dati storici. Il servizio scelto è **Open-Meteo** (piano gratuito per uso non commerciale, 10.000 richieste al giorno, dati con licenza CC BY 4.0 che richiede di citare la fonte nell'app). Il piano gratuito non garantisce la disponibilità: l'app deve tollerare che il servizio non risponda.
 * Si assume la disponibilità di provider di tile mappa gratuiti (es. OpenStreetMap) per la visualizzazione cartografica.
 * Si assume l'uso su dispositivo singolo per utente: non è previsto, nella versione base, un meccanismo di sincronizzazione multi-dispositivo o backup automatico su cloud.
-* Per conservare il backup fuori dal telefono si assume che l'utente disponga di uno spazio cloud accessibile dalla finestra di sistema per il salvataggio dei file (es. l'app Google Drive installata), oppure che copi il file altrove; l'app non richiede un account Google.
+* Per conservare il backup fuori dal telefono si assume che l'utente disponga di uno spazio cloud raggiungibile dalla condivisione di Android (es. l'app Google Drive installata), oppure che copi il file altrove; l'app non richiede un account Google.
 
 ---
 
@@ -101,7 +101,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 #### 3.1.4 Interfaccia di Comunicazione
 * **[INT-COM-01]** - *Must have*: L'app deve poter effettuare richieste HTTPS in sola lettura verso un'API meteo pubblica, inviando le coordinate dello spot selezionato e ricevendo le condizioni meteo previste o i dati meteo storici, senza che tale comunicazione richieda un server applicativo proprio.
 * **[INT-COM-02]** - *Won't have*: L'app non prevede, nella versione base, comunicazioni verso un server applicativo proprio né sincronizzazione automatica o continua dei dati verso servizi cloud. L'unico trasferimento di dati personali verso il cloud è il backup manuale, quando l'utente sceglie di salvarlo su un servizio cloud (vedi [INT-COM-03]).
-* **[INT-COM-03]** - *Won't have*: L'app non comunica direttamente con le API di Google Drive. Il file di backup si salva e si sceglie con la finestra di sistema di Android (Storage Access Framework), che offre anche le cartelle di Google Drive quando la sua app è installata: il caricamento lo esegue l'app Google Drive. Così l'app non gestisce account, autorizzazioni OAuth 2.0 e credenziali (vedi `scelta_architetturale_backup_e_ripristino.md`).
+* **[INT-COM-03]** - *Won't have*: L'app non comunica direttamente con le API di Google Drive. Il file di backup si consegna con la condivisione di Android (tra le destinazioni c'è "Salva su Drive" quando l'app Google Drive è installata) e si sceglie per il ripristino con la finestra di sistema (Storage Access Framework), che mostra anche le cartelle di Google Drive: il caricamento e il download li esegue l'app Google Drive. Così l'app non gestisce account, autorizzazioni OAuth 2.0 e credenziali (vedi `scelta_architetturale_backup_e_ripristino.md`).
 
 #### 3.1.5 Requisiti di Prestazione
 * **[REQ-PERF-01]** - *Should have*: Il caricamento della schermata mappa, con l'intero insieme di tratti dell'utente visualizzati, dovrebbe completarsi in meno di 2 secondi su dispositivo di fascia media, per uno storico fino a qualche centinaio di spot.
@@ -135,8 +135,8 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Elaborazione**: Validazione che il nome non sia vuoto e che il tratto contenga almeno un punto. Più divieti possono avere lo stesso nome. I divieti non compaiono tra gli spot, nelle pescate e nelle statistiche.
   * **Output**: Divieto salvato e visualizzato sulla mappa; eliminandolo spariscono anche i suoi punti.
 
-* **[REQ-FUN-19]** - *Rimosso*
-  * Prevedeva l'import nell'app dei dati raccolti prima del suo utilizzo (storico personale). È stato realizzato come strumento di migrazione dei dati usato una sola volta dallo sviluppatore, con un file preparato a partire dallo storico, e poi rimosso: gli altri utenti non hanno uno storico in quel formato, e da allora i dati si trasferiscono con il backup ([REQ-FUN-14], [REQ-FUN-15]). Il codice resta nella cronologia del repository (senza i dati personali, che non vi sono mai entrati).
+* **[REQ-FUN-19]** - *Strumento di sviluppo (non nella versione distribuita)*
+  * L'import nell'app dei dati raccolti prima del suo utilizzo (storico personale) è uno strumento di migrazione dei dati per lo sviluppatore: legge un file JSON preparato a partire dallo storico (formato `diario-pesca-import`), lo controlla e ne importa spot, divieti e pescate solo in un diario vuoto. La voce *Importa dati* compare solo nell'app avviata in modalità debug (`flutter run`) e non nella versione distribuita: gli altri utenti non hanno uno storico in quel formato e trasferiscono i dati con il backup ([REQ-FUN-14], [REQ-FUN-15]). Resta come rete di sicurezza finché il backup non è stato usato a lungo; il file dello storico contiene dati personali e non entra nel repository.
 
 * **[REQ-FUN-04]** - *Should have*
   * **Descrizione**: Il sistema dovrebbe permettere all'utente di creare, rinominare ed eliminare categorie, che funzionano come cartelle per gli spot (es. le valli minori come *Val Stabina*, oppure zone come *Basso Brembo*).
@@ -219,7 +219,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 * **[REQ-FUN-14]** - *Should have*
   * **Descrizione**: Il sistema dovrebbe consentire l'esportazione manuale di tutti i dati registrati nell'applicazione (spot, divieti, pescate, catture memorabili, meteo scaricato, esche, specie, caratteristiche, obiettivi, pianificazione) e di tutte le foto in un unico archivio ZIP, salvato dove l'utente sceglie (memoria del telefono o Google Drive).
-  * **Input**: Comando di avvio backup e scelta della destinazione nella finestra di sistema per il salvataggio dei file.
+  * **Input**: Comando di avvio backup e scelta della destinazione nella condivisione di Android (es. "Salva su Drive", app File, email).
   * **Elaborazione**: Copia coerente del database SQLite con `VACUUM INTO` (o copia del file sui telefoni con SQLite precedente alla 3.27); creazione di un archivio ZIP con un manifesto (formato, versione del formato, data di creazione, versione dello schema), la copia del database e la cartella delle foto con i percorsi relativi registrati nel database. Non serve la rete: se l'utente sceglie Google Drive, il caricamento lo esegue l'app Google Drive.
   * **Output / Risposta**: File di backup salvato, con nome che riporta data e ora (es. `diario_pesca_backup_2026-11-24_1050.zip`), e messaggio di conferma a schermo con data e ora del salvataggio.
 

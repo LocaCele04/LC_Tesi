@@ -89,16 +89,17 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(salvati, ['diario_pesca_backup_2026-11-24_1050.zip']);
-      expect(find.text('Backup salvato il 24/11/2026 alle 10:50.'), findsOneWidget);
+      expect(find.text('Backup creato il 24/11/2026 alle 10:50 (3 byte).'), findsOneWidget);
     });
 
-    testWidgets('se l\'utente annulla il salvataggio non dice che è salvato', (tester) async {
+    testWidgets('se l\'utente chiude la condivisione lo avvisa di riprovare', (tester) async {
       await apri(tester, _ServizioFinto(), salvataggioAnnullato: true);
 
       await tester.tap(find.text('Crea backup'));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Backup salvato'), findsNothing);
+      expect(find.text('Backup creato il 24/11/2026 alle 10:50 (3 byte).'), findsOneWidget);
+      expect(find.textContaining('La condivisione è stata chiusa'), findsOneWidget);
     });
   });
 

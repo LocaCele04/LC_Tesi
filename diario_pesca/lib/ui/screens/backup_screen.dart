@@ -1,8 +1,11 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path/path.dart' as p;
+import 'package:share_plus/share_plus.dart';
 
 import '../../data/database_helper.dart';
 import '../../services/backup_service.dart';
@@ -12,23 +15,43 @@ import '../state/mappa_state.dart';
 import '../state/pescate_state.dart';
 import '../state/spot_state.dart';
 
-/// Salva [byte] in un file chiamato [nome] scelto dall'utente; `false` se
-/// l'utente annulla. Nei test si sostituisce con una funzione finta.
+/// Consegna all'utente il backup [byte] come file chiamato [nome]; `false`
+/// se l'utente annulla. Nei test si sostituisce con una funzione finta.
 typedef SalvataggioFile = Future<bool> Function(String nome, Uint8List byte);
 
 /// Fa scegliere un file all'utente e ne restituisce i byte, `null` se
 /// annulla. Nei test si sostituisce con una funzione finta.
 typedef SceltaFile = Future<Uint8List?> Function();
 
-/// La finestra di sistema per salvare permette di scegliere la memoria del
-/// telefono o, se è installata l'app, una cartella di Google Drive.
-Future<bool> _salvaSulTelefono(String nome, Uint8List byte) async {
-  final destinazione = await FilePicker.saveFile(
-    dialogTitle: 'Salva il backup',
-    fileName: nome,
-    bytes: byte,
-  );
-  return destinazione != null;
+/// Scrive il backup in un file dell'app, controlla che il file contenga
+/// tutti i byte e lo passa alla condivisione di Android, da cui l'utente
+/// sceglie dove metterlo: "Salva su Drive", "Salva in File", email…
+///
+/// All'inizio si usava la finestra di sistema per salvare (`saveFile` di
+/// file_picker), ma sul telefono ha scritto un file vuoto pur dicendo che il
+/// salvataggio era riuscito. Con la condivisione il file viene scritto
+/// dall'app stessa, e si può controllare prima di consegnarlo.
+Future<bool> _condividi(String nome, Uint8List byte) async {
+  final cartella = Directory(p.join(Directory.systemTemp.path, 'backup'));
+  // Restano solo l'ultimo backup: quelli precedenti sono già stati consegnati.
+  if (await cartella.exists()) await cartella.delete(recursive: true);
+  await cartella.create(recursive: true);
+
+  final file = File(p.join(cartella.path, nome));
+  await file.writeAsBytes(byte, flush: true);
+  final scritti = await file.length();
+  if (scritti != byte.length) {
+    throw StateError(
+      'il file scritto è di ${BackupService.dimensione(scritti)} '
+      'invece di ${BackupService.dimensione(byte.length)}',
+    );
+  }
+
+  final esito = await SharePlus.instance.share(ShareParams(
+    files: [XFile(file.path, name: nome, mimeType: 'application/zip')],
+    title: 'Backup del Diario di pesca',
+  ));
+  return esito.status != ShareResultStatus.dismissed;
 }
 
 Future<Uint8List?> _scegliDalTelefono() async {
@@ -47,7 +70,7 @@ String _dataOra(DateTime d) => '${_due(d.day)}/${_due(d.month)}/${d.year} alle $
 class BackupScreen extends ConsumerStatefulWidget {
   const BackupScreen({
     super.key,
-    this.salvaFile = _salvaSulTelefono,
+    this.salvaFile = _condividi,
     this.scegliFile = _scegliDalTelefono,
   });
 
@@ -62,6 +85,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   bool _occupato = false;
 
   DateTime? _backupSalvato;
+  int _dimensioneBackup = 0;
+  bool _condivisioneChiusa = false;
   String? _erroreBackup;
 
   ContenutoBackup? _scelto;
@@ -79,8 +104,20 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       final servizio = ref.read(backupServiceProvider);
       final nome = servizio.nomeFile();
       final byte = await servizio.crea();
-      final salvato = await widget.salvaFile(nome, byte);
-      if (salvato && mounted) setState(() => _backupSalvato = ref.read(orologioProvider)());
+      // Il backup si rilegge prima di salvarlo: un file che poi non si
+      // potrebbe ripristinare non viene nemmeno proposto.
+      await servizio.leggi(byte);
+      // Data e dimensione si mostrano in ogni caso: Android non sempre dice
+      // all'app dove l'utente ha mandato il file, quindi l'esito della
+      // condivisione serve solo per l'avviso se è stata chiusa.
+      final consegnato = await widget.salvaFile(nome, byte);
+      if (mounted) {
+        setState(() {
+          _backupSalvato = ref.read(orologioProvider)();
+          _dimensioneBackup = byte.length;
+          _condivisioneChiusa = !consegnato;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _erroreBackup = e.toString());
     } finally {
@@ -188,9 +225,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           Text('Backup', style: testo.titleMedium),
           const SizedBox(height: 8),
           const Text(
-            'Salva in un file tutti i dati dell\'app: spot, divieti, pescate, catture, '
-            'meteo scaricato e cataloghi. Puoi salvarlo nella memoria del telefono o, '
-            'se hai l\'app Google Drive, direttamente su Drive.',
+            'Crea un file con tutti i dati dell\'app: spot, divieti, pescate, catture, '
+            'meteo scaricato e cataloghi. Poi scegli dove metterlo: "Salva su Drive", '
+            'la memoria del telefono (app File), un\'email a te stessa…',
           ),
           const SizedBox(height: 8),
           Text(
@@ -208,7 +245,24 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           ),
           if (_backupSalvato != null) ...[
             const SizedBox(height: 12),
-            Text('Backup salvato il ${_dataOra(_backupSalvato!)}.'),
+            Text(
+              'Backup creato il ${_dataOra(_backupSalvato!)} '
+              '(${BackupService.dimensione(_dimensioneBackup)}).',
+            ),
+            if (_condivisioneChiusa) ...[
+              const SizedBox(height: 4),
+              Text(
+                'La condivisione è stata chiusa senza scegliere dove salvarlo: '
+                'tocca di nuovo "Crea backup".',
+                style: TextStyle(color: colori.error),
+              ),
+            ],
+            const SizedBox(height: 4),
+            Text(
+              'Controlla che sia arrivato: tocca "Scegli un backup" qui sotto e '
+              'sceglilo. Se compare il riepilogo il file è buono (non serve ripristinarlo).',
+              style: testo.bodySmall,
+            ),
           ],
           if (_erroreBackup != null) ...[
             const SizedBox(height: 12),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,6 +8,7 @@ import '../state/pescate_state.dart';
 import '../widgets/etichette.dart';
 import '../widgets/vista_asincrona.dart';
 import 'backup_screen.dart';
+import 'importa_screen.dart';
 import 'registra_pescata_screen.dart';
 import 'scheda_pescata_screen.dart';
 
@@ -53,16 +55,24 @@ class ElencoPescateScreen extends ConsumerWidget {
               icon: const Icon(Icons.cloud_download_outlined),
             ),
           PopupMenuButton<String>(
-            onSelected: (_) => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const BackupScreen()),
+            onSelected: (voce) => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => voce == 'importa' ? const ImportaScreen() : const BackupScreen(),
+              ),
             ),
             itemBuilder: (_) => const [
               PopupMenuItem(value: 'backup', child: Text('Backup e ripristino')),
+              // Import dello storico: solo con `flutter run`, non nell'app
+              // distribuita (vedi REQ-FUN-19).
+              if (kDebugMode) PopupMenuItem(value: 'importa', child: Text('Importa dati')),
             ],
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
+        // Le schede della home restano tutte montate: senza tag diversi i
+        // pulsanti si contendono l'animazione di passaggio tra le pagine.
+        heroTag: null,
         onPressed: () => Navigator.of(context).push(
           MaterialPageRoute<void>(builder: (_) => const RegistraPescataScreen()),
         ),

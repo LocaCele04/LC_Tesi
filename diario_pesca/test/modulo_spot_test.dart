@@ -142,6 +142,34 @@ void main() {
     });
   });
 
+  group('Modulo spot - Modifiche non salvate', () {
+    test('appena aperto non è modificato; un testo scritto e poi tolto non conta', () {
+      final m = apri();
+      expect(m.modificato, isFalse);
+      m.impostaNote('acqua bassa');
+      expect(m.modificato, isTrue);
+      m.impostaNote('');
+      expect(m.modificato, isFalse);
+    });
+
+    test('modificando uno spot esistente conta anche il tratto', () async {
+      final spot = (await container.read(elencoSpotProvider.future)).single;
+      final m = apri(spot);
+      expect(m.modificato, isFalse);
+
+      m.impostaPunti([
+        ...bozza(spot).coordinate,
+        const Coordinata(ordine: 1, latitudine: 45.7620, longitudine: 9.6410),
+      ]);
+      expect(m.modificato, isTrue);
+      m.rimuoviPunto(bozza(spot).coordinate.length - 1);
+      expect(m.modificato, isFalse);
+
+      m.impostaDifficolta(Difficolta.alta);
+      expect(m.modificato, isTrue);
+    });
+  });
+
   group('Modulo spot - Salvataggio', () {
     test('uno spot nuovo con una categoria nuova si salva con i suoi punti', () async {
       container.listen(categorieProvider, (_, _) {});

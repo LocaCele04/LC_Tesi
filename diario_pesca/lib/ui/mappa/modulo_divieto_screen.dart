@@ -33,6 +33,32 @@ class _ModuloDivietoScreenState extends ConsumerState<ModuloDivietoScreen> {
 
   bool get _nuovo => widget.divieto.id == null;
 
+  /// `true` se nome, note o tratto sono diversi da com'erano all'apertura.
+  /// Un divieto nuovo arriva già disegnato: il disegno conta come modifica.
+  bool get _modificato {
+    if (_nuovo && _punti.isNotEmpty) return true;
+    final iniziali = widget.divieto.coordinate;
+    final stessiPunti = iniziali.length == _punti.length &&
+        [
+          for (var i = 0; i < _punti.length; i++)
+            _punti[i].latitudine == iniziali[i].latitudine &&
+                _punti[i].longitudine == iniziali[i].longitudine,
+        ].every((uguale) => uguale);
+    return _nome.text.trim() != widget.divieto.nome.trim() ||
+        _note.text.trim() != (widget.divieto.note ?? '').trim() ||
+        !stessiPunti;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Ridisegna mentre si scrive, così l'avviso d'uscita sa delle modifiche.
+    _nome.addListener(_aggiorna);
+    _note.addListener(_aggiorna);
+  }
+
+  void _aggiorna() => setState(() {});
+
   @override
   void dispose() {
     _nome.dispose();
@@ -106,60 +132,64 @@ class _ModuloDivietoScreenState extends ConsumerState<ModuloDivietoScreen> {
   @override
   Widget build(BuildContext context) {
     final lunghezza = TerritorioRepository.calcolaLunghezzaMetri(_punti);
-    return Scaffold(
-      appBar: AppBar(title: Text(_nuovo ? 'Nuovo divieto' : 'Modifica divieto')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-        children: [
-          TextField(
-            controller: _nome,
-            decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder()),
-            textCapitalization: TextCapitalization.sentences,
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            controller: _note,
-            decoration: const InputDecoration(
-              labelText: 'Note',
-              hintText: 'Es. dalla diga fino al terzo ponte',
-              border: OutlineInputBorder(),
+    return UscitaProtetta(
+      modificato: _modificato,
+      messaggio: 'Le modifiche al divieto, compreso il tratto, andranno perse.',
+      child: Scaffold(
+        appBar: AppBar(title: Text(_nuovo ? 'Nuovo divieto' : 'Modifica divieto')),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          children: [
+            TextField(
+              controller: _nome,
+              decoration: const InputDecoration(labelText: 'Nome', border: OutlineInputBorder()),
+              textCapitalization: TextCapitalization.sentences,
             ),
-            minLines: 2,
-            maxLines: 5,
-            textCapitalization: TextCapitalization.sentences,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            _punti.isEmpty
-                ? 'Nessun punto: disegna il divieto sulla mappa.'
-                : '${_punti.length == 1 ? '1 punto' : '${_punti.length} punti'}'
-                    '${lunghezza == null ? '' : ' · ${lunghezza.round()} m'}',
-          ),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: FilledButton.tonalIcon(
-              onPressed: _inCorso ? null : _disegna,
-              icon: const Icon(Icons.edit_location_alt_outlined),
-              label: Text(_punti.isEmpty ? 'Disegna sulla mappa' : 'Modifica sulla mappa'),
+            const SizedBox(height: 20),
+            TextField(
+              controller: _note,
+              decoration: const InputDecoration(
+                labelText: 'Note',
+                hintText: 'Es. dalla diga fino al terzo ponte',
+                border: OutlineInputBorder(),
+              ),
+              minLines: 2,
+              maxLines: 5,
+              textCapitalization: TextCapitalization.sentences,
             ),
-          ),
-          const SizedBox(height: 32),
-          FilledButton.icon(
-            onPressed: _inCorso ? null : _salva,
-            icon: const Icon(Icons.save),
-            label: const Text('Salva divieto'),
-          ),
-          if (!_nuovo) ...[
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
-              onPressed: _inCorso ? null : _elimina,
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Elimina divieto'),
+            const SizedBox(height: 20),
+            Text(
+              _punti.isEmpty
+                  ? 'Nessun punto: disegna il divieto sulla mappa.'
+                  : '${_punti.length == 1 ? '1 punto' : '${_punti.length} punti'}'
+                      '${lunghezza == null ? '' : ' · ${lunghezza.round()} m'}',
             ),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FilledButton.tonalIcon(
+                onPressed: _inCorso ? null : _disegna,
+                icon: const Icon(Icons.edit_location_alt_outlined),
+                label: Text(_punti.isEmpty ? 'Disegna sulla mappa' : 'Modifica sulla mappa'),
+              ),
+            ),
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              onPressed: _inCorso ? null : _salva,
+              icon: const Icon(Icons.save),
+              label: const Text('Salva divieto'),
+            ),
+            if (!_nuovo) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.error),
+                onPressed: _inCorso ? null : _elimina,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Elimina divieto'),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

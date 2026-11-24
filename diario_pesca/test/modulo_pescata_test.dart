@@ -204,6 +204,33 @@ void main() {
     });
   });
 
+  group('Modulo pescata - Modifiche non salvate', () {
+    test('appena aperta non è modificata; una riga di cattura vuota non conta', () {
+      final m = modulo();
+      expect(m.modificato, isFalse);
+
+      m.aggiungiCattura();
+      expect(m.modificato, isFalse);
+      final chiave = bozza().catture.single.chiave;
+      m.impostaTotale(chiave, 3);
+      expect(m.modificato, isTrue);
+      m.impostaTotale(chiave, 0);
+      expect(m.modificato, isFalse);
+
+      m.impostaFascia(FasciaOraria.alba);
+      expect(m.modificato, isTrue);
+    });
+
+    test('lo spot scelto all\'apertura non è una modifica', () {
+      final m = modulo()
+        ..impostaSpot('Valbrina', 'Torrente')
+        ..fissaComeIniziale();
+      expect(m.modificato, isFalse);
+      m.impostaSpot('Piazza3', 'Torrente');
+      expect(m.modificato, isTrue);
+    });
+  });
+
   group('Modulo pescata - Salvataggio', () {
     test('salva la pescata completa e aggiorna spot, pescate ed esche', () async {
       container.listen(elencoSpotProvider, (_, _) {});
