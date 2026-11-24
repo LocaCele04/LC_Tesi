@@ -79,10 +79,16 @@ package "Territorio e Spot" {
     - longitudine : double
   }
 
+  class Divieto {
+    - nome : String
+    - note : String [0..1]
+  }
+
   Categoria "1" -down-> "0..*" Spot : raggruppa
   Ambiente "1" -down-> "0..*" Spot : classifica
   Spot "1" *-down- "1" Tratto
   Tratto "1" *-down- "2..*" Coordinata : {ordered}
+  Divieto "1" *-down- "1" Tratto
 }
 
 ' =====================================================
@@ -304,6 +310,10 @@ note bottom of Tratto
   Eliminare lo Spot elimina le sue Pianificazioni;
   le Pescate restano nello storico senza Spot.
   Il colore dipende dalla valutazione dello spot.
+  {xor} Un Tratto appartiene a uno Spot oppure
+  a un Divieto (tratto dove non si pesca, che
+  non è uno spot); eliminare il Divieto elimina
+  il suo Tratto.
 end note
 
 note right of RiepilogoCaratteristica

@@ -27,7 +27,7 @@ void main() {
   late MeteoRepository meteoRepo;
   late StatisticheService statistiche;
 
-  const cellaBrembo = CellaMeteo(latitudine: 45.75, longitudine: 9.625, elevazione: 820);
+  const cellaFiume = CellaMeteo(latitudine: 45.75, longitudine: 9.625, elevazione: 820);
 
   setUp(() async {
     dbHelper = DatabaseHelper.inMemory();
@@ -103,9 +103,9 @@ void main() {
     });
 
     test('una pescata è da scaricare solo se lo spot ha coordinate; si usa il primo punto del tratto', () async {
-      await salvaSpot('Valsecca', [(45.7612, 9.6401), (45.7650, 9.6450)]);
+      await salvaSpot('Valbrina', [(45.7612, 9.6401), (45.7650, 9.6450)]);
       await salvaSpot('Senza punti', []);
-      final conPunti = await salvaPescata('Valsecca', DateTime(2026, 3, 15));
+      final conPunti = await salvaPescata('Valbrina', DateTime(2026, 3, 15));
       final senzaPunti = await salvaPescata('Senza punti', DateTime(2026, 3, 16));
 
       final richieste = await meteoRepo.getPescateDaScaricare();
@@ -125,13 +125,13 @@ void main() {
 
   group('MeteoRepository - Salvataggio e lettura', () {
     test('salvaDati archivia i dati, collega la pescata e getMeteoPescata li restituisce in ordine', () async {
-      await salvaSpot('Valsecca', [(45.7612, 9.6401), (45.7650, 9.6450)]);
+      await salvaSpot('Valbrina', [(45.7612, 9.6401), (45.7650, 9.6450)]);
       final data = DateTime(2026, 3, 15);
-      final pescata = await salvaPescata('Valsecca', data);
+      final pescata = await salvaPescata('Valbrina', data);
       final richieste = await meteoRepo.getPescateDaScaricare();
 
       final cella = await meteoRepo.salvaDati(
-        cella: cellaBrembo,
+        cella: cellaFiume,
         giorni: giorniFinti(data),
         ore: oreFinte(data),
         richieste: richieste,
@@ -156,11 +156,11 @@ void main() {
     });
 
     test('una pescata vicina riusa la cella e l\'archivio: mancano solo i giorni nuovi', () async {
-      await salvaSpot('Valsecca', [(45.7612, 9.6401)]);
+      await salvaSpot('Valbrina', [(45.7612, 9.6401)]);
       final prima = DateTime(2026, 3, 15);
-      await salvaPescata('Valsecca', prima);
+      await salvaPescata('Valbrina', prima);
       final cella = await meteoRepo.salvaDati(
-        cella: cellaBrembo,
+        cella: cellaFiume,
         giorni: giorniFinti(prima),
         ore: oreFinte(prima),
         richieste: await meteoRepo.getPescateDaScaricare(),
@@ -168,7 +168,7 @@ void main() {
 
       // Seconda pescata nello stesso spot due giorni dopo
       final dopo = DateTime(2026, 3, 17);
-      final seconda = await salvaPescata('Valsecca', dopo);
+      final seconda = await salvaPescata('Valbrina', dopo);
       final richiesta = (await meteoRepo.getPescateDaScaricare()).single;
       expect(richiesta.pescataId, seconda.id);
 
@@ -186,7 +186,7 @@ void main() {
       // Senza scaricare nulla la pescata resta da scaricare; assegnando la
       // cella dopo aver completato i dati diventa scaricata
       await meteoRepo.salvaDati(
-        cella: cellaBrembo,
+        cella: cellaFiume,
         giorni: giorniFinti(dopo).where((g) => !g.data.isBefore(DateTime(2026, 3, 16))).toList(),
         ore: oreFinte(dopo),
       );
@@ -199,11 +199,11 @@ void main() {
     test('un dato già presente viene sostituito; la stessa cella a un\'altra quota è una cella distinta', () async {
       final data = DateTime(2026, 3, 15);
       final cella = await meteoRepo.salvaDati(
-        cella: cellaBrembo,
+        cella: cellaFiume,
         giorni: [MeteoGiorno(data: data, pioggiaMm: 5, tempMax: 10)],
       );
       final stessa = await meteoRepo.salvaDati(
-        cella: cellaBrembo,
+        cella: cellaFiume,
         giorni: [MeteoGiorno(data: data, pioggiaMm: 7, tempMax: 10)],
       );
       expect(stessa.id, cella.id);
@@ -212,7 +212,7 @@ void main() {
 
       // Stesso punto della griglia, 300 m più in alto: temperature diverse
       final alta = await meteoRepo.salvaDati(
-        cella: cellaBrembo.copyWith(elevazione: 1120),
+        cella: cellaFiume.copyWith(elevazione: 1120),
         giorni: [MeteoGiorno(data: data, pioggiaMm: 7, tempMax: 8)],
       );
       expect(alta.id, isNot(cella.id));
@@ -223,12 +223,12 @@ void main() {
 
   group('MeteoRepository - Stato calcolato', () {
     test('cambio di data o del primo punto: torna da scaricare; rinomina o eliminazione dello spot: resta scaricato', () async {
-      await salvaSpot('Valsecca', [(45.7612, 9.6401), (45.7650, 9.6450)]);
+      await salvaSpot('Valbrina', [(45.7612, 9.6401), (45.7650, 9.6450)]);
       final data = DateTime(2026, 3, 15);
-      final pescata = await salvaPescata('Valsecca', data);
+      final pescata = await salvaPescata('Valbrina', data);
       Future<void> scarica() async {
         await meteoRepo.salvaDati(
-          cella: cellaBrembo,
+          cella: cellaFiume,
           giorni: giorniFinti(data),
           ore: oreFinte(data),
           richieste: await meteoRepo.getPescateDaScaricare(),
@@ -238,14 +238,14 @@ void main() {
 
       // Modifica che non tocca data né primo punto (aggiungo un punto in fondo)
       await salvaSpot(
-        'Valsecca',
+        'Valbrina',
         [(45.7612, 9.6401), (45.7650, 9.6450), (45.7700, 9.6500)],
-        nomeOriginale: 'Valsecca',
+        nomeOriginale: 'Valbrina',
       );
       expect(await meteoRepo.getStatoMeteo(pescata.id!), StatoMeteo.scaricato);
 
       // Cambio del primo punto del tratto
-      await salvaSpot('Valsecca', [(45.7000, 9.6000)], nomeOriginale: 'Valsecca');
+      await salvaSpot('Valbrina', [(45.7000, 9.6000)], nomeOriginale: 'Valbrina');
       expect(await meteoRepo.getStatoMeteo(pescata.id!), StatoMeteo.daScaricare);
       await scarica();
       expect(await meteoRepo.getStatoMeteo(pescata.id!), StatoMeteo.scaricato);
@@ -258,15 +258,15 @@ void main() {
       expect(await meteoRepo.getStatoMeteo(pescata.id!), StatoMeteo.scaricato);
 
       // Rinomina dello spot
-      final spot = await territorioRepo.getSpotConCoordinate('Valsecca');
+      final spot = await territorioRepo.getSpotConCoordinate('Valbrina');
       await territorioRepo.salvaSpotConCoordinate(
-        spot!.copyWith(nome: 'Valsecca alta'),
-        nomeOriginale: 'Valsecca',
+        spot!.copyWith(nome: 'Valbrina alta'),
+        nomeOriginale: 'Valbrina',
       );
       expect(await meteoRepo.getStatoMeteo(pescata.id!), StatoMeteo.scaricato);
 
       // Eliminazione dello spot: la pescata conserva il suo meteo
-      await territorioRepo.eliminaSpot('Valsecca alta');
+      await territorioRepo.eliminaSpot('Valbrina alta');
       expect(await meteoRepo.getStatoMeteo(pescata.id!), StatoMeteo.scaricato);
       expect((await meteoRepo.getMeteoPescata(pescata.id!)).giorni.length, 31);
 
@@ -279,14 +279,14 @@ void main() {
 
   group('StatisticheService - Pioggia cumulata', () {
     test('getPioggiaCumulata somma la pioggia dei giorni precedenti, escluso il giorno della pescata', () async {
-      await salvaSpot('Valsecca', [(45.7612, 9.6401)]);
+      await salvaSpot('Valbrina', [(45.7612, 9.6401)]);
       final data = DateTime(2026, 3, 15);
-      final pescata = await salvaPescata('Valsecca', data);
+      final pescata = await salvaPescata('Valbrina', data);
       expect(await statistiche.getPioggiaCumulata(pescata.id!, giorni: 3), isNull);
 
       // 1 mm al giorno, ma 20 mm nel giorno stesso della pescata (indice 30)
       await meteoRepo.salvaDati(
-        cella: cellaBrembo,
+        cella: cellaFiume,
         giorni: giorniFinti(data, pioggia: (i) => i == 30 ? 20 : 1),
         ore: oreFinte(data),
         richieste: await meteoRepo.getPescateDaScaricare(),

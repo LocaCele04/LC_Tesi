@@ -104,17 +104,17 @@ void main() {
         options: OpenDatabaseOptions(singleInstance: false),
       );
       await db.insert('Categoria', {'nome': 'Valle'});
-      await db.insert('Spot', {'nome': 'Valsecca', 'ambiente': 'Torrente', 'categoria_nome': 'Valle'});
+      await db.insert('Spot', {'nome': 'Valbrina', 'ambiente': 'Torrente', 'categoria_nome': 'Valle'});
       for (var i = 0; i < 2; i++) {
         await db.insert('Coordinata', {
-          'spot_nome': 'Valsecca',
+          'spot_nome': 'Valbrina',
           'ordine': i,
           'latitudine': 45.76 + i / 1000,
           'longitudine': 9.64,
         });
       }
-      await db.insert('Pescata', {'data': '2026-02-10', 'fasciaOraria': 'alba', 'spot_nome': 'Valsecca'});
-      await db.insert('Pianificazione', {'data': '2026-03-01', 'fasciaOraria': 'alba', 'spot_nome': 'Valsecca'});
+      await db.insert('Pescata', {'data': '2026-02-10', 'fasciaOraria': 'alba', 'spot_nome': 'Valbrina'});
+      await db.insert('Pianificazione', {'data': '2026-03-01', 'fasciaOraria': 'alba', 'spot_nome': 'Valbrina'});
       await db.close();
     }
 
@@ -151,7 +151,7 @@ void main() {
       // Le azioni a cascata non sono partite: figlie intatte
       expect(await conta(db, 'Coordinata'), 2);
       expect(await conta(db, 'Pianificazione'), 1);
-      expect((await db.query('Pescata')).single['spot_nome'], 'Valsecca');
+      expect((await db.query('Pescata')).single['spot_nome'], 'Valbrina');
       // Indici ricreati, chiavi esterne di nuovo attive
       final indici = await db.rawQuery("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'Spot'");
       expect(indici.map((r) => r['name']), containsAll(['idx_spot_categoria', 'idx_spot_ambiente']));
@@ -162,7 +162,7 @@ void main() {
         throwsA(isA<DatabaseException>()),
       );
       // Le tabelle figlie puntano alla tabella nuova: le azioni ora funzionano
-      await db.delete('Spot', where: 'nome = ?', whereArgs: ['Valsecca']);
+      await db.delete('Spot', where: 'nome = ?', whereArgs: ['Valbrina']);
       expect(await conta(db, 'Coordinata'), 0);
       expect(await conta(db, 'Pianificazione'), 0);
       expect((await db.query('Pescata')).single['spot_nome'], isNull);

@@ -19,6 +19,9 @@ class ElencoSpotScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Spot')),
       floatingActionButton: FloatingActionButton.extended(
+        // Le schede della home restano tutte montate: senza tag diversi i
+        // pulsanti si contendono l'animazione di passaggio tra le pagine.
+        heroTag: null,
         onPressed: () => _nuovoSpot(context),
         icon: const Icon(Icons.add_location_alt_outlined),
         label: const Text('Nuovo spot'),

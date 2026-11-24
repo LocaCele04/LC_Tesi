@@ -39,7 +39,7 @@ void main() {
     test('getRiepiloghi filtra per pescata e per specie, con i dettagli per caratteristica', () async {
       await db.insert('Categoria', {'nome': 'Generica'});
       await db.insert('Spot', {
-        'nome': 'Ponte Vecchio',
+        'nome': 'Ponte Ruga',
         'ambiente': 'Torrente',
         'categoria_nome': 'Generica',
       });
@@ -53,7 +53,7 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 10),
           fasciaOraria: FasciaOraria.alba,
-          spotNome: 'Ponte Vecchio',
+          spotNome: 'Ponte Ruga',
           riepiloghiSpecie: [
             RiepilogoSpecie(
               specieNome: 'Trota',
@@ -70,7 +70,7 @@ void main() {
         Pescata(
           data: DateTime(2026, 11, 12),
           fasciaOraria: FasciaOraria.sera,
-          spotNome: 'Ponte Vecchio',
+          spotNome: 'Ponte Ruga',
           riepiloghiSpecie: const [
             RiepilogoSpecie(specieNome: 'Trota', quantita: 2),
           ],

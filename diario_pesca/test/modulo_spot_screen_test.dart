@@ -19,14 +19,29 @@ class _CategorieFinte extends CategorieNotifier {
   Future<List<Categoria>> build() async => const [Categoria(nome: 'Valle')];
 }
 
-Widget _app() => ProviderScope(
+Widget _app({bool daUnaPagina = false}) => ProviderScope(
       overrides: [
         elencoSpotProvider.overrideWith(_SpotFinti.new),
         categorieProvider.overrideWith(_CategorieFinte.new),
         ambientiProvider.overrideWith((ref) async => const [Ambiente(nome: 'Torrente')]),
       ],
       retry: (tentativo, errore) => null,
-      child: const MaterialApp(home: ModuloSpotScreen()),
+      child: MaterialApp(
+        home: daUnaPagina
+            ? Builder(
+                builder: (context) => Scaffold(
+                  body: Center(
+                    child: TextButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(builder: (_) => const ModuloSpotScreen()),
+                      ),
+                      child: const Text('Apri modulo'),
+                    ),
+                  ),
+                ),
+              )
+            : const ModuloSpotScreen(),
+      ),
     );
 
 /// Lista principale del modulo (la prima tra quelle scorrevoli).
@@ -92,6 +107,36 @@ void main() {
       expect(find.text('Punto non riconosciuto: incolla due coordinate.'), findsNothing);
       expect(find.text('45.76120, 9.64010'), findsOneWidget);
       expect(find.text('Punto per il meteo'), findsOneWidget);
+    });
+
+    testWidgets('uscendo con modifiche non salvate chiede conferma', (tester) async {
+      await tester.pumpWidget(_app(daUnaPagina: true));
+      await tester.tap(find.text('Apri modulo'));
+      await tester.pumpAndSettle();
+
+      // Senza modifiche si esce subito.
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Nuovo spot'), findsNothing);
+
+      await tester.tap(find.text('Apri modulo'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.widgetWithText(TextFormField, 'Nome'), 'Valbrina');
+      await tester.pump();
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(find.text('Uscire senza salvare?'), findsOneWidget);
+      await tester.tap(find.text('Annulla'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nuovo spot'), findsOneWidget);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Esci'));
+      await tester.pumpAndSettle();
+      expect(find.text('Nuovo spot'), findsNothing);
+      expect(find.text('Apri modulo'), findsOneWidget);
     });
   });
 }

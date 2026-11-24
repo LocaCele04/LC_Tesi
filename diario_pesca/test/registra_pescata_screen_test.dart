@@ -14,7 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 class _SpotFinti extends ElencoSpotNotifier {
   @override
   Future<List<Spot>> build() async => const [
-        Spot(nome: 'Valsecca', ambiente: 'Torrente', categoriaNome: 'Valle'),
+        Spot(nome: 'Valbrina', ambiente: 'Torrente', categoriaNome: 'Valle'),
       ];
 }
 

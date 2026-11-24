@@ -16,6 +16,10 @@ typedef Migrazione = Future<void> Function(DatabaseExecutor db);
 ///
 /// La versione 1 è lo schema di partenza: non ha un passaggio.
 ///
+/// Le istruzioni di un passaggio sono una **copia** di quelle di `onCreate`
+/// al momento della modifica, non un riferimento: se `onCreate` cambierà di
+/// nuovo, il passaggio deve continuare a produrre la versione di allora.
+///
 /// Esempio, aggiungere una colonna:
 ///
 /// ```dart
@@ -31,7 +35,34 @@ typedef Migrazione = Future<void> Function(DatabaseExecutor db);
 ///   );
 /// }
 /// ```
-const Map<int, Migrazione> migrazioni = {};
+const Map<int, Migrazione> migrazioni = {
+  2: _versione2,
+};
+
+/// Versione 2: i divieti, tratti in cui non si può pescare, con i loro punti.
+Future<void> _versione2(DatabaseExecutor db) async {
+  await db.execute('''
+    CREATE TABLE Divieto (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      nome TEXT NOT NULL,
+      note TEXT,
+      CHECK (length(trim(nome)) > 0)
+    )
+  ''');
+  await db.execute('''
+    CREATE TABLE CoordinataDivieto (
+      divieto_id INTEGER NOT NULL,
+      ordine INTEGER NOT NULL,
+      latitudine REAL NOT NULL,
+      longitudine REAL NOT NULL,
+      PRIMARY KEY (divieto_id, ordine),
+      FOREIGN KEY (divieto_id) REFERENCES Divieto (id) ON DELETE CASCADE,
+      CHECK (ordine >= 0),
+      CHECK (latitudine BETWEEN -90 AND 90),
+      CHECK (longitudine BETWEEN -180 AND 180)
+    )
+  ''');
+}
 
 /// Ricostruisce la tabella [tabella] con la nuova definizione [creaTabella]
 /// (lo stesso `CREATE TABLE <tabella> (...)` scritto in `onCreate`),

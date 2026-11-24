@@ -36,7 +36,7 @@ void main() {
     );
   }
 
-  /// Helper che popola un set completo e valido di dati su tutte le 24 tabelle.
+  /// Helper che popola un set completo e valido di dati su tutte le 26 tabelle.
   Future<
       ({
         int pescataId,
@@ -56,11 +56,11 @@ void main() {
       'note': null,
     });
 
-    await db.insert('Ambiente', {'nome': 'Torrente di fondovalle'});
+    await db.insert('Ambiente', {'nome': 'Torrente di fondopiano'});
 
     await db.insert('Spot', {
-      'nome': 'Ponte Vecchio',
-      'ambiente': 'Torrente di fondovalle',
+      'nome': 'Ponte Ruga',
+      'ambiente': 'Torrente di fondopiano',
       'lunghezzaMetri': 350.5,
       'voto': 9,
       'difficolta': 'media',
@@ -79,13 +79,13 @@ void main() {
     });
 
     await db.insert('Coordinata', {
-      'spot_nome': 'Ponte Vecchio',
+      'spot_nome': 'Ponte Ruga',
       'ordine': 0,
       'latitudine': 45.6495,
       'longitudine': 9.6012,
     });
     await db.insert('Coordinata', {
-      'spot_nome': 'Ponte Vecchio',
+      'spot_nome': 'Ponte Ruga',
       'ordine': 1,
       'latitudine': 45.6510,
       'longitudine': 9.6030,
@@ -95,7 +95,7 @@ void main() {
       'data': '2026-11-20',
       'fasciaOraria': 'alba',
       'note': 'Uscita esplorativa',
-      'spot_nome': 'Ponte Vecchio',
+      'spot_nome': 'Ponte Ruga',
     });
 
     final pescataId = await db.insert('Pescata', {
@@ -103,7 +103,7 @@ void main() {
       'fasciaOraria': 'alba',
       'temp_acqua': 11.5,
       'note': 'Attività sulle correntine',
-      'spot_nome': 'Ponte Vecchio',
+      'spot_nome': 'Ponte Ruga',
     });
     final morbida = await valore('Livello', 'Morbida');
     await db.insert('Pescata_Condizione', {
@@ -238,6 +238,14 @@ void main() {
       'caratteristica_id': null,
     });
 
+    final divietoId = await db.insert('Divieto', {'nome': 'Divieto vasca', 'note': null});
+    await db.insert('CoordinataDivieto', {
+      'divieto_id': divietoId,
+      'ordine': 0,
+      'latitudine': 45.80,
+      'longitudine': 9.60,
+    });
+
     await db.insert('DettaglioRiepilogo', {
       'riepilogo_specie_id': riepilogoId,
       'caratteristica_id': carattTrotaId,
@@ -265,7 +273,7 @@ void main() {
       expect(res.first['foreign_keys'], 1);
     });
 
-    test('Esistono tutte le 24 tabelle', () async {
+    test('Esistono tutte le 26 tabelle', () async {
       const tabelleAttese = {
         'Categoria',
         'CellaMeteo',
@@ -279,6 +287,8 @@ void main() {
         'Pescata_Condizione',
         'Spot',
         'Coordinata',
+        'Divieto',
+        'CoordinataDivieto',
         'Pianificazione',
         'Pescata',
         'Esca',
@@ -312,7 +322,7 @@ void main() {
   // SEZIONE 2: INSERIMENTI VALIDI
   // ===========================================================================
   group('2. Inserimenti Validi', () {
-    test('Inserimento completo su tutte le 24 tabelle senza errori', () async {
+    test('Inserimento completo su tutte le 26 tabelle senza errori', () async {
       final ids = await popolaDatiBase();
       expect(ids.pescataId, greaterThan(0));
       expect(ids.catturaId, greaterThan(0));
@@ -433,13 +443,35 @@ void main() {
       await popolaDatiBase();
       expect(
         () => db.insert('Coordinata', {
-          'spot_nome': 'Ponte Vecchio',
+          'spot_nome': 'Ponte Ruga',
           'ordine': 2,
           'latitudine': 95.0,
           'longitudine': 10.0,
         }),
         throwsA(isA<DatabaseException>()),
       );
+    });
+
+    test('Divieto: nome vuoto, punti fuori range o duplicati rifiutati, eliminazione a cascata dei punti', () async {
+      await expectLater(db.insert('Divieto', {'nome': '   '}), throwsA(isA<DatabaseException>()));
+      // Lo stesso nome è ammesso: l'identità è l'id
+      final a = await db.insert('Divieto', {'nome': 'Divieto'});
+      final b = await db.insert('Divieto', {'nome': 'Divieto'});
+      expect(b, isNot(a));
+
+      Map<String, Object?> punto(int divietoId, int ordine, {double lat = 45.8, double lon = 9.6}) =>
+          {'divieto_id': divietoId, 'ordine': ordine, 'latitudine': lat, 'longitudine': lon};
+      await db.insert('CoordinataDivieto', punto(a, 0));
+      await db.insert('CoordinataDivieto', punto(a, 1));
+      await expectLater(db.insert('CoordinataDivieto', punto(a, 1)), throwsA(isA<DatabaseException>()));
+      await expectLater(db.insert('CoordinataDivieto', punto(a, 2, lat: 95)), throwsA(isA<DatabaseException>()));
+      await expectLater(db.insert('CoordinataDivieto', punto(a, 2, lon: -181)), throwsA(isA<DatabaseException>()));
+      await expectLater(db.insert('CoordinataDivieto', punto(a, -1)), throwsA(isA<DatabaseException>()));
+      // Un punto di un divieto inesistente viola la chiave esterna
+      await expectLater(db.insert('CoordinataDivieto', punto(999, 0)), throwsA(isA<DatabaseException>()));
+
+      await db.delete('Divieto', where: 'id = ?', whereArgs: [a]);
+      expect(await db.query('CoordinataDivieto'), isEmpty);
     });
 
     test('Pianificazione: data inesistente o fasciaOraria non valida rifiutate', () async {
@@ -697,7 +729,7 @@ void main() {
         where: 'nome = ?',
         whereArgs: ['Torrente'],
       );
-      final spot = await db.query('Spot', where: 'nome = ?', whereArgs: ['Ponte Vecchio']);
+      final spot = await db.query('Spot', where: 'nome = ?', whereArgs: ['Ponte Ruga']);
       expect(spot.first['categoria_nome'], 'Torrente Alpino');
 
       await db.update(
@@ -886,7 +918,7 @@ void main() {
       expect(fotoEsca, isEmpty);
 
       // Eliminazione Spot
-      await db.delete('Spot', where: 'nome = ?', whereArgs: ['Ponte Vecchio']);
+      await db.delete('Spot', where: 'nome = ?', whereArgs: ['Ponte Ruga']);
       expect(await db.query('Coordinata'), isEmpty);
       expect(await db.query('Pianificazione'), isEmpty);
       final pescata = await db.query('Pescata', where: 'id = ?', whereArgs: [ids.pescataId]);

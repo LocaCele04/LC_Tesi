@@ -23,10 +23,13 @@ import 'modulo_spot_screen.dart';
 /// lo mostra e inoltra le modifiche. Le foto e le catture memorabili si
 /// aggiungeranno quando sarà pronto il `FotoService`.
 class RegistraPescataScreen extends ConsumerStatefulWidget {
-  const RegistraPescataScreen({super.key, this.apertura});
+  const RegistraPescataScreen({super.key, this.apertura, this.spotIniziale});
 
   /// Pescata da modificare; `null` per registrarne una nuova.
   final AperturaPescata? apertura;
+
+  /// Spot già scelto per una pescata nuova (es. aperta dalla mappa).
+  final ({String nome, String ambiente})? spotIniziale;
 
   @override
   ConsumerState<RegistraPescataScreen> createState() => _RegistraPescataScreenState();
@@ -34,6 +37,23 @@ class RegistraPescataScreen extends ConsumerStatefulWidget {
 
 class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
   bool _salvataggioInCorso = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final spot = widget.spotIniziale;
+    if (spot != null && widget.apertura == null) {
+      // Dopo il primo disegno: durante la costruzione dei widget non si
+      // può modificare lo stato di un provider.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ref.read(moduloPescataProvider(null).notifier)
+            ..impostaSpot(spot.nome, spot.ambiente)
+            ..fissaComeIniziale();
+        }
+      });
+    }
+  }
 
   Future<void> _salva() async {
     final messaggi = ScaffoldMessenger.of(context);
@@ -61,83 +81,87 @@ class _RegistraPescataScreenState extends ConsumerState<RegistraPescataScreen> {
     final bozza = ref.watch(moduloPescataProvider(widget.apertura));
     final modulo = ref.read(moduloPescataProvider(widget.apertura).notifier);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.apertura == null ? 'Nuova pescata' : 'Modifica pescata'),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-        children: [
-          const SizedBox(height: 8),
-          _SceltaSpot(widget.apertura),
-          const SizedBox(height: 12),
-          _CampoData(widget.apertura),
-          const _Titolo('Fascia oraria'),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: [
-              for (final f in FasciaOraria.values)
-                ChoiceChip(
-                  label: Text(etichettaFascia(f)),
-                  selected: bozza.fasciaOraria == f,
-                  onSelected: (_) => modulo.impostaFascia(f),
-                ),
-            ],
-          ),
-          const _Titolo('Condizioni'),
-          _Condizioni(widget.apertura),
-          const _Titolo('Temperatura dell\'acqua'),
-          TextFormField(
-            initialValue: bozza.tempAcqua,
-            decoration: const InputDecoration(
-              labelText: 'Gradi (°C), facoltativa',
-              helperText: 'L\'aria la ricava il meteo scaricato.',
-              border: OutlineInputBorder(),
+    return UscitaProtetta(
+      modificato: modulo.modificato,
+      messaggio: 'Le modifiche alla pescata andranno perse.',
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.apertura == null ? 'Nuova pescata' : 'Modifica pescata'),
+        ),
+        body: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          children: [
+            const SizedBox(height: 8),
+            _SceltaSpot(widget.apertura),
+            const SizedBox(height: 12),
+            _CampoData(widget.apertura),
+            const _Titolo('Fascia oraria'),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                for (final f in FasciaOraria.values)
+                  ChoiceChip(
+                    label: Text(etichettaFascia(f)),
+                    selected: bozza.fasciaOraria == f,
+                    onSelected: (_) => modulo.impostaFascia(f),
+                  ),
+              ],
             ),
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            onChanged: modulo.impostaTempAcqua,
-          ),
-          const _Titolo('Esche usate'),
-          _Esche(widget.apertura),
-          const _Titolo('Catture'),
-          for (final c in bozza.catture)
-            _SchedaCattura(key: ValueKey(c.chiave), chiave: c.chiave, apertura: widget.apertura),
-          OutlinedButton.icon(
-            onPressed: modulo.aggiungiCattura,
-            icon: const Icon(Icons.add),
-            label: const Text('Aggiungi specie'),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'Totale pescata: ${bozza.totaleCatture} '
-            '${bozza.totaleCatture == 1 ? 'cattura' : 'catture'}',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const _Titolo('Note'),
-          TextFormField(
-            initialValue: bozza.note,
-            decoration: const InputDecoration(
-              labelText: 'Note (facoltative)',
-              border: OutlineInputBorder(),
+            const _Titolo('Condizioni'),
+            _Condizioni(widget.apertura),
+            const _Titolo('Temperatura dell\'acqua'),
+            TextFormField(
+              initialValue: bozza.tempAcqua,
+              decoration: const InputDecoration(
+                labelText: 'Gradi (°C), facoltativa',
+                helperText: 'L\'aria la ricava il meteo scaricato.',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              onChanged: modulo.impostaTempAcqua,
             ),
-            minLines: 3,
-            maxLines: 6,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: modulo.impostaNote,
-          ),
-          const SizedBox(height: 32),
-          FilledButton.icon(
-            onPressed: _salvataggioInCorso ? null : _salva,
-            icon: _salvataggioInCorso
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save),
-            label: const Text('Salva pescata'),
-          ),
-        ],
+            const _Titolo('Esche usate'),
+            _Esche(widget.apertura),
+            const _Titolo('Catture'),
+            for (final c in bozza.catture)
+              _SchedaCattura(key: ValueKey(c.chiave), chiave: c.chiave, apertura: widget.apertura),
+            OutlinedButton.icon(
+              onPressed: modulo.aggiungiCattura,
+              icon: const Icon(Icons.add),
+              label: const Text('Aggiungi specie'),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Totale pescata: ${bozza.totaleCatture} '
+              '${bozza.totaleCatture == 1 ? 'cattura' : 'catture'}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const _Titolo('Note'),
+            TextFormField(
+              initialValue: bozza.note,
+              decoration: const InputDecoration(
+                labelText: 'Note (facoltative)',
+                border: OutlineInputBorder(),
+              ),
+              minLines: 3,
+              maxLines: 6,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: modulo.impostaNote,
+            ),
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              onPressed: _salvataggioInCorso ? null : _salva,
+              icon: _salvataggioInCorso
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save),
+              label: const Text('Salva pescata'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -27,12 +27,12 @@ void main() {
       retry: (tentativo, errore) => null,
     );
     final territorio = container.read(territorioRepositoryProvider);
-    await territorio.inserisciCategoria(const Categoria(nome: 'Brembo di Carona'));
+    await territorio.inserisciCategoria(const Categoria(nome: 'Borgo di Cima'));
     await territorio.salvaSpotConCoordinate(
       const Spot(
-        nome: 'Valsecca',
+        nome: 'Valbrina',
         ambiente: 'Torrente',
-        categoriaNome: 'Brembo di Carona',
+        categoriaNome: 'Borgo di Cima',
         coordinate: [Coordinata(ordine: 0, latitudine: 45.7612, longitudine: 9.6401)],
       ),
     );
@@ -65,18 +65,18 @@ void main() {
       expect(lettura('45,7612; 9,6401'), (45.7612, 9.6401));
       expect(lettura('45,7612, 9,6401'), (45.7612, 9.6401));
       expect(
-        lettura('https://www.google.com/maps/place/x/@45.6672035,9.5875908,732m/data=!3m1!1e3!4m4!3m3!8m2!3d45.667348!4d9.588403'),
-        (45.667348, 9.588403),
+        lettura('https://www.google.com/maps/place/x/@44.1231234,8.7651234,732m/data=!3m1!1e3!4m4!3m3!8m2!3d44.123456!4d8.765432'),
+        (44.123456, 8.765432),
       );
-      expect(lettura('https://www.google.com/maps/@45.8859243,9.5417511,17z'), (45.8859243, 9.5417511));
-      final gms = leggiCoordinata('45°40\'02.5"N 9°35\'18.3"E')!;
-      expect(gms.latitudine, closeTo(45.66736, 0.00001));
-      expect(gms.longitudine, closeTo(9.58842, 0.00001));
+      expect(lettura('https://www.google.com/maps/@44.5551234,8.4441234,17z'), (44.5551234, 8.4441234));
+      final gms = leggiCoordinata('44°07\'24.4"N 8°45\'55.6"E')!;
+      expect(gms.latitudine, closeTo(44.12344, 0.00001));
+      expect(gms.longitudine, closeTo(8.76544, 0.00001));
 
       expect(lettura('ciao'), isNull);
       expect(lettura('45.76'), isNull);
       expect(lettura('95.1, 9.6'), isNull);
-      expect(lettura('https://maps.app.goo.gl/dpYdMzrp6K79cPUT8'), isNull);
+      expect(lettura('https://maps.app.goo.gl/AbCdEfGh1234567'), isNull);
     });
   });
 
@@ -90,19 +90,19 @@ void main() {
         'Scegli l\'ambiente.',
       ]);
 
-      m.impostaNome(' valsecca ');
-      m.impostaCategoria('Brembo di Carona');
+      m.impostaNome(' valbrina ');
+      m.impostaCategoria('Borgo di Cima');
       m.impostaAmbiente('Torrente');
       m.impostaVoto('11');
       m.impostaLunghezza('-3');
       expect(bozza().errori(nomi), [
-        'Esiste già uno spot chiamato "valsecca".',
+        'Esiste già uno spot chiamato "valbrina".',
         'Il voto deve essere un numero tra 0 e 10.',
         'La lunghezza deve essere un numero di metri maggiore di 0.',
       ]);
       await expectLater(m.salva(), throwsA(isA<BozzaNonValida>()));
 
-      m.impostaNome('Valsecca alta');
+      m.impostaNome('Valbrina alta');
       m.impostaVoto('7,5');
       m.impostaLunghezza('800');
       expect(bozza().errori(nomi), isEmpty);
@@ -126,7 +126,7 @@ void main() {
       // Con due punti conta la lunghezza calcolata, non quella scritta
       expect(bozza().lunghezzaCalcolata, greaterThan(0));
       m.impostaNome('Prova');
-      m.impostaCategoria('Brembo di Carona');
+      m.impostaCategoria('Borgo di Cima');
       m.impostaAmbiente('Torrente');
       final spot = bozza().inSpot();
       expect(spot.lunghezzaMetri, isNull);
@@ -142,44 +142,72 @@ void main() {
     });
   });
 
+  group('Modulo spot - Modifiche non salvate', () {
+    test('appena aperto non è modificato; un testo scritto e poi tolto non conta', () {
+      final m = apri();
+      expect(m.modificato, isFalse);
+      m.impostaNote('acqua bassa');
+      expect(m.modificato, isTrue);
+      m.impostaNote('');
+      expect(m.modificato, isFalse);
+    });
+
+    test('modificando uno spot esistente conta anche il tratto', () async {
+      final spot = (await container.read(elencoSpotProvider.future)).single;
+      final m = apri(spot);
+      expect(m.modificato, isFalse);
+
+      m.impostaPunti([
+        ...bozza(spot).coordinate,
+        const Coordinata(ordine: 1, latitudine: 45.7620, longitudine: 9.6410),
+      ]);
+      expect(m.modificato, isTrue);
+      m.rimuoviPunto(bozza(spot).coordinate.length - 1);
+      expect(m.modificato, isFalse);
+
+      m.impostaDifficolta(Difficolta.alta);
+      expect(m.modificato, isTrue);
+    });
+  });
+
   group('Modulo spot - Salvataggio', () {
     test('uno spot nuovo con una categoria nuova si salva con i suoi punti', () async {
       container.listen(categorieProvider, (_, _) {});
       final catalogo = await container.read(categorieProvider.future);
 
       final m = apri();
-      m.impostaNome('Ambriola');
-      final categoria = m.aggiungiCategoriaNuova('  Val Serina ', catalogo);
-      expect(categoria, 'Val Serina');
-      expect(bozza().categoriaNome, 'Val Serina');
-      expect(bozza().nuovaCategoria, 'Val Serina');
+      m.impostaNome('Abetina');
+      final categoria = m.aggiungiCategoriaNuova('  Val Sorbina ', catalogo);
+      expect(categoria, 'Val Sorbina');
+      expect(bozza().categoriaNome, 'Val Sorbina');
+      expect(bozza().nuovaCategoria, 'Val Sorbina');
       // La categoria nasce solo salvando lo spot
       expect(
         (await container.read(territorioRepositoryProvider).getCategorie()).map((c) => c.nome),
-        ['Brembo di Carona'],
+        ['Borgo di Cima'],
       );
       m.impostaAmbiente('Torrente');
       m.impostaAccessibile(false);
       m.impostaNote('  Bella pozza sotto il ponte ');
-      m.aggiungiPunto('45.8888, 9.5521');
-      m.aggiungiPunto('45.8899, 9.5630');
+      m.aggiungiPunto('44.5551, 8.4441');
+      m.aggiungiPunto('44.5562, 8.4452');
       final salvato = await m.salva();
-      expect(salvato.nome, 'Ambriola');
+      expect(salvato.nome, 'Abetina');
 
       expect(
         (await container.read(elencoSpotProvider.future)).map((s) => s.nome),
-        ['Ambriola', 'Valsecca'],
+        ['Abetina', 'Valbrina'],
       );
-      final dettaglio = await container.read(dettaglioSpotProvider('Ambriola').future);
+      final dettaglio = await container.read(dettaglioSpotProvider('Abetina').future);
       expect(dettaglio!.coordinate, hasLength(2));
       expect(dettaglio.lunghezzaMetri, greaterThan(0));
       expect(dettaglio.accessibilita, Accessibilita.inaccessibile);
       expect(dettaglio.note, 'Bella pozza sotto il ponte');
-      expect(dettaglio.categoriaNome, 'Val Serina');
+      expect(dettaglio.categoriaNome, 'Val Sorbina');
       // Dopo il salvataggio la categoria è nel catalogo (e nel provider)
       expect(
         (await container.read(categorieProvider.future)).map((c) => c.nome),
-        containsAll(['Brembo di Carona', 'Val Serina']),
+        containsAll(['Borgo di Cima', 'Val Sorbina']),
       );
     });
 
@@ -188,29 +216,29 @@ void main() {
       final m = apri();
 
       // Corrisponde a una esistente (maiuscole e spazi non contano): nessuna nuova
-      expect(m.aggiungiCategoriaNuova(' brembo DI carona', catalogo), 'Brembo di Carona');
+      expect(m.aggiungiCategoriaNuova(' borgo DI cima', catalogo), 'Borgo di Cima');
       expect(bozza().nuovaCategoria, isNull);
-      expect(m.categoriaScartata('Brembo di Carona'), isNull);
+      expect(m.categoriaScartata('Borgo di Cima'), isNull);
 
       // Una nuova: sceglierne un'altra la scarterebbe, quindi va confermato
-      m.aggiungiCategoriaNuova('Val Serina', catalogo);
-      expect(m.categoriaScartata('Val Serina'), isNull);
-      expect(m.categoriaScartata('Brembo di Carona'), 'Val Serina');
-      m.impostaCategoria('Brembo di Carona');
+      m.aggiungiCategoriaNuova('Val Sorbina', catalogo);
+      expect(m.categoriaScartata('Val Sorbina'), isNull);
+      expect(m.categoriaScartata('Borgo di Cima'), 'Val Sorbina');
+      m.impostaCategoria('Borgo di Cima');
       expect(bozza().nuovaCategoria, isNull);
-      expect(bozza().categoriaNome, 'Brembo di Carona');
+      expect(bozza().categoriaNome, 'Borgo di Cima');
 
       // Un modulo abbandonato non lascia nulla nel catalogo
-      m.aggiungiCategoriaNuova('Val Taleggio', catalogo);
+      m.aggiungiCategoriaNuova('Val Torba', catalogo);
       container.invalidate(moduloSpotProvider(null));
       expect(
         (await container.read(territorioRepositoryProvider).getCategorie()).map((c) => c.nome),
-        ['Brembo di Carona'],
+        ['Borgo di Cima'],
       );
     });
 
     test('rinominare e cambiare ambiente: le condizioni usate si possono collegare', () async {
-      // Una pescata a Valsecca con Livello = Morbida
+      // Una pescata a Valbrina con Livello = Morbida
       final catalogo = container.read(catalogoRepositoryProvider);
       final livello = (await catalogo.getCondizioni(ambienteNome: 'Torrente'))
           .firstWhere((c) => c.nome == 'Livello');
@@ -218,17 +246,17 @@ void main() {
             Pescata(
               data: DateTime(2026, 3, 1),
               fasciaOraria: FasciaOraria.alba,
-              spotNome: 'Valsecca',
+              spotNome: 'Valbrina',
               valoriCondizioni: [livello.valori.firstWhere((v) => v.nome == 'Morbida')],
             ),
           );
 
-      final spot = await container.read(dettaglioSpotProvider('Valsecca').future);
+      final spot = await container.read(dettaglioSpotProvider('Valbrina').future);
       final m = apri(spot);
-      expect(bozza(spot).nome, 'Valsecca');
+      expect(bozza(spot).nome, 'Valbrina');
       expect(await m.condizioniDaCollegare(), isEmpty);
 
-      m.impostaNome('Valsecca alta');
+      m.impostaNome('Valbrina alta');
       m.impostaAmbiente('Lago');
       final daCollegare = await m.condizioniDaCollegare();
       // Il meteo è già previsto per il lago: manca solo il livello
@@ -239,8 +267,8 @@ void main() {
       final delLago = await catalogo.getCondizioni(ambienteNome: 'Lago');
       expect(delLago.map((c) => c.nome), containsAll(['Livello', 'Meteo']));
       final pescate = await container.read(pescateRepositoryProvider).getPescate();
-      expect(pescate.single.spotNome, 'Valsecca alta');
-      final rinominato = await container.read(dettaglioSpotProvider('Valsecca alta').future);
+      expect(pescate.single.spotNome, 'Valbrina alta');
+      final rinominato = await container.read(dettaglioSpotProvider('Valbrina alta').future);
       expect(rinominato!.ambiente, 'Lago');
       expect(rinominato.coordinate.single.latitudine, 45.7612);
       expect(rinominato.battuto, isTrue);
@@ -248,9 +276,9 @@ void main() {
 
     test('eliminare uno spot lo toglie dall\'elenco e lascia le pescate senza spot', () async {
       await container.read(pescateRepositoryProvider).salvaPescata(
-            Pescata(data: DateTime(2026, 3, 1), fasciaOraria: FasciaOraria.alba, spotNome: 'Valsecca'),
+            Pescata(data: DateTime(2026, 3, 1), fasciaOraria: FasciaOraria.alba, spotNome: 'Valbrina'),
           );
-      final spot = await container.read(dettaglioSpotProvider('Valsecca').future);
+      final spot = await container.read(dettaglioSpotProvider('Valbrina').future);
       await apri(spot).elimina();
 
       expect(await container.read(elencoSpotProvider.future), isEmpty);

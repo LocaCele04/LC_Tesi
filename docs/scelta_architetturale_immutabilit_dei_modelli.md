@@ -85,7 +85,7 @@ Quando si desidera modificare una categoria esistente, non si altera l'istanza c
 ```dart
 // 1. Istanza originale letta dal database
 const categoriaOriginale = Categoria(
-  nome: 'Val Taleggio',
+  nome: 'Val Torba',
   note: 'Torrente alpino',
 );
 

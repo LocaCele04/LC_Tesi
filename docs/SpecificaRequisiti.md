@@ -19,12 +19,13 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 ### 1.3 Definizioni, Acronimi e Abbreviazioni
 * **SRS**: Software Requirements Specification (Specifica dei Requisiti Software).
-* **Categoria**: raggruppamento di spot scelto dall'utente, simile a una cartella (es. la valle di appartenenza come *Val Taleggio*, oppure una zona come *Fondovalle*). Ogni spot appartiene a una sola categoria.
+* **Categoria**: raggruppamento di spot scelto dall'utente, simile a una cartella (es. la valle di appartenenza come *Val Torba*, oppure una zona come *Fondopiano*). Ogni spot appartiene a una sola categoria.
 * **Ambiente**: tipologia del corso o specchio d'acqua di uno spot (es. torrente, fiume, lago, mare), definibile dall'utente.
 * **Condizione**: aspetto della pescata che il pescatore vuole registrare, scelto da un elenco di valori (es. *Livello*: secca, magra, normale, morbida, piena; *Meteo*; per il mare *Stato del mare*). Condizioni e valori sono definiti dall'utente; ogni condizione è collegata agli ambienti per cui ha senso.
 * **Valore di condizione**: uno dei valori ammessi di una condizione, con una posizione nella scala della condizione (es. *Morbida* viene dopo *Normale* nel Livello).
 * **Spot**: luogo di pesca identificato da un nome, appartenente a una categoria, caratterizzato da un ambiente e da un tracciato geografico (tratto) che ne delimita l'estensione lungo il corso d'acqua.
-* **Tratto**: sequenza ordinata di coordinate geografiche (polilinea) che rappresenta il percorso fisico di uno spot lungo il torrente, analoga ai tracciati salvati in Google Earth.
+* **Tratto**: sequenza ordinata di coordinate geografiche (polilinea) che rappresenta il percorso fisico di uno spot (o di un divieto) lungo il torrente, analoga ai tracciati salvati in Google Earth.
+* **Divieto**: tratto di corso d'acqua in cui la pesca è vietata (es. a valle di un incubatoio), con un nome ed eventuali note. Non è uno spot: si vede solo sulla mappa, come riferimento durante la scelta e il disegno degli spot.
 * **Pescata**: attività di pesca svolta in un singolo spot in una certa data e fascia oraria, con le condizioni registrate (es. meteo, livello dell'acqua), la temperatura dell'acqua, il riepilogo delle catture, le esche utilizzate, le foto ed eventuali note. Un'uscita in cui si visitano più spot si registra come più pescate, una per spot.
 * **Riepilogo specie**: numero di esemplari di una specie catturati in una pescata, eventualmente suddiviso per caratteristica (es. 12 trote, di cui 3 "over 30"). L'app non registra i singoli pesci catturati ma solo questi totali.
 * **Caratteristica**: aspetto che il pescatore vuole evidenziare per una specie, definito da lui nelle impostazioni (es. un colore, una misura come "over 35", un peso). Ogni caratteristica appartiene a una sola specie.
@@ -45,7 +46,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 ## 2. Descrizione Generale
 
 ### 2.1 Prospettiva del Prodotto
-* Il sistema è un'applicazione mobile autonoma (standalone), priva di un back-end proprio: tutti i dati dell'utente (spot, pescate, catture memorabili, foto, pianificazione) sono persistiti localmente sul dispositivo tramite un database embedded. Le uniche interazioni con servizi esterni di terze parti sono: la lettura di previsioni e dati meteo storici da un servizio meteo pubblico tramite API REST (Open-Meteo) e, solo su richiesta esplicita dell'utente, il caricamento e lo scaricamento di un archivio di backup (file ZIP contenente i dati in JSON e le foto) sul Google Drive dell'utente. In futuro si potrebbe aggiungere un assistente AI per effettuare ricerche sui dati.
+* Il sistema è un'applicazione mobile autonoma (standalone), priva di un back-end proprio: tutti i dati dell'utente (spot, pescate, catture memorabili, foto, pianificazione) sono persistiti localmente sul dispositivo tramite un database embedded. Le uniche interazioni con servizi esterni di terze parti sono: la lettura di previsioni e dati meteo storici da un servizio meteo pubblico tramite API REST (Open-Meteo) e la lettura delle tessere della mappa. Il backup è un archivio ZIP (copia del database e foto) che l'utente salva, solo su sua richiesta esplicita, dove sceglie: nella memoria del telefono o, tramite la finestra di sistema per il salvataggio dei file, sul proprio Google Drive; l'app non comunica direttamente con Google Drive. In futuro si potrebbe aggiungere un assistente AI per effettuare ricerche sui dati.
 
 ### 2.2 Funzionalità Principali del Prodotto
 * Gestione degli spot di pesca, organizzati in categorie, con relativo tracciato geografico (tratto) disegnabile manualmente sulla mappa dell'app.
@@ -58,13 +59,13 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * Pianificazione delle uscite future e degli obiettivi annuali.
 * Consultazione delle previsioni meteo per uno spot, tramite chiamata diretta a un servizio meteo esterno.
 * Archiviazione automatica dei dati meteo storici di ogni pescata (pioggia dei giorni precedenti, temperature, pressione, vento), per le statistiche.
-* Backup e ripristino manuale dei dati su Google Drive.
+* Backup e ripristino manuale di tutti i dati in un file, salvabile anche su Google Drive.
 
 ### 2.3 Caratteristiche degli Utenti
 * **Utente singolo (proprietario dei dati)**: pescatore amatoriale con competenze tecniche informatiche di livello medio-basso; l'utilizzo dell'app avviene esclusivamente al termine della pescata. Non sono previsti ruoli multipli né gestione di permessi differenziati, trattandosi di un'applicazione a singolo utente e a dati esclusivamente personali.
 
 ### 2.4 Vincoli Generali
-* L'applicazione deve funzionare in modalità completamente offline per tutte le funzionalità che non richiedono esplicitamente un dato esterno (consultazione meteo, backup su Google Drive, eventuali ricerche AI); inserimento di pescate, catture memorabili, foto e consultazione dei dati storici devono essere disponibili anche in assenza di connettività.
+* L'applicazione deve funzionare in modalità completamente offline per tutte le funzionalità che non richiedono esplicitamente un dato esterno (consultazione meteo, tessere della mappa non ancora salvate, eventuali ricerche AI; il backup funziona offline, salvo il caricamento su Google Drive che esegue la sua app); inserimento di pescate, catture memorabili, foto e consultazione dei dati storici devono essere disponibili anche in assenza di connettività.
 * Nessun costo ricorrente per servizi esterni: le API e i servizi di terze parti impiegati devono rientrare nei piani gratuiti disponibili, essendo un progetto personale/di tesi senza budget dedicato.
 * Compatibilità cross-platform Android/iOS tramite un'unica base di codice.
 * Occupazione di spazio su disco contenuta nel tempo, anche con uno storico pluriennale di foto e dati (vedi [INT-SW-03] relativo alla compressione immagini).
@@ -73,7 +74,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * Si assume la disponibilità di un servizio meteo pubblico gratuito, consultabile via API REST senza chiave, che fornisca sia previsioni sia dati storici. Il servizio scelto è **Open-Meteo** (piano gratuito per uso non commerciale, 10.000 richieste al giorno, dati con licenza CC BY 4.0 che richiede di citare la fonte nell'app). Il piano gratuito non garantisce la disponibilità: l'app deve tollerare che il servizio non risponda.
 * Si assume la disponibilità di provider di tile mappa gratuiti (es. OpenStreetMap) per la visualizzazione cartografica.
 * Si assume l'uso su dispositivo singolo per utente: non è previsto, nella versione base, un meccanismo di sincronizzazione multi-dispositivo o backup automatico su cloud.
-* Si assume che l'utente disponga di un account Google valido con spazio di archiviazione sufficiente su Google Drive per poter utilizzare la funzionalità facoltativa di backup e ripristino.
+* Per conservare il backup fuori dal telefono si assume che l'utente disponga di uno spazio cloud raggiungibile dalla condivisione di Android (es. l'app Google Drive installata), oppure che copi il file altrove; l'app non richiede un account Google.
 
 ---
 
@@ -99,8 +100,8 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 #### 3.1.4 Interfaccia di Comunicazione
 * **[INT-COM-01]** - *Must have*: L'app deve poter effettuare richieste HTTPS in sola lettura verso un'API meteo pubblica, inviando le coordinate dello spot selezionato e ricevendo le condizioni meteo previste o i dati meteo storici, senza che tale comunicazione richieda un server applicativo proprio.
-* **[INT-COM-02]** - *Won't have*: L'app non prevede, nella versione base, comunicazioni verso un server applicativo proprio né sincronizzazione automatica o continua dei dati verso servizi cloud. L'unico trasferimento di dati personali verso il cloud è il backup manuale descritto in [INT-COM-03].
-* **[INT-COM-03]** - *Should have*: L'app dovrebbe poter comunicare tramite HTTPS con le API REST di Google Drive (previo flusso di autenticazione OAuth 2.0) per il caricamento dell'archivio ZIP di backup e il suo download in fase di ripristino.
+* **[INT-COM-02]** - *Won't have*: L'app non prevede, nella versione base, comunicazioni verso un server applicativo proprio né sincronizzazione automatica o continua dei dati verso servizi cloud. L'unico trasferimento di dati personali verso il cloud è il backup manuale, quando l'utente sceglie di salvarlo su un servizio cloud (vedi [INT-COM-03]).
+* **[INT-COM-03]** - *Won't have*: L'app non comunica direttamente con le API di Google Drive. Il file di backup si consegna con la condivisione di Android (tra le destinazioni c'è "Salva su Drive" quando l'app Google Drive è installata) e si sceglie per il ripristino con la finestra di sistema (Storage Access Framework), che mostra anche le cartelle di Google Drive: il caricamento e il download li esegue l'app Google Drive. Così l'app non gestisce account, autorizzazioni OAuth 2.0 e credenziali (vedi `scelta_architetturale_backup_e_ripristino.md`).
 
 #### 3.1.5 Requisiti di Prestazione
 * **[REQ-PERF-01]** - *Should have*: Il caricamento della schermata mappa, con l'intero insieme di tratti dell'utente visualizzati, dovrebbe completarsi in meno di 2 secondi su dispositivo di fascia media, per uno storico fino a qualche centinaio di spot.
@@ -115,7 +116,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * **[REQ-FUN-01]** - *Must have*
   * **Descrizione**: Il sistema deve permettere la creazione di un nuovo spot disegnando manualmente il relativo tratto sulla mappa.
   * **Input**: Sequenza di punti selezionati dall'utente sulla mappa (punto di partenza, punti intermedi, punto di arrivo); nome, categoria e ambiente assegnati allo spot al termine del disegno.
-  * **Elaborazione**: Validazione che il tratto contenga almeno due punti e che nome, categoria e ambiente siano stati indicati prima del salvataggio; calcolo automatico della lunghezza del tratto in metri.
+  * **Elaborazione**: Validazione che nome, categoria e ambiente siano stati indicati prima del salvataggio; calcolo automatico della lunghezza del tratto in metri quando ha almeno due punti. Uno spot con un solo punto (es. una pozza) è ammesso e compare sulla mappa come segnaposto; i punti si possono spostare, inserire tra due esistenti ed eliminare, con la possibilità di annullare.
   * **Output / Risposta**: Nuovo spot salvato e visualizzato sulla mappa; messaggio di conferma del salvataggio.
 
 * **[REQ-FUN-02]** - *Should have*
@@ -124,9 +125,18 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Output**: Scheda dello spot aggiornata con i nuovi valori; la rinomina dello spot si propaga a pescate, pianificazioni e coordinate collegate.
 
 * **[REQ-FUN-03]** - *Could have*
-  * **Descrizione**: Il sistema potrebbe permettere di visualizzare la mappa con diverse viste (es. colore dei tratti in base all'ambiente oppure al voto assegnato).
-  * **Input**: Selezione del tipo di vista.
-  * **Output**: Modifica dei colori dei tratti sulla mappa.
+  * **Descrizione**: Il sistema potrebbe permettere di visualizzare la mappa con diverse viste: colore dei tratti in base allo stato (spot in cui si è pescato o mai visitati), al voto, all'ambiente, alla categoria, alla difficoltà o all'accessibilità, e di filtrare gli spot mostrati.
+  * **Input**: Selezione del tipo di vista e dei filtri (stato, ambienti, categorie, visibilità dei divieti).
+  * **Output**: Modifica dei colori dei tratti sulla mappa e legenda dei soli valori presenti; i colori di ambienti e categorie restano gli stessi quando se ne aggiungono di nuovi.
+
+* **[REQ-FUN-18]** - *Should have*
+  * **Descrizione**: Il sistema dovrebbe permettere di registrare, modificare ed eliminare i divieti, disegnandone il tratto sulla mappa come per gli spot, e di visualizzarli sulla mappa in modo riconoscibile e indipendente dalla colorazione scelta per gli spot.
+  * **Input**: Nome del divieto, note facoltative, sequenza di punti selezionati sulla mappa.
+  * **Elaborazione**: Validazione che il nome non sia vuoto e che il tratto contenga almeno un punto. Più divieti possono avere lo stesso nome. I divieti non compaiono tra gli spot, nelle pescate e nelle statistiche.
+  * **Output**: Divieto salvato e visualizzato sulla mappa; eliminandolo spariscono anche i suoi punti.
+
+* **[REQ-FUN-19]** - *Strumento di sviluppo (non nella versione distribuita)*
+  * L'import nell'app dei dati raccolti prima del suo utilizzo (storico personale) è uno strumento di migrazione dei dati per lo sviluppatore: legge un file JSON preparato a partire dallo storico (formato `diario-pesca-import`), lo controlla e ne importa spot, divieti e pescate solo in un diario vuoto. La voce *Importa dati* compare solo nell'app avviata in modalità debug (`flutter run`) e non nella versione distribuita: gli altri utenti non hanno uno storico in quel formato e trasferiscono i dati con il backup ([REQ-FUN-14], [REQ-FUN-15]). Resta come rete di sicurezza finché il backup non è stato usato a lungo; il file dello storico contiene dati personali e non entra nel repository.
 
 * **[REQ-FUN-04]** - *Should have*
   * **Descrizione**: Il sistema dovrebbe permettere all'utente di creare, rinominare ed eliminare categorie, che funzionano come cartelle per gli spot (es. le valli minori come *Val Stabina*, oppure zone come *Basso Brembo*).
@@ -208,16 +218,16 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 #### 3.2.5 Backup e Ripristino Dati
 
 * **[REQ-FUN-14]** - *Should have*
-  * **Descrizione**: Il sistema dovrebbe consentire l'esportazione manuale di tutti i dati registrati nell'applicazione (spot, pescate, catture memorabili, esche, specie, caratteristiche, obiettivi, pianificazione) e di tutte le foto in un unico archivio ZIP, salvato sullo spazio Google Drive dell'utente.
-  * **Input**: Comando di avvio backup da parte dell'utente e autenticazione tramite il proprio account Google.
-  * **Elaborazione**: Verifica della connettività di rete e autenticazione tramite OAuth; lettura dei record dal database locale e serializzazione in un file JSON strutturato, contenente la versione dello schema e i percorsi relativi delle foto; creazione di un archivio ZIP con il file JSON e la cartella delle foto e delle anteprime; caricamento dell'archivio in una cartella dedicata su Google Drive.
-  * **Output / Risposta**: Archivio ZIP di backup salvato su Google Drive e messaggio di conferma a schermo con data e ora dell'avvenuto salvataggio.
+  * **Descrizione**: Il sistema dovrebbe consentire l'esportazione manuale di tutti i dati registrati nell'applicazione (spot, divieti, pescate, catture memorabili, meteo scaricato, esche, specie, caratteristiche, obiettivi, pianificazione) e di tutte le foto in un unico archivio ZIP, salvato dove l'utente sceglie (memoria del telefono o Google Drive).
+  * **Input**: Comando di avvio backup e scelta della destinazione nella condivisione di Android (es. "Salva su Drive", app File, email).
+  * **Elaborazione**: Copia coerente del database SQLite con `VACUUM INTO` (o copia del file sui telefoni con SQLite precedente alla 3.27); creazione di un archivio ZIP con un manifesto (formato, versione del formato, data di creazione, versione dello schema), la copia del database e la cartella delle foto con i percorsi relativi registrati nel database. Non serve la rete: se l'utente sceglie Google Drive, il caricamento lo esegue l'app Google Drive.
+  * **Output / Risposta**: File di backup salvato, con nome che riporta data e ora (es. `diario_pesca_backup_2026-11-24_1050.zip`), e messaggio di conferma a schermo con data e ora del salvataggio.
 
 * **[REQ-FUN-15]** - *Should have*
-  * **Descrizione**: Il sistema dovrebbe consentire il ripristino dei dati dell'applicazione a partire da un archivio ZIP di backup precedentemente salvato su Google Drive, anche su un dispositivo diverso da quello di origine.
-  * **Input**: Comando di ripristino dati, autenticazione dell'account Google e selezione dell'archivio di backup desiderato.
-  * **Elaborazione**: Download ed estrazione dell'archivio; verifica della validità dello schema dei dati e della versione del backup; richiesta di conferma all'utente in caso di sovrascrittura del database locale esistente; ripopolamento delle tabelle del database locale e copia delle foto nella cartella dell'app, così che i percorsi relativi registrati tornino validi.
-  * **Output / Risposta**: Database locale e foto ripristinati e messaggio a schermo di conferma del completamento del ripristino.
+  * **Descrizione**: Il sistema dovrebbe consentire il ripristino di tutti i dati dell'applicazione a partire da un archivio ZIP di backup ([REQ-FUN-14]), anche su un dispositivo diverso da quello di origine e anche se creato da una versione precedente dell'app.
+  * **Input**: Comando di ripristino, scelta del file di backup nella finestra di sistema (memoria del telefono o Google Drive) e conferma della sostituzione dei dati.
+  * **Elaborazione**: Controllo del file prima di toccare i dati: archivio ZIP con manifesto e database, formato riconosciuto, versione del formato e dello schema non più recenti dell'app, integrità del database (`PRAGMA integrity_check`), percorsi delle foto interni alla loro cartella. Riepilogo del contenuto (data del backup, numero di spot, divieti, pescate e catture) e richiesta di conferma. Sostituzione del file del database e apertura con le migrazioni (vedi `scelta_architetturale_migrazioni_del_database.md`) se il backup viene da una versione precedente; se l'apertura fallisce, il database precedente torna al suo posto. Sostituzione della cartella delle foto, così che i percorsi relativi registrati tornino validi.
+  * **Output / Risposta**: Dati e foto ripristinati e messaggio di conferma; in caso di file non valido, il motivo in parole; in caso di errore durante il ripristino, la conferma che i dati sono rimasti quelli di prima.
 
 ---
 
@@ -259,6 +269,6 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 ### 3.4 Attributi di Qualità del Sistema (Requisiti Non Funzionali)
 
-* **Sicurezza (Security)**: I dati dell'utente risiedono in locale sul dispositivo e non sono trasmessi a server dello sviluppatore o di terze parti. Le richieste meteo (previsioni e dati storici) trasmettono solo coordinate e date, senza dati identificativi. Gli unici dati personali che lasciano il dispositivo sono quelli contenuti nell'archivio di backup, caricato solo su comando esplicito dell'utente sul suo Google Drive personale, tramite connessione HTTPS e autenticazione OAuth 2.0.
-* **Affidabilità e Disponibilità**: Non essendo prevista alcuna componente server-side, non si applicano requisiti di uptime; l'affidabilità è demandata all'integrità del database locale, garantita da vincoli e transazioni, e al backup manuale su Google Drive (dati e foto), a discrezione dell'utente.
+* **Sicurezza (Security)**: I dati dell'utente risiedono in locale sul dispositivo e non sono trasmessi a server dello sviluppatore o di terze parti. Le richieste meteo (previsioni e dati storici) trasmettono solo coordinate e date, senza dati identificativi. Gli unici dati personali che possono lasciare il dispositivo sono quelli contenuti nel file di backup, creato solo su comando esplicito dell'utente e salvato dove l'utente sceglie (per esempio il suo Google Drive, tramite l'app Google Drive): l'app non conosce né conserva credenziali.
+* **Affidabilità e Disponibilità**: Non essendo prevista alcuna componente server-side, non si applicano requisiti di uptime; l'affidabilità è demandata all'integrità del database locale, garantita da vincoli e transazioni, e al backup manuale di dati e foto in un file, salvabile anche su Google Drive, a discrezione dell'utente.
 * **Manutenibilità e Portabilità**: Il codice deve essere organizzato in moduli disaccoppiati (territorio e spot, pescate, catalogo di specie ed esche, obiettivi, statistiche, foto, meteo, backup; vedi `struttura_del_progetto_diario_di_pesca.md`), per permettere l'estensione futura del sistema (es. eventuale sincronizzazione multi-dispositivo) senza richiedere una riscrittura delle componenti esistenti. L'uso di Flutter garantisce la portabilità del client su Android e iOS a partire da un'unica base di codice.

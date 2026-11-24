@@ -9,9 +9,9 @@ class Categoria {
   });
 
   // Crea una copia modificando solo i campi passati (sostituisce i setter)
-  /**C'è un solo caso in cui copyWith può trarre in inganno: svuotare un campo facoltativo (riportare a null).
-   Se scrivi categoria.copyWith(note: null), l'operatore ?? dentro note ?? this.note interpreta null come "non passato" e mantiene la vecchia nota. 
-   Nei form di salvataggio conviene quindi istanziare direttamente il costruttore completo**/
+  /// C'è un solo caso in cui copyWith può trarre in inganno: svuotare un campo facoltativo (riportare a null).
+  /// Se scrivi categoria.copyWith(note: null), l'operatore ?? dentro note ?? this.note interpreta null come "non passato" e mantiene la vecchia nota.
+  /// Nei form di salvataggio conviene quindi istanziare direttamente il costruttore completo
   Categoria copyWith({
     String? nome,
     String? note,

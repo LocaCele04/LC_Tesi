@@ -7,7 +7,10 @@ import '../../repositories/meteo_repository.dart';
 import '../../repositories/obiettivi_repository.dart';
 import '../../repositories/pescate_repository.dart';
 import '../../repositories/territorio_repository.dart';
+import '../../services/backup_service.dart';
+import '../../services/import_service.dart';
 import '../../services/meteo_service.dart';
+import '../../services/posizione_service.dart';
 import '../../services/statistiche_service.dart';
 
 // Provider delle dipendenze: rendono disponibili all'interfaccia il
@@ -76,3 +79,23 @@ final meteoServiceProvider = Provider<MeteoService>((ref) {
   ref.onDispose(servizio.chiudi);
   return servizio;
 });
+
+/// Posizione del telefono (GPS). Nei test si sostituisce con una finta.
+final posizioneServiceProvider = Provider<PosizioneService>(
+  (ref) => const PosizioneService(),
+);
+
+/// Backup e ripristino di tutti i dati.
+final backupServiceProvider = Provider<BackupService>(
+  (ref) => BackupService(dbHelper: ref.watch(databaseHelperProvider)),
+);
+
+/// Import dello storico da un file JSON. Strumento di migrazione dei dati
+/// per lo sviluppatrice: la voce di menu compare solo in modalità debug.
+final importServiceProvider = Provider<ImportService>(
+  (ref) => ImportService(
+    territorio: ref.watch(territorioRepositoryProvider),
+    catalogo: ref.watch(catalogoRepositoryProvider),
+    pescate: ref.watch(pescateRepositoryProvider),
+  ),
+);

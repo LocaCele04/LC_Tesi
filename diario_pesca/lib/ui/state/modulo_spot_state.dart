@@ -81,6 +81,23 @@ class BozzaSpot {
 
   bool get isNuovo => nomeOriginale == null;
 
+  /// Riassunto di tutto ciò che il salvataggio scriverebbe: due bozze con la
+  /// stessa firma salvano lo stesso spot. Serve a capire se l'utente ha
+  /// modificato qualcosa (un testo scritto e poi cancellato non conta).
+  String get firma => [
+        nome.trim(),
+        ambiente ?? '',
+        categoriaNome ?? '',
+        difficolta?.name ?? '',
+        accessibilita.name,
+        voto.trim(),
+        coordinate.length < 2 ? lunghezza.trim() : '',
+        noteOstacoli.trim(),
+        note.trim(),
+        linkParcheggio.trim(),
+        for (final c in coordinate) '${c.latitudine},${c.longitudine}',
+      ].join('\u0001');
+
   /// `true` se si sta modificando uno spot e il suo ambiente è cambiato.
   bool get ambienteCambiato =>
       !isNuovo &&
@@ -257,9 +274,19 @@ class ModuloSpotNotifier extends Notifier<BozzaSpot> {
 
   final Spot? spotIniziale;
 
+  /// Firma della bozza all'apertura, per sapere se ci sono modifiche.
+  String _firmaIniziale = '';
+
   @override
-  BozzaSpot build() =>
-      spotIniziale == null ? const BozzaSpot() : BozzaSpot.da(spotIniziale!);
+  BozzaSpot build() {
+    final bozza = spotIniziale == null ? const BozzaSpot() : BozzaSpot.da(spotIniziale!);
+    _firmaIniziale = bozza.firma;
+    return bozza;
+  }
+
+  /// `true` se la bozza è diversa da com'era all'apertura: uscendo senza
+  /// salvare le modifiche andrebbero perse.
+  bool get modificato => state.firma != _firmaIniziale;
 
   void impostaNome(String testo) => state = state.copyWith(nome: testo);
   void impostaAmbiente(String ambiente) => state = state.copyWith(ambiente: ambiente);
@@ -315,6 +342,14 @@ class ModuloSpotNotifier extends Notifier<BozzaSpot> {
     if (punto == null) return false;
     state = state.copyWith(coordinate: [...state.coordinate, punto]);
     return true;
+  }
+
+  /// Sostituisce tutti i punti del tratto (es. con quelli disegnati sulla
+  /// mappa).
+  void impostaPunti(List<Coordinata> punti) {
+    state = state.copyWith(coordinate: [
+      for (var i = 0; i < punti.length; i++) punti[i].copyWith(ordine: i),
+    ]);
   }
 
   void rimuoviPunto(int indice) {

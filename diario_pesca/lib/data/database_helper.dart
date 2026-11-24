@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -11,34 +13,46 @@ class DatabaseHelper {
   static const String _nomeFile = 'diario_pesca.db';
 
   final bool _inMemory;
+  final String? _percorso;
   Database? _database;
 
-  DatabaseHelper._init() : _inMemory = false;
+  DatabaseHelper._init()
+      : _inMemory = false,
+        _percorso = null;
 
   /// Istanza isolata in RAM per i test automatici.
-  DatabaseHelper.inMemory() : _inMemory = true;
+  DatabaseHelper.inMemory()
+      : _inMemory = true,
+        _percorso = null;
+
+  /// Istanza su un file scelto, per i test che devono chiudere e riaprire
+  /// il database (backup e ripristino).
+  DatabaseHelper.file(String percorso)
+      : _inMemory = false,
+        _percorso = percorso;
 
   /// Istanza che avvolge un Database già aperto dall'esterno.
   DatabaseHelper.fromDatabase(Database db)
       : _inMemory = true,
+        _percorso = null,
         _database = db;
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB(_nomeFile);
+    _database = await _initDB();
     return _database!;
   }
 
-  Future<Database> _initDB(String filePath) async {
+  Future<Database> _initDB() async {
     if (_inMemory) return apri(inMemoryDatabasePath, singleInstance: false);
-    return apri(join(await getDatabasesPath(), filePath));
+    return apri(await percorsoFile());
   }
 
   /// Versione attuale dello schema. Va alzata di 1 a ogni modifica di
   /// [onCreate], aggiungendo in `migrazioni.dart` il passaggio che porta un
   /// database della versione precedente a quella nuova (vedi
   /// `docs/scelta_architetturale_migrazioni_del_database.md`).
-  static const int versioneSchema = 1;
+  static const int versioneSchema = 2;
 
   /// Apre (o crea) il database in [percorso] e lo porta alla [versione]:
   /// un database nuovo viene creato da [onCreate], uno di una versione
@@ -251,6 +265,31 @@ class DatabaseHelper {
         longitudine REAL NOT NULL,
         PRIMARY KEY (spot_nome, ordine),
         FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE CASCADE ON UPDATE CASCADE,
+        CHECK (ordine >= 0),
+        CHECK (latitudine BETWEEN -90 AND 90),
+        CHECK (longitudine BETWEEN -180 AND 180)
+      );
+    ''');
+
+    // 3-bis. Divieto: tratto in cui non si può pescare. Non è uno spot: si
+    // vede solo sulla mappa. Chiave `id` perché più divieti possono avere
+    // lo stesso nome (es. "Divieto").
+    await db.execute('''
+      CREATE TABLE Divieto (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome TEXT NOT NULL,
+        note TEXT,
+        CHECK (length(trim(nome)) > 0)
+      );
+    ''');
+    await db.execute('''
+      CREATE TABLE CoordinataDivieto (
+        divieto_id INTEGER NOT NULL,
+        ordine INTEGER NOT NULL,
+        latitudine REAL NOT NULL,
+        longitudine REAL NOT NULL,
+        PRIMARY KEY (divieto_id, ordine),
+        FOREIGN KEY (divieto_id) REFERENCES Divieto (id) ON DELETE CASCADE,
         CHECK (ordine >= 0),
         CHECK (latitudine BETWEEN -90 AND 90),
         CHECK (longitudine BETWEEN -180 AND 180)
@@ -572,14 +611,62 @@ class DatabaseHelper {
     }
   }
 
+  /// Percorso del file del database sul dispositivo. Un database in memoria
+  /// non ha un file: in quel caso lancia [UnsupportedError].
+  Future<String> percorsoFile() async {
+    if (_inMemory) {
+      throw UnsupportedError('Il database in memoria non ha un file.');
+    }
+    return _percorso ?? join(await getDatabasesPath(), _nomeFile);
+  }
+
+  /// Sostituisce il database con il file in [percorsoNuovo] (il database
+  /// estratto da un backup) e lo apre, applicando le migrazioni se viene da
+  /// una versione precedente dello schema.
+  ///
+  /// Il file attuale viene prima messo da parte: se il nuovo non si apre o
+  /// una migrazione fallisce, torna al suo posto e l'errore viene rilanciato,
+  /// così un ripristino non riuscito non fa perdere i dati.
+  Future<void> sostituisciCon(String percorsoNuovo) async {
+    final percorso = await percorsoFile();
+    await close();
+
+    final attuale = File(percorso);
+    final messoDaParte = File('$percorso.prima_del_ripristino');
+    if (await messoDaParte.exists()) await messoDaParte.delete();
+    if (await attuale.exists()) await attuale.rename(messoDaParte.path);
+    await _eliminaFileAccessori(percorso);
+
+    try {
+      await File(percorsoNuovo).copy(percorso);
+      await database;
+    } catch (_) {
+      await close();
+      await _eliminaFileAccessori(percorso);
+      if (await attuale.exists()) await attuale.delete();
+      if (await messoDaParte.exists()) await messoDaParte.rename(percorso);
+      rethrow;
+    }
+    if (await messoDaParte.exists()) await messoDaParte.delete();
+  }
+
+  /// File che SQLite affianca al database (journal e WAL): dopo una
+  /// chiusura regolare non contengono nulla che manchi al database, e non
+  /// devono restare accanto a un file diverso da quello che li ha creati.
+  static Future<void> _eliminaFileAccessori(String percorso) async {
+    for (final suffisso in const ['-journal', '-wal', '-shm']) {
+      final file = File('$percorso$suffisso');
+      if (await file.exists()) await file.delete();
+    }
+  }
+
   /// SOLO SVILUPPO: cancella il file del database, così alla prossima
   /// apertura viene ricreato da zero. Con le migrazioni non serve più per
   /// aggiornare lo schema.
   Future<void> resetPerSviluppo() async {
     await close();
     if (!_inMemory) {
-      final path = join(await getDatabasesPath(), _nomeFile);
-      await deleteDatabase(path);
+      await deleteDatabase(await percorsoFile());
     }
   }
 }

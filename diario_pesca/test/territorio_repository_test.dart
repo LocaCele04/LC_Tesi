@@ -3,6 +3,7 @@ import 'package:diario_pesca/models/enums.dart';
 import 'package:diario_pesca/models/territorio/ambiente.dart';
 import 'package:diario_pesca/models/territorio/categoria.dart';
 import 'package:diario_pesca/models/territorio/coordinata.dart';
+import 'package:diario_pesca/models/territorio/divieto.dart';
 import 'package:diario_pesca/models/territorio/spot.dart';
 import 'package:diario_pesca/repositories/territorio_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -92,7 +93,7 @@ void main() {
       await repo.inserisciCategoria(const Categoria(nome: 'Torrente'));
       await repo.salvaSpotConCoordinate(
         const Spot(
-          nome: 'Ponte Vecchio',
+          nome: 'Ponte Ruga',
           ambiente: 'Torrente',
           categoriaNome: 'Torrente',
         ),
@@ -108,7 +109,7 @@ void main() {
 
       final spotAggiornati = await repo.getSpots(categoriaNome: 'Torrente Alpino');
       expect(spotAggiornati.length, 1);
-      expect(spotAggiornati.first.nome, 'Ponte Vecchio');
+      expect(spotAggiornati.first.nome, 'Ponte Ruga');
     });
 
     test('eliminaCategoria viene bloccata se usata da uno spot (ON DELETE RESTRICT) e spostaSpot la libera', () async {
@@ -116,7 +117,7 @@ void main() {
       await repo.inserisciCategoria(const Categoria(nome: 'Fiume'));
       await repo.salvaSpotConCoordinate(
         const Spot(
-          nome: 'Ponte Vecchio',
+          nome: 'Ponte Ruga',
           ambiente: 'Torrente',
           categoriaNome: 'Torrente',
         ),
@@ -143,26 +144,26 @@ void main() {
       await repo.inserisciCategoria(const Categoria(nome: 'Torrente'));
       await repo.salvaSpotConCoordinate(
         const Spot(
-          nome: 'Ponte Vecchio',
+          nome: 'Ponte Ruga',
           ambiente: 'Torrente',
           voto: 9,
           difficolta: Difficolta.media,
           battuto: true,
           coordinate: [
             Coordinata(
-              spotNome: 'Ponte Vecchio',
+              spotNome: 'Ponte Ruga',
               ordine: 0,
               latitudine: 45.6495,
               longitudine: 9.6012,
             ),
             Coordinata(
-              spotNome: 'Ponte Vecchio',
+              spotNome: 'Ponte Ruga',
               ordine: 1,
               latitudine: 45.6510,
               longitudine: 9.6030,
             ),
             Coordinata(
-              spotNome: 'Ponte Vecchio',
+              spotNome: 'Ponte Ruga',
               ordine: 2,
               latitudine: 45.6525,
               longitudine: 9.6045,
@@ -172,7 +173,7 @@ void main() {
         ),
       );
 
-      final spot = await repo.getSpotConCoordinate('Ponte Vecchio');
+      final spot = await repo.getSpotConCoordinate('Ponte Ruga');
 
       expect(spot, isNotNull);
       expect(spot!.coordinate.length, 3);
@@ -274,11 +275,11 @@ void main() {
     test('eliminaSpot rimuove lo spot e libera la categoria', () async {
       await repo.inserisciCategoria(const Categoria(nome: 'Lago'));
       await repo.salvaSpotConCoordinate(
-        const Spot(nome: 'Lago Nero', ambiente: 'Lago', categoriaNome: 'Lago'),
+        const Spot(nome: 'Lago Smeraldo', ambiente: 'Lago', categoriaNome: 'Lago'),
       );
 
-      await repo.eliminaSpot('Lago Nero');
-      expect(await repo.getSpotConCoordinate('Lago Nero'), isNull);
+      await repo.eliminaSpot('Lago Smeraldo');
+      expect(await repo.getSpotConCoordinate('Lago Smeraldo'), isNull);
 
       await repo.eliminaCategoria('Lago');
       expect(await repo.getCategorie(), isEmpty);
@@ -290,7 +291,7 @@ void main() {
       final db = await dbHelper.database;
       await repo.inserisciCategoria(const Categoria(nome: 'Valle'));
       await repo.salvaSpotConCoordinate(
-        const Spot(nome: 'Valsecca', ambiente: 'Torrente', categoriaNome: 'Valle'),
+        const Spot(nome: 'Valbrina', ambiente: 'Torrente', categoriaNome: 'Valle'),
       );
 
       Future<Map<String, Object?>> valore(String condizione, String nome) async {
@@ -305,7 +306,7 @@ void main() {
       final pescataId = await db.insert('Pescata', {
         'data': '2026-11-10',
         'fasciaOraria': 'alba',
-        'spot_nome': 'Valsecca',
+        'spot_nome': 'Valbrina',
       });
       for (final v in [await valore('Livello', 'Magra'), await valore('Meteo', 'Sereno')]) {
         await db.insert('Pescata_Condizione', {
@@ -317,24 +318,87 @@ void main() {
 
       // Il Lago prevede solo il Meteo: il Livello resterebbe "non previsto"
       final perLago = await repo.getCondizioniNonPreviste(
-        spotNome: 'Valsecca',
+        spotNome: 'Valbrina',
         ambienteNome: 'Lago',
       );
       expect(perLago.map((c) => c.nome), ['Livello']);
 
       // Il Fiume prevede entrambe le condizioni usate
       expect(
-        await repo.getCondizioniNonPreviste(spotNome: 'Valsecca', ambienteNome: 'Fiume'),
+        await repo.getCondizioniNonPreviste(spotNome: 'Valbrina', ambienteNome: 'Fiume'),
         isEmpty,
       );
 
       // Cambiare l'ambiente non tocca i valori già salvati
-      final spot = await repo.getSpotConCoordinate('Valsecca');
+      final spot = await repo.getSpotConCoordinate('Valbrina');
       await repo.salvaSpotConCoordinate(
         spot!.copyWith(ambiente: 'Lago'),
-        nomeOriginale: 'Valsecca',
+        nomeOriginale: 'Valbrina',
       );
       expect(await db.query('Pescata_Condizione'), hasLength(2));
+    });
+  });
+
+  group('TerritorioRepository - Divieti', () {
+    const p1 = Coordinata(ordine: 7, latitudine: 46.01, longitudine: 9.70);
+    const p2 = Coordinata(ordine: 3, latitudine: 46.02, longitudine: 9.71);
+    const p3 = Coordinata(ordine: 0, latitudine: 46.03, longitudine: 9.72);
+
+    test('salvaDivieto assegna l\'id, numera i punti nell\'ordine della lista e pulisce nome e note', () async {
+      final salvato = await repo.salvaDivieto(
+        const Divieto(nome: '  Divieto vasca ', note: '   ', coordinate: [p1, p2]),
+      );
+      expect(salvato.id, isNotNull);
+      expect(salvato.nome, 'Divieto vasca');
+      expect(salvato.note, isNull);
+      expect(salvato.coordinate.map((c) => c.ordine), [0, 1]);
+
+      final letto = await repo.getDivieto(salvato.id!);
+      expect(letto, salvato);
+      expect(letto!.coordinate.map((c) => c.latitudine), [46.01, 46.02]);
+      // Un divieto non è uno spot
+      expect(await repo.getSpots(), isEmpty);
+      expect(await repo.getTutteLeCoordinate(), isEmpty);
+    });
+
+    test('aggiornare un divieto sostituisce nome, note e tutti i punti', () async {
+      final salvato = await repo.salvaDivieto(const Divieto(nome: 'Divieto', coordinate: [p1, p2]));
+      final aggiornato = await repo.salvaDivieto(
+        salvato.copyWith(nome: 'Divieto per piene', note: 'Fino al ponte', coordinate: [p3]),
+      );
+      expect(aggiornato.id, salvato.id);
+
+      final letto = await repo.getDivieto(salvato.id!);
+      expect(letto!.nome, 'Divieto per piene');
+      expect(letto.note, 'Fino al ponte');
+      expect(letto.coordinate, [p3.copyWith(ordine: 0)]);
+    });
+
+    test('getDivieti restituisce tutti i divieti con i loro punti, anche con lo stesso nome', () async {
+      final a = await repo.salvaDivieto(const Divieto(nome: 'Divieto', coordinate: [p1, p2]));
+      final b = await repo.salvaDivieto(const Divieto(nome: 'divieto', coordinate: [p3]));
+      final c = await repo.salvaDivieto(const Divieto(nome: 'Ansa', coordinate: [p2, p3]));
+
+      final divieti = await repo.getDivieti();
+      // Per nome senza distinzione di maiuscole, poi per id
+      expect(divieti.map((d) => d.id), [c.id, a.id, b.id]);
+      expect(divieti.map((d) => d.coordinate.length), [2, 2, 1]);
+      expect(divieti[1].coordinate.first.latitudine, 46.01);
+    });
+
+    test('un divieto senza punti o inesistente viene rifiutato, eliminarlo toglie anche i punti', () async {
+      expect(() => repo.salvaDivieto(const Divieto(nome: 'Vuoto')), throwsArgumentError);
+      expect(
+        () => repo.salvaDivieto(const Divieto(id: 999, nome: 'Fantasma', coordinate: [p1])),
+        throwsArgumentError,
+      );
+      expect(await repo.getDivieti(), isEmpty);
+
+      final salvato = await repo.salvaDivieto(const Divieto(nome: 'Divieto', coordinate: [p1, p2]));
+      await repo.eliminaDivieto(salvato.id!);
+      expect(await repo.getDivieto(salvato.id!), isNull);
+      final db = await dbHelper.database;
+      expect(await db.query('CoordinataDivieto'), isEmpty);
     });
   });
 }

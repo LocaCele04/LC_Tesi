@@ -1,0 +1,8 @@
+# Dati personali (storico delle pescate, spot, file di Google Earth):
+# non devono mai finire nel repository.
+*.kml
+*.kmz
+import/
+storico*.json
+storico*.csv
+*backup*.zip

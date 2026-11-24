@@ -32,7 +32,7 @@ void main() {
     testWidgets('mostra le pescate per mese con spot, totale e meteo mancante', (tester) async {
       await tester.pumpWidget(_app(
         [
-          Pescata(id: 3, data: DateTime(2026, 11, 14), fasciaOraria: FasciaOraria.alba, spotNome: 'Valsecca'),
+          Pescata(id: 3, data: DateTime(2026, 11, 14), fasciaOraria: FasciaOraria.alba, spotNome: 'Valbrina'),
           Pescata(id: 2, data: DateTime(2026, 11, 7), fasciaOraria: FasciaOraria.sera, spotNome: 'Piazza3'),
           Pescata(id: 1, data: DateTime(2026, 10, 4), fasciaOraria: FasciaOraria.mattina),
         ],
@@ -44,7 +44,7 @@ void main() {
       expect(find.text('Novembre 2026'), findsOneWidget);
       expect(find.text('Ottobre 2026'), findsOneWidget);
       expect(find.text('sabato 14/11/2026 · Alba'), findsOneWidget);
-      expect(find.text('Valsecca'), findsOneWidget);
+      expect(find.text('Valbrina'), findsOneWidget);
       expect(find.text('Spot eliminato'), findsOneWidget);
       expect(find.text('7'), findsOneWidget);
       expect(find.text('catture'), findsNWidgets(2)); // 7 e 0
