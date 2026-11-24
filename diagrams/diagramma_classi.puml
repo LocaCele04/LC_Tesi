@@ -1,0 +1,341 @@
+@startuml Diagramma_delle_classi
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam nodesep 60
+skinparam ranksep 60
+skinparam packageStyle rectangle
+hide empty members
+
+' =====================================================
+'  ENUMERAZIONI
+' =====================================================
+package "Enumerazioni" {
+  enum Difficolta {
+    BASSA
+    MEDIA
+    ALTA
+  }
+
+  enum StatoAccessibilita {
+    ACCESSIBILE
+    INACCESSIBILE
+  }
+
+  enum FasciaOraria {
+    ALBA
+    MATTINA
+    POMERIGGIO
+    SERA
+    NOTTE
+    TRAMONTO
+  }
+
+  enum StatoMeteo {
+    DA_SCARICARE
+    SCARICATO
+    NON_DISPONIBILE
+  }
+
+
+}
+
+' =====================================================
+'  AREA TERRITORIO E SPOT (Sinistra)
+' =====================================================
+package "Territorio e Spot" {
+  class Ambiente {
+    - nome : String
+  }
+
+  class Categoria {
+    - nome : String
+    - note : String
+    + spostaSpot(destinazione : Categoria)
+  }
+
+  class Spot {
+    - nome : String
+    - lunghezzaMetri : double [0..1]
+    - difficolta : Difficolta [0..1]
+    - voto : double [0..1]
+    - note : String [0..1]
+    - noteOstacoli : String [0..1]
+    - linkParcheggio : String [0..1]
+    - accessibilita : StatoAccessibilita
+    - battuto : boolean
+    /numeroPescate : int
+    /mediaCatture : double
+    + segnalaOstacolo()
+    + terminaOstacoli()
+  }
+
+  class Tratto {
+    /colore: Color
+  }
+
+  class Coordinata {
+    - ordine: int
+    - latitudine : double
+    - longitudine : double
+  }
+
+  class Divieto {
+    - nome : String
+    - note : String [0..1]
+  }
+
+  Categoria "1" -down-> "0..*" Spot : raggruppa
+  Ambiente "1" -down-> "0..*" Spot : classifica
+  Spot "1" *-down- "1" Tratto
+  Tratto "1" *-down- "2..*" Coordinata : {ordered}
+  Divieto "1" *-down- "1" Tratto
+}
+
+' =====================================================
+'  CATALOGO (anagrafiche personali)
+' =====================================================
+package "Catalogo" {
+  class Specie {
+    - nome : String
+    - info : String
+  }
+
+  class Caratteristica {
+    - nome : String
+    - descrizione : String
+  }
+
+  class Esca {
+    - nome : String
+    - descrizione: String
+  }
+
+  class Condizione {
+    - nome : String
+    - ordine : int
+    - attiva : boolean
+  }
+
+  class ValoreCondizione {
+    - nome : String
+    - ordine : int
+    - attivo : boolean
+  }
+
+  Condizione "1" *-down- "1..*" ValoreCondizione : {ordered}
+
+  Specie "1" -down- "0..*" Caratteristica : definisce >
+}
+
+' =====================================================
+'  OBIETTIVI
+' =====================================================
+package "Obiettivi" {
+  class Obiettivo {
+    - anno : int
+    - quantita : int
+    + progresso() : int
+    + isRaggiunto() : boolean
+  }
+}
+
+' =====================================================
+'  FOTO (condivisa da pescate, catture ed esche)
+' =====================================================
+class Foto {
+  - percorso : String
+  - percorsoThumbnail : String
+}
+
+' =====================================================
+'  PESCATE (Centro)
+' =====================================================
+' =====================================================
+'  METEO (dati storici da Open-Meteo)
+' =====================================================
+package "Meteo" {
+  class CellaMeteo {
+    - latitudine : double
+    - longitudine : double
+    - elevazione : double
+  }
+
+  class MeteoGiorno {
+    - data : Date
+    - pioggiaMm : double [0..1]
+    - tempMin : double [0..1]
+    - tempMax : double [0..1]
+    - pressioneMedia : double [0..1]
+    - ventoMax : double [0..1]
+    - rafficaMax : double [0..1]
+    - direzioneVento : int [0..1]
+  }
+
+  class MeteoOra {
+    - dataOraUtc : DateTime
+    - pioggiaMm : double [0..1]
+    - temperatura : double [0..1]
+    - pressione : double [0..1]
+    - vento : double [0..1]
+    - raffica : double [0..1]
+    - direzioneVento : int [0..1]
+  }
+
+  class RichiestaMeteo {
+    - data : Date
+    - latitudine : double
+    - longitudine : double
+  }
+
+  CellaMeteo "1" *-down- "0..*" MeteoGiorno
+  CellaMeteo "1" *-down- "0..*" MeteoOra
+}
+
+note bottom of RichiestaMeteo
+  Data della pescata e primo punto dello spot
+  usati per scaricare il meteo. Se non coincidono
+  più con quelli attuali, la pescata torna
+  da scaricare (statoMeteo è calcolato).
+  Servono 30 giorni + il giorno della pescata
+  (MeteoGiorno) e il giorno prima + il giorno
+  stesso (MeteoOra).
+end note
+
+package "Pescate" {
+  class Pianificazione {
+    - data : Date
+    - fasciaOraria : FasciaOraria
+    - note : String [0..1]
+    + convertiInPescata() : Pescata
+  }
+
+  class Pescata {
+    - data : Date
+    - fasciaOraria : FasciaOraria
+    - note : String [0..1]
+    - tempAcqua : real
+    /totaleCatture : int
+    /statoMeteo : StatoMeteo
+  }
+
+  class CatturaMemorabile {
+    - descrizione : String
+  }
+
+  ' Struttura interna Pescata
+  Pianificazione .right.> Pescata : <<create>>
+  Pescata "1" -down- "0..*" CatturaMemorabile
+}
+
+' =====================================================
+'  CLASSI ASSOCIATIVE (Posizionate al centro-destra)
+' =====================================================
+class RiepilogoSpecie {
+  - quantita : int
+}
+
+class RiepilogoCaratteristica {
+  - quantita : int
+}
+
+' =====================================================
+'  RELAZIONI INTER-PACCHETTO E ALINEAMENTO
+' =====================================================
+Pianificazione "0..*" -left- "0..1" Spot : prevede >
+Pescata "0..*" -left- "0..1" Spot : si svolge in >
+
+' Foto ed esche
+Pescata "0..1" -left- "0..*" Foto
+CatturaMemorabile "0..1" -right- "1..*" Foto
+Foto "0..*" -left- "0..1" Esca
+Pescata "0..*" -down- "0..*" Esca
+CatturaMemorabile "0..*" -left- "0..1" Esca
+
+' Meteo
+Pescata "0..*" -- "0..1" CellaMeteo : meteo >
+(Pescata, CellaMeteo) .. RichiestaMeteo
+
+' Condizioni
+Ambiente "0..*" -- "0..*" Condizione : prevede >
+Pescata "0..*" -- "0..*" ValoreCondizione : registra >
+
+' Obiettivi
+Obiettivo "0..*" -right- "1" Specie : riguarda >
+Obiettivo "0..1" -down- "0..*" Caratteristica : conta >
+
+' Collegamenti CatturaMemorabile -> Specie / Caratteristica (dal basso)
+CatturaMemorabile "0..*" -down- "1" Specie : è di >
+CatturaMemorabile "0..*" -down- "0..*" Caratteristica : soddisfa >
+
+' 1. Associazione Pescata - Specie (RiepilogoSpecie)
+Pescata "0..*" -right- "0..*" Specie
+(Pescata, Specie) .. RiepilogoSpecie
+
+' 2. Associazione RiepilogoSpecie - Caratteristica (RiepilogoCaratteristica adiacente)
+RiepilogoSpecie "0..*" -down- "0..*" Caratteristica
+(RiepilogoSpecie, Caratteristica) .. RiepilogoCaratteristica
+
+' =====================================================
+'  NOTE FORMATTATE
+' =====================================================
+note top of Categoria
+  Una Categoria si elimina solo se vuota:
+  prima si spostano gli Spot in un'altra
+  Categoria (spostaSpot). Rinominarla
+  aggiorna gli Spot collegati.
+end note
+
+note top of Ambiente
+  Di base: Torrente, Fiume, Lago, Mare;
+  l'utente può aggiungerne altri.
+  Nome unico senza distinzione di maiuscole.
+  Si elimina solo se nessuno Spot lo usa.
+end note
+
+note bottom of ValoreCondizione
+  Una Pescata registra al più un valore
+  per ogni Condizione.
+  Un valore usato non si elimina: si disattiva.
+end note
+
+note bottom of Condizione
+  Definite dall'utente (di base: Livello,
+  Trasparenza, Fondo, Meteo).
+  "prevede" guida il form della pescata,
+  non vincola i dati già registrati.
+end note
+
+note bottom of Tratto
+  Eliminare lo Spot elimina il Tratto e viceversa.
+  Eliminare lo Spot elimina le sue Pianificazioni;
+  le Pescate restano nello storico senza Spot.
+  Il colore dipende dalla valutazione dello spot.
+  {xor} Un Tratto appartiene a uno Spot oppure
+  a un Divieto (tratto dove non si pesca, che
+  non è uno spot); eliminare il Divieto elimina
+  il suo Tratto.
+end note
+
+note right of RiepilogoCaratteristica
+  {caratteristica.specie = riepilogoSpecie.specie}
+  {quantita <= riepilogoSpecie.quantita}
+end note
+
+note bottom of CatturaMemorabile
+  Data e spot derivano dalla Pescata.
+  {caratteristiche.specie = specie}
+end note
+
+note bottom of Foto
+  {xor}: appartiene a una Pescata
+  oppure a una CatturaMemorabile oppure ad un'esca.
+end note
+
+note bottom of Obiettivo
+  Valido nell'anno solare indicato.
+  Progresso calcolato al volo: somma delle quantita
+  delle caratteristiche collegate (o della specie se
+  nessuna) nelle pescate di quell'anno.
+end note
+
+@enduml

@@ -1,0 +1,432 @@
+{
+  "versione": 1,
+  "schema": [
+    {
+      "tipo": "table",
+      "nome": "Categoria",
+      "sql": "CREATE TABLE Categoria (\n        nome TEXT NOT NULL PRIMARY KEY,\n        note TEXT,\n        CHECK (length(trim(nome)) > 0)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Ambiente",
+      "sql": "CREATE TABLE Ambiente (\n        nome TEXT NOT NULL PRIMARY KEY COLLATE NOCASE,\n        CHECK (length(trim(nome)) > 0)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Condizione",
+      "sql": "CREATE TABLE Condizione (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        nome TEXT NOT NULL COLLATE NOCASE UNIQUE,\n        ordine INTEGER NOT NULL DEFAULT 0,\n        attiva INTEGER NOT NULL DEFAULT 1,\n        CHECK (length(trim(nome)) > 0),\n        CHECK (attiva IN (0, 1))\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "ValoreCondizione",
+      "sql": "CREATE TABLE ValoreCondizione (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        condizione_id INTEGER NOT NULL,\n        nome TEXT NOT NULL COLLATE NOCASE,\n        ordine INTEGER NOT NULL DEFAULT 0,\n        attivo INTEGER NOT NULL DEFAULT 1,\n        FOREIGN KEY (condizione_id) REFERENCES Condizione (id) ON DELETE CASCADE,\n        UNIQUE (condizione_id, nome),\n        UNIQUE (id, condizione_id),\n        CHECK (length(trim(nome)) > 0),\n        CHECK (attivo IN (0, 1))\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Ambiente_Condizione",
+      "sql": "CREATE TABLE Ambiente_Condizione (\n        ambiente_nome TEXT NOT NULL COLLATE NOCASE,\n        condizione_id INTEGER NOT NULL,\n        PRIMARY KEY (ambiente_nome, condizione_id),\n        FOREIGN KEY (ambiente_nome) REFERENCES Ambiente (nome) ON DELETE CASCADE ON UPDATE CASCADE,\n        FOREIGN KEY (condizione_id) REFERENCES Condizione (id) ON DELETE CASCADE\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Spot",
+      "sql": "CREATE TABLE Spot (\n        nome TEXT NOT NULL PRIMARY KEY,\n        ambiente TEXT NOT NULL COLLATE NOCASE,\n        lunghezzaMetri REAL,\n        voto REAL,\n        difficolta TEXT,\n        noteOstacoli TEXT,\n        note TEXT,\n        battuto INTEGER NOT NULL DEFAULT 0,\n        accessibilita TEXT NOT NULL DEFAULT 'accessibile',\n        linkParcheggio TEXT,\n        categoria_nome TEXT NOT NULL,\n        FOREIGN KEY (categoria_nome) REFERENCES Categoria (nome) ON DELETE RESTRICT ON UPDATE CASCADE,\n        FOREIGN KEY (ambiente) REFERENCES Ambiente (nome) ON DELETE RESTRICT ON UPDATE CASCADE,\n        CHECK (length(trim(nome)) > 0),\n        CHECK (length(trim(ambiente)) > 0),\n        CHECK (lunghezzaMetri > 0),\n        CHECK (voto BETWEEN 0 AND 10),\n        CHECK (difficolta IN ('bassa', 'media', 'alta')),\n        CHECK (battuto IN (0, 1)),\n        CHECK (accessibilita IN ('accessibile', 'inaccessibile'))\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Coordinata",
+      "sql": "CREATE TABLE Coordinata (\n        spot_nome TEXT NOT NULL,\n        ordine INTEGER NOT NULL,\n        latitudine REAL NOT NULL,\n        longitudine REAL NOT NULL,\n        PRIMARY KEY (spot_nome, ordine),\n        FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE CASCADE ON UPDATE CASCADE,\n        CHECK (ordine >= 0),\n        CHECK (latitudine BETWEEN -90 AND 90),\n        CHECK (longitudine BETWEEN -180 AND 180)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Pianificazione",
+      "sql": "CREATE TABLE Pianificazione (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        data TEXT NOT NULL,\n        fasciaOraria TEXT NOT NULL,\n        note TEXT,\n        spot_nome TEXT,\n        FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE CASCADE ON UPDATE CASCADE,\n        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),\n        CHECK (fasciaOraria IN ('alba','mattina', 'pomeriggio', 'tramonto', 'sera', 'notte'))\n    )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Pescata",
+      "sql": "CREATE TABLE Pescata (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        data TEXT NOT NULL,\n        fasciaOraria TEXT NOT NULL,\n        temp_acqua REAL,\n        note TEXT,\n        spot_nome TEXT,\n        FOREIGN KEY (spot_nome) REFERENCES Spot (nome) ON DELETE SET NULL ON UPDATE CASCADE,\n        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),\n        CHECK (fasciaOraria IN ('alba','mattina', 'pomeriggio', 'tramonto', 'sera', 'notte')),\n        CHECK (temp_acqua BETWEEN 0 AND 35)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Pescata_Condizione",
+      "sql": "CREATE TABLE Pescata_Condizione (\n        pescata_id INTEGER NOT NULL,\n        condizione_id INTEGER NOT NULL,\n        valore_id INTEGER NOT NULL,\n        PRIMARY KEY (pescata_id, condizione_id),\n        FOREIGN KEY (pescata_id) REFERENCES Pescata (id) ON DELETE CASCADE,\n        FOREIGN KEY (valore_id, condizione_id) REFERENCES ValoreCondizione (id, condizione_id) ON DELETE RESTRICT\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "CellaMeteo",
+      "sql": "CREATE TABLE CellaMeteo (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        latitudine REAL NOT NULL,\n        longitudine REAL NOT NULL,\n        elevazione REAL NOT NULL,\n        UNIQUE (latitudine, longitudine, elevazione),\n        CHECK (latitudine BETWEEN -90 AND 90),\n        CHECK (longitudine BETWEEN -180 AND 180)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "MeteoGiornaliero",
+      "sql": "CREATE TABLE MeteoGiornaliero (\n        cella_id INTEGER NOT NULL,\n        data TEXT NOT NULL,\n        pioggia_mm REAL,\n        temp_min REAL,\n        temp_max REAL,\n        pressione_media REAL,\n        vento_max REAL,\n        raffica_max REAL,\n        direzione_vento INTEGER,\n        PRIMARY KEY (cella_id, data),\n        FOREIGN KEY (cella_id) REFERENCES CellaMeteo (id) ON DELETE CASCADE,\n        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data),\n        CHECK (pioggia_mm >= 0),\n        CHECK (direzione_vento BETWEEN 0 AND 360)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "MeteoOrario",
+      "sql": "CREATE TABLE MeteoOrario (\n        cella_id INTEGER NOT NULL,\n        data_ora TEXT NOT NULL,\n        pioggia_mm REAL,\n        temperatura REAL,\n        pressione REAL,\n        vento REAL,\n        raffica REAL,\n        direzione_vento INTEGER,\n        PRIMARY KEY (cella_id, data_ora),\n        FOREIGN KEY (cella_id) REFERENCES CellaMeteo (id) ON DELETE CASCADE,\n        CHECK (data_ora GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-2][0-9]:00'),\n        CHECK (pioggia_mm >= 0),\n        CHECK (direzione_vento BETWEEN 0 AND 360)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "PescataMeteo",
+      "sql": "CREATE TABLE PescataMeteo (\n        pescata_id INTEGER PRIMARY KEY,\n        cella_id INTEGER NOT NULL,\n        data TEXT NOT NULL,\n        latitudine REAL NOT NULL,\n        longitudine REAL NOT NULL,\n        FOREIGN KEY (pescata_id) REFERENCES Pescata (id) ON DELETE CASCADE,\n        FOREIGN KEY (cella_id) REFERENCES CellaMeteo (id) ON DELETE CASCADE,\n        CHECK (data GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(data, '+0 days') IS data)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Esca",
+      "sql": "CREATE TABLE Esca (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        nome TEXT NOT NULL,\n        descrizione TEXT,\n        CHECK (length(trim(nome)) > 0)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Pescata_Esca",
+      "sql": "CREATE TABLE Pescata_Esca (\n        pescata_id INTEGER NOT NULL,\n        esca_id INTEGER NOT NULL,\n        PRIMARY KEY (pescata_id, esca_id),\n        FOREIGN KEY (pescata_id) REFERENCES Pescata (id) ON DELETE CASCADE,\n        FOREIGN KEY (esca_id) REFERENCES Esca (id) ON DELETE CASCADE\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Specie",
+      "sql": "CREATE TABLE Specie (\n        nome TEXT NOT NULL PRIMARY KEY,\n        informazioni TEXT,\n        CHECK (length(trim(nome)) > 0)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "CatturaMemorabile",
+      "sql": "CREATE TABLE CatturaMemorabile (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        descrizione TEXT,\n        pescata_id INTEGER NOT NULL,\n        specie_nome TEXT NOT NULL,\n        esca_id INTEGER,\n        FOREIGN KEY (pescata_id) REFERENCES Pescata (id) ON DELETE CASCADE,\n        FOREIGN KEY (specie_nome) REFERENCES Specie (nome) ON DELETE RESTRICT ON UPDATE CASCADE,\n        FOREIGN KEY (esca_id) REFERENCES Esca (id) ON DELETE SET NULL,\n        UNIQUE (id, specie_nome)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Foto",
+      "sql": "CREATE TABLE Foto (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        percorso TEXT NOT NULL,\n        percorsoThumbnail TEXT NOT NULL,\n        pescata_id INTEGER,\n        esca_id INTEGER,\n        cattura_memorabile_id INTEGER,\n        FOREIGN KEY (pescata_id) REFERENCES Pescata (id) ON DELETE CASCADE,\n        FOREIGN KEY (cattura_memorabile_id) REFERENCES CatturaMemorabile (id) ON DELETE CASCADE,\n        FOREIGN KEY (esca_id) REFERENCES Esca(id) ON DELETE CASCADE,\n        CHECK (\n          (pescata_id IS NOT NULL AND cattura_memorabile_id IS NULL AND esca_id IS NULL) OR\n          (pescata_id IS NULL AND cattura_memorabile_id IS NOT NULL AND esca_id IS NULL) OR\n          (pescata_id IS NULL AND cattura_memorabile_id IS NULL AND esca_id IS NOT NULL)\n        )\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "RiepilogoSpecie",
+      "sql": "CREATE TABLE RiepilogoSpecie (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        pescata_id INTEGER NOT NULL,\n        specie_nome TEXT NOT NULL,\n        quantita INTEGER NOT NULL,\n        FOREIGN KEY (pescata_id) REFERENCES Pescata (id) ON DELETE CASCADE,\n        FOREIGN KEY (specie_nome) REFERENCES Specie (nome) ON DELETE RESTRICT ON UPDATE CASCADE,\n        UNIQUE (pescata_id, specie_nome),   \n        UNIQUE (id, specie_nome),\n        CHECK (quantita >= 0)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Caratteristica",
+      "sql": "CREATE TABLE Caratteristica (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        specie_nome TEXT NOT NULL,\n        nome TEXT NOT NULL,\n        descrizione TEXT,\n        FOREIGN KEY (specie_nome) REFERENCES Specie (nome) ON DELETE CASCADE ON UPDATE CASCADE,\n        UNIQUE (specie_nome, nome),\n        UNIQUE (id, specie_nome),\n        CHECK (length(trim(nome)) > 0)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Cattura_Caratteristica",
+      "sql": "CREATE TABLE Cattura_Caratteristica (\n        cattura_memorabile_id INTEGER NOT NULL,\n        caratteristica_id INTEGER NOT NULL,\n        specie_nome TEXT NOT NULL,\n        PRIMARY KEY (cattura_memorabile_id, caratteristica_id),\n        FOREIGN KEY (cattura_memorabile_id, specie_nome) REFERENCES CatturaMemorabile (id, specie_nome) ON DELETE CASCADE ON UPDATE CASCADE,\n        FOREIGN KEY (caratteristica_id, specie_nome) REFERENCES Caratteristica (id, specie_nome) ON DELETE CASCADE ON UPDATE CASCADE\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "Obiettivo",
+      "sql": "CREATE TABLE Obiettivo (\n        id INTEGER PRIMARY KEY AUTOINCREMENT,\n        specie_nome TEXT NOT NULL,\n        anno INTEGER NOT NULL,\n        quantita INTEGER NOT NULL,\n        caratteristica_id INTEGER,\n        FOREIGN KEY (specie_nome) REFERENCES Specie (nome) ON DELETE CASCADE ON UPDATE CASCADE,\n        FOREIGN KEY (caratteristica_id, specie_nome) REFERENCES Caratteristica (id, specie_nome) ON DELETE CASCADE ON UPDATE CASCADE,\n        CHECK (anno BETWEEN 2000 AND 2100),\n        CHECK (quantita > 0)\n      )"
+    },
+    {
+      "tipo": "table",
+      "nome": "DettaglioRiepilogo",
+      "sql": "CREATE TABLE DettaglioRiepilogo (\n        riepilogo_specie_id INTEGER NOT NULL,\n        caratteristica_id INTEGER NOT NULL,\n        specie_nome TEXT NOT NULL,\n        quantita INTEGER NOT NULL,\n        PRIMARY KEY (riepilogo_specie_id, caratteristica_id),\n        FOREIGN KEY (riepilogo_specie_id, specie_nome) REFERENCES RiepilogoSpecie (id, specie_nome) ON DELETE CASCADE ON UPDATE CASCADE,\n        FOREIGN KEY (caratteristica_id, specie_nome) REFERENCES Caratteristica (id, specie_nome) ON DELETE CASCADE ON UPDATE CASCADE,\n        CHECK (quantita >= 0)\n      )"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_spot_categoria",
+      "sql": "CREATE INDEX idx_spot_categoria ON Spot (categoria_nome)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_spot_ambiente",
+      "sql": "CREATE INDEX idx_spot_ambiente ON Spot (ambiente)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_pescata_data",
+      "sql": "CREATE INDEX idx_pescata_data ON Pescata (data)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_pescata_spot",
+      "sql": "CREATE INDEX idx_pescata_spot ON Pescata (spot_nome)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_pianificazione_spot",
+      "sql": "CREATE INDEX idx_pianificazione_spot ON Pianificazione (spot_nome)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_pescata_esca_esca",
+      "sql": "CREATE INDEX idx_pescata_esca_esca ON Pescata_Esca (esca_id)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_cattura_pescata",
+      "sql": "CREATE INDEX idx_cattura_pescata ON CatturaMemorabile (pescata_id)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_cattura_specie",
+      "sql": "CREATE INDEX idx_cattura_specie ON CatturaMemorabile (specie_nome)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_cattura_esca",
+      "sql": "CREATE INDEX idx_cattura_esca ON CatturaMemorabile (esca_id)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_foto_pescata",
+      "sql": "CREATE INDEX idx_foto_pescata ON Foto (pescata_id)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_foto_esca",
+      "sql": "CREATE INDEX idx_foto_esca ON Foto(esca_id)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_foto_cattura",
+      "sql": "CREATE INDEX idx_foto_cattura ON Foto (cattura_memorabile_id)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_riepilogo_specie",
+      "sql": "CREATE INDEX idx_riepilogo_specie ON RiepilogoSpecie (specie_nome)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_cattcar_caratteristica",
+      "sql": "CREATE INDEX idx_cattcar_caratteristica ON Cattura_Caratteristica (caratteristica_id)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_dettaglio_caratteristica",
+      "sql": "CREATE INDEX idx_dettaglio_caratteristica ON DettaglioRiepilogo (caratteristica_id)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_obiettivo_anno",
+      "sql": "CREATE INDEX idx_obiettivo_anno ON Obiettivo (anno)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_ambcond_condizione",
+      "sql": "CREATE INDEX idx_ambcond_condizione ON Ambiente_Condizione (condizione_id)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_pescond_valore",
+      "sql": "CREATE INDEX idx_pescond_valore ON Pescata_Condizione (valore_id, condizione_id)"
+    },
+    {
+      "tipo": "index",
+      "nome": "idx_pescatameteo_cella",
+      "sql": "CREATE INDEX idx_pescatameteo_cella ON PescataMeteo (cella_id)"
+    }
+  ],
+  "dati": {
+    "Ambiente": [
+      {
+        "nome": "Torrente"
+      },
+      {
+        "nome": "Fiume"
+      },
+      {
+        "nome": "Lago"
+      },
+      {
+        "nome": "Mare"
+      }
+    ],
+    "Condizione": [
+      {
+        "id": 1,
+        "nome": "Livello",
+        "ordine": 0,
+        "attiva": 1
+      },
+      {
+        "id": 2,
+        "nome": "Trasparenza",
+        "ordine": 1,
+        "attiva": 1
+      },
+      {
+        "id": 3,
+        "nome": "Fondo",
+        "ordine": 2,
+        "attiva": 1
+      },
+      {
+        "id": 4,
+        "nome": "Meteo",
+        "ordine": 3,
+        "attiva": 1
+      }
+    ],
+    "ValoreCondizione": [
+      {
+        "id": 1,
+        "condizione_id": 1,
+        "nome": "Secca",
+        "ordine": 0,
+        "attivo": 1
+      },
+      {
+        "id": 2,
+        "condizione_id": 1,
+        "nome": "Magra",
+        "ordine": 1,
+        "attivo": 1
+      },
+      {
+        "id": 3,
+        "condizione_id": 1,
+        "nome": "Normale",
+        "ordine": 2,
+        "attivo": 1
+      },
+      {
+        "id": 4,
+        "condizione_id": 1,
+        "nome": "Morbida",
+        "ordine": 3,
+        "attivo": 1
+      },
+      {
+        "id": 5,
+        "condizione_id": 1,
+        "nome": "Piena",
+        "ordine": 4,
+        "attivo": 1
+      },
+      {
+        "id": 6,
+        "condizione_id": 2,
+        "nome": "Sporca",
+        "ordine": 0,
+        "attivo": 1
+      },
+      {
+        "id": 7,
+        "condizione_id": 2,
+        "nome": "Velata",
+        "ordine": 1,
+        "attivo": 1
+      },
+      {
+        "id": 8,
+        "condizione_id": 2,
+        "nome": "Chiara",
+        "ordine": 2,
+        "attivo": 1
+      },
+      {
+        "id": 9,
+        "condizione_id": 3,
+        "nome": "Scuro",
+        "ordine": 0,
+        "attivo": 1
+      },
+      {
+        "id": 10,
+        "condizione_id": 3,
+        "nome": "Normale",
+        "ordine": 1,
+        "attivo": 1
+      },
+      {
+        "id": 11,
+        "condizione_id": 3,
+        "nome": "Pulito",
+        "ordine": 2,
+        "attivo": 1
+      },
+      {
+        "id": 12,
+        "condizione_id": 4,
+        "nome": "Sereno",
+        "ordine": 0,
+        "attivo": 1
+      },
+      {
+        "id": 13,
+        "condizione_id": 4,
+        "nome": "Velato",
+        "ordine": 1,
+        "attivo": 1
+      },
+      {
+        "id": 14,
+        "condizione_id": 4,
+        "nome": "Variabile",
+        "ordine": 2,
+        "attivo": 1
+      },
+      {
+        "id": 15,
+        "condizione_id": 4,
+        "nome": "Coperto",
+        "ordine": 3,
+        "attivo": 1
+      },
+      {
+        "id": 16,
+        "condizione_id": 4,
+        "nome": "Plumbeo",
+        "ordine": 4,
+        "attivo": 1
+      },
+      {
+        "id": 17,
+        "condizione_id": 4,
+        "nome": "Pioggia",
+        "ordine": 5,
+        "attivo": 1
+      },
+      {
+        "id": 18,
+        "condizione_id": 4,
+        "nome": "Ventoso",
+        "ordine": 6,
+        "attivo": 1
+      }
+    ],
+    "Ambiente_Condizione": [
+      {
+        "ambiente_nome": "Torrente",
+        "condizione_id": 1
+      },
+      {
+        "ambiente_nome": "Fiume",
+        "condizione_id": 1
+      },
+      {
+        "ambiente_nome": "Torrente",
+        "condizione_id": 2
+      },
+      {
+        "ambiente_nome": "Fiume",
+        "condizione_id": 2
+      },
+      {
+        "ambiente_nome": "Torrente",
+        "condizione_id": 3
+      },
+      {
+        "ambiente_nome": "Fiume",
+        "condizione_id": 3
+      },
+      {
+        "ambiente_nome": "Torrente",
+        "condizione_id": 4
+      },
+      {
+        "ambiente_nome": "Fiume",
+        "condizione_id": 4
+      },
+      {
+        "ambiente_nome": "Lago",
+        "condizione_id": 4
+      },
+      {
+        "ambiente_nome": "Mare",
+        "condizione_id": 4
+      }
+    ]
+  }
+}
