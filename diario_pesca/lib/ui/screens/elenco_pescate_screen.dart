@@ -6,7 +6,7 @@ import '../../services/meteo_service.dart';
 import '../state/pescate_state.dart';
 import '../widgets/etichette.dart';
 import '../widgets/vista_asincrona.dart';
-import 'importa_screen.dart';
+import 'backup_screen.dart';
 import 'registra_pescata_screen.dart';
 import 'scheda_pescata_screen.dart';
 
@@ -54,10 +54,10 @@ class ElencoPescateScreen extends ConsumerWidget {
             ),
           PopupMenuButton<String>(
             onSelected: (_) => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const ImportaScreen()),
+              MaterialPageRoute<void>(builder: (_) => const BackupScreen()),
             ),
             itemBuilder: (_) => const [
-              PopupMenuItem(value: 'importa', child: Text('Importa dati')),
+              PopupMenuItem(value: 'backup', child: Text('Backup e ripristino')),
             ],
           ),
         ],

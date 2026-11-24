@@ -7,7 +7,7 @@ import '../../repositories/meteo_repository.dart';
 import '../../repositories/obiettivi_repository.dart';
 import '../../repositories/pescate_repository.dart';
 import '../../repositories/territorio_repository.dart';
-import '../../services/import_service.dart';
+import '../../services/backup_service.dart';
 import '../../services/meteo_service.dart';
 import '../../services/posizione_service.dart';
 import '../../services/statistiche_service.dart';
@@ -84,11 +84,7 @@ final posizioneServiceProvider = Provider<PosizioneService>(
   (ref) => const PosizioneService(),
 );
 
-/// Import dei dati da un file (storico).
-final importServiceProvider = Provider<ImportService>(
-  (ref) => ImportService(
-    territorio: ref.watch(territorioRepositoryProvider),
-    catalogo: ref.watch(catalogoRepositoryProvider),
-    pescate: ref.watch(pescateRepositoryProvider),
-  ),
+/// Backup e ripristino di tutti i dati.
+final backupServiceProvider = Provider<BackupService>(
+  (ref) => BackupService(dbHelper: ref.watch(databaseHelperProvider)),
 );

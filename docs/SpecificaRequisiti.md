@@ -46,7 +46,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 ## 2. Descrizione Generale
 
 ### 2.1 Prospettiva del Prodotto
-* Il sistema è un'applicazione mobile autonoma (standalone), priva di un back-end proprio: tutti i dati dell'utente (spot, pescate, catture memorabili, foto, pianificazione) sono persistiti localmente sul dispositivo tramite un database embedded. Le uniche interazioni con servizi esterni di terze parti sono: la lettura di previsioni e dati meteo storici da un servizio meteo pubblico tramite API REST (Open-Meteo) e, solo su richiesta esplicita dell'utente, il caricamento e lo scaricamento di un archivio di backup (file ZIP contenente i dati in JSON e le foto) sul Google Drive dell'utente. In futuro si potrebbe aggiungere un assistente AI per effettuare ricerche sui dati.
+* Il sistema è un'applicazione mobile autonoma (standalone), priva di un back-end proprio: tutti i dati dell'utente (spot, pescate, catture memorabili, foto, pianificazione) sono persistiti localmente sul dispositivo tramite un database embedded. Le uniche interazioni con servizi esterni di terze parti sono: la lettura di previsioni e dati meteo storici da un servizio meteo pubblico tramite API REST (Open-Meteo) e la lettura delle tessere della mappa. Il backup è un archivio ZIP (copia del database e foto) che l'utente salva, solo su sua richiesta esplicita, dove sceglie: nella memoria del telefono o, tramite la finestra di sistema per il salvataggio dei file, sul proprio Google Drive; l'app non comunica direttamente con Google Drive. In futuro si potrebbe aggiungere un assistente AI per effettuare ricerche sui dati.
 
 ### 2.2 Funzionalità Principali del Prodotto
 * Gestione degli spot di pesca, organizzati in categorie, con relativo tracciato geografico (tratto) disegnabile manualmente sulla mappa dell'app.
@@ -59,13 +59,13 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * Pianificazione delle uscite future e degli obiettivi annuali.
 * Consultazione delle previsioni meteo per uno spot, tramite chiamata diretta a un servizio meteo esterno.
 * Archiviazione automatica dei dati meteo storici di ogni pescata (pioggia dei giorni precedenti, temperature, pressione, vento), per le statistiche.
-* Backup e ripristino manuale dei dati su Google Drive.
+* Backup e ripristino manuale di tutti i dati in un file, salvabile anche su Google Drive.
 
 ### 2.3 Caratteristiche degli Utenti
 * **Utente singolo (proprietario dei dati)**: pescatore amatoriale con competenze tecniche informatiche di livello medio-basso; l'utilizzo dell'app avviene esclusivamente al termine della pescata. Non sono previsti ruoli multipli né gestione di permessi differenziati, trattandosi di un'applicazione a singolo utente e a dati esclusivamente personali.
 
 ### 2.4 Vincoli Generali
-* L'applicazione deve funzionare in modalità completamente offline per tutte le funzionalità che non richiedono esplicitamente un dato esterno (consultazione meteo, backup su Google Drive, eventuali ricerche AI); inserimento di pescate, catture memorabili, foto e consultazione dei dati storici devono essere disponibili anche in assenza di connettività.
+* L'applicazione deve funzionare in modalità completamente offline per tutte le funzionalità che non richiedono esplicitamente un dato esterno (consultazione meteo, tessere della mappa non ancora salvate, eventuali ricerche AI; il backup funziona offline, salvo il caricamento su Google Drive che esegue la sua app); inserimento di pescate, catture memorabili, foto e consultazione dei dati storici devono essere disponibili anche in assenza di connettività.
 * Nessun costo ricorrente per servizi esterni: le API e i servizi di terze parti impiegati devono rientrare nei piani gratuiti disponibili, essendo un progetto personale/di tesi senza budget dedicato.
 * Compatibilità cross-platform Android/iOS tramite un'unica base di codice.
 * Occupazione di spazio su disco contenuta nel tempo, anche con uno storico pluriennale di foto e dati (vedi [INT-SW-03] relativo alla compressione immagini).
@@ -74,7 +74,7 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 * Si assume la disponibilità di un servizio meteo pubblico gratuito, consultabile via API REST senza chiave, che fornisca sia previsioni sia dati storici. Il servizio scelto è **Open-Meteo** (piano gratuito per uso non commerciale, 10.000 richieste al giorno, dati con licenza CC BY 4.0 che richiede di citare la fonte nell'app). Il piano gratuito non garantisce la disponibilità: l'app deve tollerare che il servizio non risponda.
 * Si assume la disponibilità di provider di tile mappa gratuiti (es. OpenStreetMap) per la visualizzazione cartografica.
 * Si assume l'uso su dispositivo singolo per utente: non è previsto, nella versione base, un meccanismo di sincronizzazione multi-dispositivo o backup automatico su cloud.
-* Si assume che l'utente disponga di un account Google valido con spazio di archiviazione sufficiente su Google Drive per poter utilizzare la funzionalità facoltativa di backup e ripristino.
+* Per conservare il backup fuori dal telefono si assume che l'utente disponga di uno spazio cloud accessibile dalla finestra di sistema per il salvataggio dei file (es. l'app Google Drive installata), oppure che copi il file altrove; l'app non richiede un account Google.
 
 ---
 
@@ -100,8 +100,8 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 #### 3.1.4 Interfaccia di Comunicazione
 * **[INT-COM-01]** - *Must have*: L'app deve poter effettuare richieste HTTPS in sola lettura verso un'API meteo pubblica, inviando le coordinate dello spot selezionato e ricevendo le condizioni meteo previste o i dati meteo storici, senza che tale comunicazione richieda un server applicativo proprio.
-* **[INT-COM-02]** - *Won't have*: L'app non prevede, nella versione base, comunicazioni verso un server applicativo proprio né sincronizzazione automatica o continua dei dati verso servizi cloud. L'unico trasferimento di dati personali verso il cloud è il backup manuale descritto in [INT-COM-03].
-* **[INT-COM-03]** - *Should have*: L'app dovrebbe poter comunicare tramite HTTPS con le API REST di Google Drive (previo flusso di autenticazione OAuth 2.0) per il caricamento dell'archivio ZIP di backup e il suo download in fase di ripristino.
+* **[INT-COM-02]** - *Won't have*: L'app non prevede, nella versione base, comunicazioni verso un server applicativo proprio né sincronizzazione automatica o continua dei dati verso servizi cloud. L'unico trasferimento di dati personali verso il cloud è il backup manuale, quando l'utente sceglie di salvarlo su un servizio cloud (vedi [INT-COM-03]).
+* **[INT-COM-03]** - *Won't have*: L'app non comunica direttamente con le API di Google Drive. Il file di backup si salva e si sceglie con la finestra di sistema di Android (Storage Access Framework), che offre anche le cartelle di Google Drive quando la sua app è installata: il caricamento lo esegue l'app Google Drive. Così l'app non gestisce account, autorizzazioni OAuth 2.0 e credenziali (vedi `scelta_architetturale_backup_e_ripristino.md`).
 
 #### 3.1.5 Requisiti di Prestazione
 * **[REQ-PERF-01]** - *Should have*: Il caricamento della schermata mappa, con l'intero insieme di tratti dell'utente visualizzati, dovrebbe completarsi in meno di 2 secondi su dispositivo di fascia media, per uno storico fino a qualche centinaio di spot.
@@ -135,11 +135,8 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
   * **Elaborazione**: Validazione che il nome non sia vuoto e che il tratto contenga almeno un punto. Più divieti possono avere lo stesso nome. I divieti non compaiono tra gli spot, nelle pescate e nelle statistiche.
   * **Output**: Divieto salvato e visualizzato sulla mappa; eliminandolo spariscono anche i suoi punti.
 
-* **[REQ-FUN-19]** - *Should have*
-  * **Descrizione**: Il sistema dovrebbe permettere di importare in un diario nuovo i dati raccolti prima dell'app (spot con il loro tratto, divieti, pescate con condizioni e catture) da un file preparato a partire dallo storico personale.
-  * **Input**: File di import scelto sul dispositivo.
-  * **Elaborazione**: Controllo completo del file prima di scrivere (formato, versione, nomi ripetuti, riferimenti a spot, condizioni, specie e caratteristiche esistenti o dichiarate, catture coerenti); import consentito solo su un diario vuoto; salvataggio di ambienti, specie, spot, divieti e pescate in quest'ordine. Il file resta sul dispositivo.
-  * **Output**: Riepilogo del contenuto prima dell'import, elenco dei problemi se il file non è valido, numero di elementi importati al termine. Il meteo delle pescate importate resta da scaricare (REQ-FUN-17).
+* **[REQ-FUN-19]** - *Rimosso*
+  * Prevedeva l'import nell'app dei dati raccolti prima del suo utilizzo (storico personale). È stato realizzato come strumento di migrazione dei dati usato una sola volta dallo sviluppatore, con un file preparato a partire dallo storico, e poi rimosso: gli altri utenti non hanno uno storico in quel formato, e da allora i dati si trasferiscono con il backup ([REQ-FUN-14], [REQ-FUN-15]). Il codice resta nella cronologia del repository (senza i dati personali, che non vi sono mai entrati).
 
 * **[REQ-FUN-04]** - *Should have*
   * **Descrizione**: Il sistema dovrebbe permettere all'utente di creare, rinominare ed eliminare categorie, che funzionano come cartelle per gli spot (es. le valli minori come *Val Stabina*, oppure zone come *Basso Brembo*).
@@ -221,16 +218,16 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 #### 3.2.5 Backup e Ripristino Dati
 
 * **[REQ-FUN-14]** - *Should have*
-  * **Descrizione**: Il sistema dovrebbe consentire l'esportazione manuale di tutti i dati registrati nell'applicazione (spot, pescate, catture memorabili, esche, specie, caratteristiche, obiettivi, pianificazione) e di tutte le foto in un unico archivio ZIP, salvato sullo spazio Google Drive dell'utente.
-  * **Input**: Comando di avvio backup da parte dell'utente e autenticazione tramite il proprio account Google.
-  * **Elaborazione**: Verifica della connettività di rete e autenticazione tramite OAuth; lettura dei record dal database locale e serializzazione in un file JSON strutturato, contenente la versione dello schema e i percorsi relativi delle foto; creazione di un archivio ZIP con il file JSON e la cartella delle foto e delle anteprime; caricamento dell'archivio in una cartella dedicata su Google Drive.
-  * **Output / Risposta**: Archivio ZIP di backup salvato su Google Drive e messaggio di conferma a schermo con data e ora dell'avvenuto salvataggio.
+  * **Descrizione**: Il sistema dovrebbe consentire l'esportazione manuale di tutti i dati registrati nell'applicazione (spot, divieti, pescate, catture memorabili, meteo scaricato, esche, specie, caratteristiche, obiettivi, pianificazione) e di tutte le foto in un unico archivio ZIP, salvato dove l'utente sceglie (memoria del telefono o Google Drive).
+  * **Input**: Comando di avvio backup e scelta della destinazione nella finestra di sistema per il salvataggio dei file.
+  * **Elaborazione**: Copia coerente del database SQLite con `VACUUM INTO` (o copia del file sui telefoni con SQLite precedente alla 3.27); creazione di un archivio ZIP con un manifesto (formato, versione del formato, data di creazione, versione dello schema), la copia del database e la cartella delle foto con i percorsi relativi registrati nel database. Non serve la rete: se l'utente sceglie Google Drive, il caricamento lo esegue l'app Google Drive.
+  * **Output / Risposta**: File di backup salvato, con nome che riporta data e ora (es. `diario_pesca_backup_2026-11-24_1050.zip`), e messaggio di conferma a schermo con data e ora del salvataggio.
 
 * **[REQ-FUN-15]** - *Should have*
-  * **Descrizione**: Il sistema dovrebbe consentire il ripristino dei dati dell'applicazione a partire da un archivio ZIP di backup precedentemente salvato su Google Drive, anche su un dispositivo diverso da quello di origine.
-  * **Input**: Comando di ripristino dati, autenticazione dell'account Google e selezione dell'archivio di backup desiderato.
-  * **Elaborazione**: Download ed estrazione dell'archivio; verifica della validità dello schema dei dati e della versione del backup; richiesta di conferma all'utente in caso di sovrascrittura del database locale esistente; ripopolamento delle tabelle del database locale e copia delle foto nella cartella dell'app, così che i percorsi relativi registrati tornino validi.
-  * **Output / Risposta**: Database locale e foto ripristinati e messaggio a schermo di conferma del completamento del ripristino.
+  * **Descrizione**: Il sistema dovrebbe consentire il ripristino di tutti i dati dell'applicazione a partire da un archivio ZIP di backup ([REQ-FUN-14]), anche su un dispositivo diverso da quello di origine e anche se creato da una versione precedente dell'app.
+  * **Input**: Comando di ripristino, scelta del file di backup nella finestra di sistema (memoria del telefono o Google Drive) e conferma della sostituzione dei dati.
+  * **Elaborazione**: Controllo del file prima di toccare i dati: archivio ZIP con manifesto e database, formato riconosciuto, versione del formato e dello schema non più recenti dell'app, integrità del database (`PRAGMA integrity_check`), percorsi delle foto interni alla loro cartella. Riepilogo del contenuto (data del backup, numero di spot, divieti, pescate e catture) e richiesta di conferma. Sostituzione del file del database e apertura con le migrazioni (vedi `scelta_architetturale_migrazioni_del_database.md`) se il backup viene da una versione precedente; se l'apertura fallisce, il database precedente torna al suo posto. Sostituzione della cartella delle foto, così che i percorsi relativi registrati tornino validi.
+  * **Output / Risposta**: Dati e foto ripristinati e messaggio di conferma; in caso di file non valido, il motivo in parole; in caso di errore durante il ripristino, la conferma che i dati sono rimasti quelli di prima.
 
 ---
 
@@ -272,6 +269,6 @@ Documento utile anche ai relatori di tesi per comprendere quale potrebbe essere 
 
 ### 3.4 Attributi di Qualità del Sistema (Requisiti Non Funzionali)
 
-* **Sicurezza (Security)**: I dati dell'utente risiedono in locale sul dispositivo e non sono trasmessi a server dello sviluppatore o di terze parti. Le richieste meteo (previsioni e dati storici) trasmettono solo coordinate e date, senza dati identificativi. Gli unici dati personali che lasciano il dispositivo sono quelli contenuti nell'archivio di backup, caricato solo su comando esplicito dell'utente sul suo Google Drive personale, tramite connessione HTTPS e autenticazione OAuth 2.0.
-* **Affidabilità e Disponibilità**: Non essendo prevista alcuna componente server-side, non si applicano requisiti di uptime; l'affidabilità è demandata all'integrità del database locale, garantita da vincoli e transazioni, e al backup manuale su Google Drive (dati e foto), a discrezione dell'utente.
+* **Sicurezza (Security)**: I dati dell'utente risiedono in locale sul dispositivo e non sono trasmessi a server dello sviluppatore o di terze parti. Le richieste meteo (previsioni e dati storici) trasmettono solo coordinate e date, senza dati identificativi. Gli unici dati personali che possono lasciare il dispositivo sono quelli contenuti nel file di backup, creato solo su comando esplicito dell'utente e salvato dove l'utente sceglie (per esempio il suo Google Drive, tramite l'app Google Drive): l'app non conosce né conserva credenziali.
+* **Affidabilità e Disponibilità**: Non essendo prevista alcuna componente server-side, non si applicano requisiti di uptime; l'affidabilità è demandata all'integrità del database locale, garantita da vincoli e transazioni, e al backup manuale di dati e foto in un file, salvabile anche su Google Drive, a discrezione dell'utente.
 * **Manutenibilità e Portabilità**: Il codice deve essere organizzato in moduli disaccoppiati (territorio e spot, pescate, catalogo di specie ed esche, obiettivi, statistiche, foto, meteo, backup; vedi `struttura_del_progetto_diario_di_pesca.md`), per permettere l'estensione futura del sistema (es. eventuale sincronizzazione multi-dispositivo) senza richiedere una riscrittura delle componenti esistenti. L'uso di Flutter garantisce la portabilità del client su Android e iOS a partire da un'unica base di codice.

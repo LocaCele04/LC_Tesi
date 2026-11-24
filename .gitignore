@@ -5,3 +5,4 @@
 import/
 storico*.json
 storico*.csv
+*backup*.zip

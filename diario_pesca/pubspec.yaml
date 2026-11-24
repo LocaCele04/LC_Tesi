@@ -39,8 +39,11 @@ dependencies:
   latlong2: ^0.9.1
   # Posizione del telefono (GPS) per centrare la mappa.
   geolocator: ^14.0.2
-  # Scelta del file da importare (solo per l'import dei dati).
+  # Finestre di sistema per salvare il backup e scegliere quello da
+  # ripristinare (memoria del telefono o Google Drive).
   file_picker: ^13.4.1
+  # Archivio ZIP del backup (database e foto).
+  archive: ^4.0.7
 
 dev_dependencies:
   flutter_test:

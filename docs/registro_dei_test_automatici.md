@@ -1,6 +1,6 @@
 # Registro dei Test Automatici
 
-La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate, la 17 l'aggiornamento dello schema tra versioni, dalla 18 alla 21 la mappa, la 22 l'import dello storico.
+La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate, la 17 l'aggiornamento dello schema tra versioni, dalla 18 alla 21 la mappa, la 22 e la 23 il backup e il ripristino.
 
 ## 1. `test/database_integrita_test.dart` (21 test)
 
@@ -184,6 +184,15 @@ Verifica lo stato della mappa su un database in memoria: gli spot sulla mappa co
 
 Verifica il modulo del divieto con un elenco di divieti finto: i problemi segnalati (nome mancante, nessun punto); il numero di punti e la lunghezza del tratto appena disegnato; il dialogo che chiede il nome e il salvataggio di nome, note e punti con ritorno alla pagina precedente; l'eliminazione di un divieto esistente dopo la conferma.
 
-## 22. `test/import_service_test.dart` (4 test)
+## 22. `test/backup_service_test.dart` (14 test)
 
-Verifica l'import dei dati con un file di prova inventato (i dati veri non entrano mai nel repository): un file completo crea l'ambiente nuovo con le condizioni copiate dal torrente, le categorie, gli spot con voto, difficoltà, tratto e lunghezza (calcolata dal tratto o presa dal file per uno spot con un solo punto), il divieto e le pescate, collegate allo spot anche se scritto con maiuscole diverse, con la condizione Meteo, le note e le catture con le caratteristiche; lo spot con pescate risulta *battuto*. Verifica poi che vengano rifiutati prima di scrivere: un testo che non è JSON, un file di un altro formato o di un'altra versione; spot ripetuti o con ambiente sconosciuto, divieti senza punti, pescate con data, fascia o spot non validi, condizioni o valori inesistenti, specie o caratteristiche non dichiarate e caratteristiche che contano più catture del totale; un diario che contiene già dei dati.
+Verifica il servizio di backup e ripristino su file veri in una cartella temporanea (il ripristino sostituisce il file del database), con soli dati di fantasia.
+
+* **Creazione e lettura:** il nome proposto riporta data e ora; il backup letto riporta la data di creazione, la versione dello schema e il numero di spot, divieti, pescate e catture; anche la copia di riserva usata senza `VACUUM INTO` (telefoni con SQLite precedente alla 3.27) e il backup di un database in memoria sono validi.
+* **Ripristino:** i dati attuali vengono sostituiti da quelli del backup (un divieto eliminato dopo il backup torna, uno aggiunto dopo sparisce) e il database riaperto ha le chiavi esterne attive; un backup della versione 1 dello schema viene portato alla versione attuale dalle migrazioni e si usa normalmente; se il database del backup non si apre (versione più recente dell'app) i dati attuali restano e non rimane la copia messa da parte; le foto finiscono nel backup e il ripristino rimette la cartella com'era al momento del backup (foto cambiate ripristinate, foto nuove tolte).
+* **File non validi:** vengono rifiutati, con il motivo in parole e senza toccare i dati, un file che non è uno ZIP, uno ZIP senza manifesto o senza database, un manifesto di un altro formato, un backup di una versione più recente del formato o dello schema, un database danneggiato e una foto con un percorso che esce dalla sua cartella.
+
+## 23. `test/backup_screen_test.dart` (5 test)
+
+Verifica la schermata `BackupScreen` con un servizio finto e finestre di salvataggio e scelta finte: il backup viene salvato con il nome proposto e la schermata ne conferma data e ora, ma non se l'utente annulla il salvataggio; scelto un backup compare il riepilogo (data, spot, divieti, pescate e catture), *Ripristina* chiede conferma, *Annulla* non tocca i dati e *Sostituisci* esegue il ripristino e mostra *Ripristino completato*; un file non valido mostra il motivo senza il pulsante *Ripristina*; un ripristino fallito dice che i dati sono rimasti quelli di prima.
+

@@ -21,12 +21,13 @@ rectangle "Diario di Pesca" {
 	usecase "Scegli spot" as UC_SceltaSpot
 	usecase "Osserva statistiche" as UC_Statistiche
 	usecase "Elimina spot" as UC_EliminaSpot
-	usecase "Salvataggio dati" as UC_Backup
+	usecase "Backup dati" as UC_Backup
+	usecase "Ripristino dati" as UC_Ripristino
 	usecase "Nuova pescata" as UC_NuovaPescata
 	usecase "Pianificazione pescata" as UC_Pianificazione
 	usecase "Nuova cattura ricordo" as UC_CatturaMemorabile
-	usecase "Nuovo ambiente" as UC_NuovaClassificazione
-	usecase "Nuova categoria" as UC_NuovaValle
+	usecase "Aggiungi categoria spot" as UC_NuovaClassificazione
+	usecase "Nuovo territorio" as UC_NuovaValle
 	
   
 
@@ -48,6 +49,7 @@ rectangle "Diario di Pesca" {
 ' --- associazioni con attori ---
 	Meteo --> UC_Previsioni
 	Storage --> UC_Backup
+	Storage --> UC_Ripristino
 	Pescatore --> UC_NuovoSpot
 	Pescatore --> UC_InserisciEsca
 	Pescatore --> UC_ModificaSpot
@@ -55,6 +57,7 @@ rectangle "Diario di Pesca" {
 	Pescatore --> UC_EliminaSpot
 	Pescatore --> UC_Statistiche
 	Pescatore --> UC_Backup
+	Pescatore --> UC_Ripristino
 	Pescatore --> UC_EliminaPescata 
 	Pescatore --> UC_DisegnoTratto
 	Pescatore --> UC_CatturaMemorabile
