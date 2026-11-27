@@ -67,6 +67,16 @@ Al raggiungimento di milestone significative o consegne per il docente, verrà c
 - **Y (Minor):** Nuove funzionalità aggiunte a un modulo.
 - **Z (Patch):** Bugfix o piccoli ritocchi.
 
+Il numero di versione del tag coincide con `version` in `pubspec.yaml` (es. `version: 0.1.1+2` per `v0.1.1`); il numero dopo il `+` è il codice di versione per Android e va **sempre aumentato**, altrimenti il telefono non accetta l'aggiornamento.
+
+## 3.4 Rilascio dell'APK
+Ogni tag su `main` è pubblicato come *Release* di GitHub con il file di installazione per Android allegato, così l'app si prova senza strumenti di sviluppo (istruzioni nel `README.md`):
+1. Su `main` aggiornato, dalla cartella `diario_pesca`: `flutter build apk --release`.
+2. Il file prodotto è `build/app/outputs/flutter-apk/app-release.apk`; si rinomina in `diario-pesca-vX.Y.Z.apk`.
+3. Su GitHub: *Releases → Draft a new release*, tag `vX.Y.Z` su `main`, descrizione delle novità, e l'APK trascinato nel riquadro *Attach binaries*.
+
+L'APK è firmato con la chiave di debug del PC di sviluppo: va bene per le prove e permette di aggiornare l'app installata con `flutter run` senza perdere i dati. Prima di una distribuzione più ampia andrà creata una chiave di rilascio dedicata (cambiare chiave obbliga a disinstallare l'app: prima serve un backup).
+
 ---
 
 # 4. Pianificazione delle Attività (Sprint & Ricevimenti)

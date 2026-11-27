@@ -112,14 +112,14 @@ void main() {
       expect(v().filtriAttivi, isTrue);
 
       vista.impostaColorazione(Colorazione.categoria);
-      vista.impostaSfondo(Sfondo.stradale);
+      vista.impostaSfondo(Sfondo.topografica);
       vista.impostaMostraDivieti(false);
       vista.azzeraFiltri();
       expect(v().filtriAttivi, isFalse);
       expect(v().mostraDivieti, isTrue);
       // Colorazione e sfondo restano
       expect(v().colorazione, Colorazione.categoria);
-      expect(v().sfondo, Sfondo.stradale);
+      expect(v().sfondo, Sfondo.topografica);
     });
   });
 }
