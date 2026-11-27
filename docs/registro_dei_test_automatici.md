@@ -1,6 +1,6 @@
 # Registro dei Test Automatici
 
-La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate, la 17 l'aggiornamento dello schema tra versioni, dalla 18 alla 21 la mappa, la 22 e la 23 il backup e il ripristino, la 24 l'import dello storico (strumento di sviluppo).
+La verifica del livello di persistenza viene eseguita tramite la libreria `flutter_test` affiancata a `sqflite_common_ffi`, così da poter eseguire i test direttamente in ambiente desktop senza emulatore. Ogni singolo test viene eseguito su un'istanza di database isolata e ripulita prima dell'esecuzione, garantendo risultati deterministici e indipendenti dall'ordine di lancio. Le suite dalla 9 alla 16 verificano invece lo stato dell'interfaccia (Riverpod) e le schermate, la 17 l'aggiornamento dello schema tra versioni, dalla 18 alla 21 la mappa, la 22 e la 23 il backup e il ripristino, la 24 l'import dello storico (strumento di sviluppo), la 25 la memoria dell'interfaccia.
 
 ## 1. `test/database_integrita_test.dart` (21 test)
 
@@ -202,3 +202,7 @@ Verifica la schermata `BackupScreen` con un servizio finto e finestre di salvata
 ## 24. `test/import_service_test.dart` (4 test)
 
 Verifica l'import dello storico (`ImportService`, solo in modalità debug) su un database in memoria, con dati di fantasia: un file valido importa ambienti, specie, spot, divieti e pescate collegati tra loro; un file non valido o di un altro formato viene rifiutato prima di scrivere; vengono segnalati spot ripetuti, riferimenti sconosciuti e catture incoerenti; su un diario che contiene già dei dati l'import non si fa.
+
+## 25. `test/memoria_ui_test.dart` (4 test)
+
+Verifica la memoria delle scelte dell'interfaccia (`MemoriaUi`, in RAM): senza scelte salvate la mappa parte con OpenStreetMap e la colorazione per voto; sfondo e colorazione scelti vengono salvati e ritrovati da un nuovo avvio (nuovo contenitore dei provider, stessa memoria); un valore salvato che non esiste più viene ignorato; numeri e testi si scrivono e si rileggono.

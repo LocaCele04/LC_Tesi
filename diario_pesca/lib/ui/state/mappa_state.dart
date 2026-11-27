@@ -4,6 +4,7 @@ import '../../models/territorio/divieto.dart';
 import '../../models/territorio/spot.dart';
 import '../mappa/colori_mappa.dart';
 import 'dipendenze.dart';
+import 'memoria_ui.dart';
 import 'spot_state.dart';
 
 // Stato della mappa: cosa disegnare (spot con i loro punti, divieti) e
@@ -46,10 +47,10 @@ class DivietiNotifier extends AsyncNotifier<List<Divieto>> {
   }
 }
 
-/// Mappa di sfondo.
+/// Mappa di sfondo. La prima è quella predefinita.
 enum Sfondo {
-  topografica('Topografica (OpenTopoMap)'),
-  stradale('Stradale (OpenStreetMap)');
+  stradale('Stradale (OpenStreetMap)'),
+  topografica('Topografica (OpenTopoMap)');
 
   const Sfondo(this.etichetta);
   final String etichetta;
@@ -72,7 +73,7 @@ enum FiltroStato {
 class VistaMappa {
   const VistaMappa({
     this.colorazione = Colorazione.voto,
-    this.sfondo = Sfondo.topografica,
+    this.sfondo = Sfondo.stradale,
     this.stato = FiltroStato.tutti,
     this.ambientiNascosti = const {},
     this.categorieNascoste = const {},
@@ -122,18 +123,34 @@ class VistaMappa {
   }
 }
 
-/// Vista della mappa scelta dall'utente. Resta finché l'app è aperta.
+/// Vista della mappa scelta dall'utente. Sfondo e colorazione si ricordano
+/// anche dopo la chiusura dell'app (vedi [MemoriaUi]); i filtri valgono
+/// finché l'app è aperta.
 final vistaMappaProvider = NotifierProvider<VistaMappaNotifier, VistaMappa>(
   VistaMappaNotifier.new,
 );
 
 class VistaMappaNotifier extends Notifier<VistaMappa> {
+  MemoriaUi get _memoria => ref.read(memoriaUiProvider);
+
   @override
-  VistaMappa build() => const VistaMappa();
+  VistaMappa build() {
+    final memoria = ref.read(memoriaUiProvider);
+    return VistaMappa(
+      colorazione: enumDaMemoria(memoria, ChiaviMemoria.colorazione, Colorazione.values) ?? Colorazione.voto,
+      sfondo: enumDaMemoria(memoria, ChiaviMemoria.sfondo, Sfondo.values) ?? Sfondo.stradale,
+    );
+  }
 
-  void impostaColorazione(Colorazione c) => state = state.copyWith(colorazione: c);
+  void impostaColorazione(Colorazione c) {
+    state = state.copyWith(colorazione: c);
+    _memoria.scrivi(ChiaviMemoria.colorazione, c.name);
+  }
 
-  void impostaSfondo(Sfondo s) => state = state.copyWith(sfondo: s);
+  void impostaSfondo(Sfondo s) {
+    state = state.copyWith(sfondo: s);
+    _memoria.scrivi(ChiaviMemoria.sfondo, s.name);
+  }
 
   void impostaStato(FiltroStato f) => state = state.copyWith(stato: f);
 
