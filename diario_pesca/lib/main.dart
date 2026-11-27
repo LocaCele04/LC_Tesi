@@ -5,8 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'ui/screens/home_screen.dart';
+import 'ui/state/memoria_ui.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (defaultTargetPlatform == TargetPlatform.windows ||
@@ -16,8 +17,12 @@ void main() {
     databaseFactory = databaseFactoryFfi;
   }
 
+  // Sezione aperta e vista della mappa dell'ultimo utilizzo.
+  final memoria = await MemoriaUiSulTelefono.carica();
+
   runApp(
     ProviderScope(
+      overrides: [memoriaUiProvider.overrideWithValue(memoria)],
       // Nessun nuovo tentativo automatico dopo un errore: un errore del
       // database non si risolve riprovando, il meteo gestisce già i propri
       // errori e l'utente ha il pulsante "Riprova" (vedi

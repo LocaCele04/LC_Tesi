@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../models/enums.dart';
 import '../../models/territorio/coordinata.dart';
@@ -11,6 +14,7 @@ import '../screens/modulo_spot_screen.dart';
 import '../screens/registra_pescata_screen.dart';
 import '../state/dipendenze.dart';
 import '../state/mappa_state.dart';
+import '../state/memoria_ui.dart';
 import '../state/spot_state.dart';
 import '../widgets/etichette.dart';
 import 'colori_mappa.dart';
@@ -37,11 +41,55 @@ class _MappaScreenState extends ConsumerState<MappaScreen> {
   bool _cercaPosizione = false;
   bool _legendaAperta = true;
 
+  /// Ultima inquadratura da salvare e attesa prima di salvarla: durante un
+  /// trascinamento la mappa cambia a ogni fotogramma, e basta salvare
+  /// quando si ferma.
+  MapCamera? _daSalvare;
+  Timer? _attesaSalvataggio;
+
+  /// Letta all'inizio: in `dispose` non si può più usare `ref`.
+  late final MemoriaUi _memoria;
+
+  @override
+  void initState() {
+    super.initState();
+    _memoria = ref.read(memoriaUiProvider);
+  }
+
   @override
   void dispose() {
+    _attesaSalvataggio?.cancel();
+    _salvaInquadratura();
     _toccoSpot.dispose();
     _toccoDivieti.dispose();
     super.dispose();
+  }
+
+  void _inquadraturaCambiata(MapEvent evento) {
+    _daSalvare = evento.camera;
+    _attesaSalvataggio?.cancel();
+    _attesaSalvataggio = Timer(const Duration(milliseconds: 600), _salvaInquadratura);
+  }
+
+  /// Ricorda dove si stava guardando: alla prossima apertura dell'app la
+  /// mappa riparte da lì invece che dalla vista di tutti gli spot.
+  void _salvaInquadratura() {
+    final camera = _daSalvare;
+    if (camera == null) return;
+    _daSalvare = null;
+    _memoria
+      ..scrivi(ChiaviMemoria.latitudine, camera.center.latitude)
+      ..scrivi(ChiaviMemoria.longitudine, camera.center.longitude)
+      ..scrivi(ChiaviMemoria.zoom, camera.zoom);
+  }
+
+  /// Inquadratura salvata all'ultimo utilizzo, se c'è.
+  ({LatLng centro, double zoom})? _inquadraturaSalvata() {
+    final lat = _memoria.leggi(ChiaviMemoria.latitudine);
+    final lon = _memoria.leggi(ChiaviMemoria.longitudine);
+    final zoom = _memoria.leggi(ChiaviMemoria.zoom);
+    if (lat is! double || lon is! double || zoom is! double) return null;
+    return (centro: LatLng(lat, lon), zoom: zoom);
   }
 
   void _apriDaTocco(LayerHitNotifier<Object> notifier) {
@@ -221,10 +269,13 @@ class _MappaScreenState extends ConsumerState<MappaScreen> {
     final linee = spot.where((s) => s.coordinate.length >= 2);
     final puntiSingoli = spot.where((s) => s.coordinate.length == 1);
     final divietiVisibili = vista.mostraDivieti ? divieti : const <Divieto>[];
-    final iniziale = inquadratura([
-      for (final s in tutti) ...s.coordinate,
-      for (final d in divieti) ...d.coordinate,
-    ]);
+    final salvata = _inquadraturaSalvata();
+    final ({CameraFit? adatta, LatLng centro, double zoom}) iniziale = salvata != null
+        ? (adatta: null, centro: salvata.centro, zoom: salvata.zoom)
+        : inquadratura([
+            for (final s in tutti) ...s.coordinate,
+            for (final d in divieti) ...d.coordinate,
+          ]);
 
     return Stack(
       children: [
@@ -235,6 +286,7 @@ class _MappaScreenState extends ConsumerState<MappaScreen> {
             initialCenter: iniziale.centro,
             initialZoom: iniziale.zoom,
             maxZoom: zoomMassimo,
+            onMapEvent: _inquadraturaCambiata,
             interactionOptions: const InteractionOptions(
               flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
             ),
